@@ -2,9 +2,9 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ NewStack ]
+    branches: [ main ]
   pull_request:
-    branches: [ NewStack ]
+    branches: [ main ]
 
 jobs:
   build:
