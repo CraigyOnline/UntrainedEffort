@@ -242,7 +242,7 @@ function ProfilePage() {
       </section>
 
       {/* TRAINING INSIGHTS */}
-      {!workouts?.length ? (
+      {!workouts ? null : workouts.length === 0 ? (
         <section className="rounded-2xl border border-border/50 bg-card p-5 text-center">
           <p className="text-sm text-muted-foreground">
             Complete your first workout to start tracking progress.

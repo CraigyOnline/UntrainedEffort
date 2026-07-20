@@ -195,7 +195,7 @@ function HistoryList() {
           return (
             <li
               key={w.id}
-              className="cursor-pointer rounded-xl bg-card p-4 active:scale-[0.99] transition"
+              className="cursor-pointer rounded-2xl bg-card p-4 active:scale-[0.99] transition"
               onClick={() =>
                 w.id && navigate({ to: "/history/$id", params: { id: String(w.id) } })
               }
