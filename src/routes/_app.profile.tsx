@@ -57,7 +57,8 @@ function ProfilePage() {
   const todayKey = Math.floor(Date.now() / 86400000);
 
   const message = useMemo(() => {
-    if (!workouts?.length) return "Start your first workout today.";
+    if (!workouts) return ""; // still loading — avoid asserting "no workouts" prematurely
+    if (workouts.length === 0) return "Start your first workout today.";
     if (stats.total >= 50) return "Momentum is building.";
     return MOTIVATIONAL_MESSAGES[todayKey % MOTIVATIONAL_MESSAGES.length];
   }, [workouts, stats, todayKey]);
@@ -116,6 +117,12 @@ function ProfilePage() {
   /* ===================== */
 
   const balance = useMemo(() => {
+    if (!workouts) {
+      // Still loading — distinct from "loaded, but genuinely no data" below,
+      // so the snapshot doesn't flash a false "no data yet" on every mount.
+      return { hasData: undefined, most: null, leastTrained: null, untrained: [] };
+    }
+
     const entries = MUSCLE_GROUPS
       .filter((m) => m !== "Cardio")
       .map((m) => ({
@@ -153,7 +160,7 @@ function ProfilePage() {
       leastTrained,
       untrained,
     };
-  }, [intensity]);
+  }, [intensity, workouts]);
 
   const muscleContributions = useMemo(() => {
     if (!drilldownMuscle) return [];
@@ -181,9 +188,11 @@ function ProfilePage() {
             Training Overview
           </h1>
 
-          <div className="mt-1 inline-flex items-center rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
-            {message}
-          </div>
+          {message && (
+            <div className="mt-1 inline-flex items-center rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
+              {message}
+            </div>
+          )}
         </div>
       </header>
 
@@ -339,8 +348,8 @@ function ProfilePage() {
             Training Balance Snapshot
           </h3>
 
-          {!balance.hasData ? (
-            <p className="text-xs text-muted-foreground">
+          {balance.hasData === undefined ? null : !balance.hasData ? (
+            <p className="py-2 text-center text-xs text-muted-foreground">
               No training data yet. Start a workout to see muscle insights.
             </p>
           ) : (

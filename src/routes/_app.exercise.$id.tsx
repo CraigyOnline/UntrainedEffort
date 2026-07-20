@@ -6,6 +6,7 @@ import { getDb, type PRRecord, type Workout, type WorkoutSet } from "@/lib/db";
 import { getExercise, getExerciseLoggingSchema, formatCompletedSet } from "@/lib/exercises";
 import { getPrimaryMetricKind, getPrimaryMetric, metricLabel, formatMetricValue } from "@/lib/exerciseProgress";
 import { formatDate } from "@/lib/format";
+import { EmptyState } from "@/components/EmptyState";
 
 export const Route = createFileRoute("/_app/exercise/$id")({
   component: ExerciseProgressPage,
@@ -164,9 +165,7 @@ function ExerciseProgressPage() {
 
       {/* Progression by type */}
       {prs && prs.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          No personal records yet for this exercise.
-        </p>
+        <EmptyState message="No personal records yet for this exercise." />
       )}
 
       {prs && prs.length > 0 &&
@@ -270,7 +269,7 @@ function ExerciseProgressPage() {
       <div className="rounded-xl bg-card p-4">
         <h2 className="mb-3 text-sm font-semibold">Recent Sessions</h2>
         {!recentSessions ? null : recentSessions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="py-6 text-center text-sm text-muted-foreground">
             No completed sessions with this exercise yet.
           </p>
         ) : (

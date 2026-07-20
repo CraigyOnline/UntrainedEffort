@@ -8,6 +8,7 @@ import { computeWorkoutStats } from "@/lib/workoutStats";
 import { computeIntensity } from "@/lib/muscles";
 import { syncWorkoutIntegrity } from "@/lib/workoutIntegrity";
 import { filterWorkouts, hasActiveFilters } from "@/lib/historyFilters";
+import { EmptyState } from "@/components/EmptyState";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -172,14 +173,15 @@ function HistoryList() {
         )}
       </div>
 
-      {!workouts?.length && (
-        <p className="text-sm text-muted-foreground">
-          No workouts yet. Start one from the Workout tab.
-        </p>
+      {workouts && workouts.length === 0 && (
+        <EmptyState
+          message="No workouts yet."
+          action={{ label: "Start a workout", onClick: () => navigate({ to: "/workout" }) }}
+        />
       )}
 
       {!!workouts?.length && filtersActive && filteredWorkouts?.length === 0 && (
-        <p className="text-sm text-muted-foreground">No workouts match your filters.</p>
+        <EmptyState message="No workouts match your filters." />
       )}
 
       <ul className="flex flex-col gap-3">

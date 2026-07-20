@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getDb, type Routine, type Workout, type WorkoutExerciseLog, type PRRecord } from "@/lib/db";
 import { getExercise, formatCompletedSet, seedUnilateralSide } from "@/lib/exercises";
 import { ExercisePicker } from "@/components/forms/ExercisePicker";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { WorkoutSummary } from "@/components/WorkoutSummary";
 import {
@@ -407,16 +408,11 @@ function WorkoutPage() {
           Your Routines
         </p>
 
-        {sortedRoutines.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border px-5 py-8 text-center">
-            <p className="text-sm text-muted-foreground">No routines yet</p>
-            <button
-              onClick={() => setEditingRoutine("new")}
-              className="mt-2 text-sm font-semibold text-primary"
-            >
-              Create your first routine
-            </button>
-          </div>
+        {routines && sortedRoutines.length === 0 ? (
+          <EmptyState
+            message="No routines yet"
+            action={{ label: "Create your first routine", onClick: () => setEditingRoutine("new") }}
+          />
         ) : (
           <ul className="flex flex-col gap-2">
             {sortedRoutines.map((r, index) => {
@@ -445,7 +441,7 @@ function WorkoutPage() {
                   <div className="flex items-stretch rounded-2xl bg-card overflow-hidden">
                     <button
                       onClick={() => startWorkout(r)}
-                      className="flex-1 px-4 py-4 text-left active:bg-card/80"
+                      className="flex-1 px-4 py-4 text-left transition-colors active:bg-secondary/70"
                     >
                       <div className="flex items-center gap-2">
                         <p className="font-semibold truncate">{r.name}</p>
