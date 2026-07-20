@@ -53,6 +53,13 @@ Inspired by apps like **Hevy** and **wger**, but focused on being fast, local-fi
   * [ ] Live PR celebrations
   * [ ] Improved workout summary
 
+* [ ] Active workout card
+  * [ ] Visible throughout the app while a workout is active
+  * [ ] One-tap return to the active workout
+  * [ ] Live timer
+  * [ ] Live volume & completed sets
+  * [ ] Mini live muscle map
+
 * [ ] Rich Android workout notifications
   * [ ] Live workout notification
   * [ ] Rest timer countdown
