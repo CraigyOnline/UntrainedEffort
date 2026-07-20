@@ -22,6 +22,7 @@ Inspired by apps like **Hevy** and **wger**, but focused on being fast, local-fi
 * Quick workouts
 * Active workout recovery (resume after leaving the app)
 * Workout history
+* History search & filtering
 * Personal records (PRs)
 * Exercise detail pages
 * Exercise progress charts
@@ -40,6 +41,26 @@ Inspired by apps like **Hevy** and **wger**, but focused on being fast, local-fi
 
 # Roadmap
 
+## Workout Experience
+
+* [ ] Live Workout HUD
+  * [ ] Pinned workout header
+  * [ ] Live workout timer
+  * [ ] Live volume & completed sets
+  * [ ] Workout progress indicator
+  * [ ] Live mini muscle map
+  * [ ] Always-visible Finish button
+  * [ ] Live PR celebrations
+  * [ ] Improved workout summary
+
+* [ ] Rich Android workout notifications
+  * [ ] Live workout notification
+  * [ ] Rest timer countdown
+  * [ ] Complete Set action
+  * [ ] Skip Rest action
+  * [ ] Resume workout action
+  * [ ] Live PR notifications
+
 ## Analytics
 
 * [ ] Weekly/monthly volume charts
@@ -48,10 +69,15 @@ Inspired by apps like **Hevy** and **wger**, but focused on being fast, local-fi
 * [ ] Richer exercise analytics
 * [ ] Muscle activity trends
 
+## Muscle Insights
+
+* [ ] Last trained by muscle
+* [ ] Muscle recovery indicators
+* [ ] Muscle training frequency
+
 ## History
 
 * [ ] Richer history pages
-* [ ] History search & filtering
 
 ## UI / UX
 
@@ -69,11 +95,5 @@ Inspired by apps like **Hevy** and **wger**, but focused on being fast, local-fi
 ## Maintenance
 
 * [ ] Continue removing dead code
-* [ ] Continue consolidating duplicated logic
+* [ ] Continue reducing duplicated logic
 * [ ] Dependency clean-up
-
----
-
-# Known Issues
-
-* [ ] 
