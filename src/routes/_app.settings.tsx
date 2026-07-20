@@ -21,6 +21,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Download, Upload, Info, FileText, Settings as SettingsIcon, Database, Wrench, MonitorSmartphone } from "lucide-react";
 import { getKeepAwakeDefault, setKeepAwakeDefault } from "@/lib/keepAwake";
@@ -409,18 +410,14 @@ function SettingsPage() {
           </div>
 
           <DialogFooter>
-            <button
+            <Button
+              variant="ghost"
+              className="text-muted-foreground"
               onClick={() => setExportOpen(false)}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground"
             >
               Cancel
-            </button>
-            <button
-              onClick={confirmExport}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-            >
-              Export
-            </button>
+            </Button>
+            <Button onClick={confirmExport}>Export</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -501,22 +498,19 @@ function SettingsPage() {
           )}
 
           <DialogFooter>
-            <button
+            <Button
+              variant="ghost"
+              className="text-muted-foreground"
               onClick={() => setImportPayload(null)}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
+              variant={importMode === "replace" ? "destructive" : "default"}
               onClick={startImport}
-              className={`rounded-lg px-4 py-2 text-sm font-medium ${
-                importMode === "replace"
-                  ? "bg-destructive text-destructive-foreground"
-                  : "bg-primary text-primary-foreground"
-              }`}
             >
               {importMode === "replace" ? "Replace" : "Import"}
-            </button>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
