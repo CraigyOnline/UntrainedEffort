@@ -5,6 +5,7 @@ import {
   type WorkoutSet,
 } from "@/lib/db";
 import { recordNewWorkoutPRs } from "@/lib/workoutIntegrity";
+import { haptics } from "@/lib/haptics";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Domain types
@@ -99,8 +100,10 @@ export async function doSaveWorkout(
     });
     setActive(null);
     setSummary({ ...workout, id: workoutId });
+    haptics.workoutFinish();
   } catch (err) {
     console.error("Failed to save workout", err);
     setSaveErrorDialogOpen(true);
+    haptics.error();
   }
 }

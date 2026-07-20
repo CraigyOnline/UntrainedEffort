@@ -13,6 +13,7 @@ import { WorkoutTimer, SetTimer } from "./WorkoutTimer";
 import { IntervalTimer } from "./IntervalTimer";
 import { type ActiveSession, makeSet } from "./workoutHelpers";
 import { getKeepAwakeDefault, enableKeepAwake, disableKeepAwake } from "@/lib/keepAwake";
+import { haptics } from "@/lib/haptics";
 import { useDismissOnBack } from "@/lib/backHandler";
 
 export interface LiveSessionProps {
@@ -43,7 +44,10 @@ function SetActionButtons({
   return (
     <>
       <button
-        onClick={onToggleComplete}
+        onClick={() => {
+          if (!completed) haptics.setComplete();
+          onToggleComplete();
+        }}
         aria-label={completed ? "Mark set incomplete" : "Mark set complete"}
         className={`flex h-8 w-8 items-center justify-center rounded transition-colors duration-150 active:scale-90 ${completed ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}
       >

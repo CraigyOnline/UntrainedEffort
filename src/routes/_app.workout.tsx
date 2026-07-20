@@ -27,6 +27,7 @@ import { RoutineEditor } from "@/features/workout/RoutineEditor";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
 import { type MuscleGroup } from "@/lib/exercises";
 import { BOTTOM_NAV_HEIGHT } from "@/components/BottomTabs";
+import { haptics } from "@/lib/haptics";
 
 const searchSchema = z.object({
   routineId: z.coerce.number().optional(),
@@ -351,6 +352,7 @@ function WorkoutPage() {
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
+                  haptics.delete();
                   setDiscardDialogOpen(false);
                   setCancelPending(false);
                   setActive(null);
@@ -393,7 +395,10 @@ function WorkoutPage() {
       </header>
 
       <button
-        onClick={() => startWorkout(null)}
+        onClick={() => {
+          haptics.workoutStart();
+          startWorkout(null);
+        }}
         className="flex items-center gap-3 rounded-2xl bg-primary px-5 py-4 text-primary-foreground active:opacity-90"
       >
         <Dumbbell className="h-5 w-5 shrink-0" />
@@ -440,7 +445,10 @@ function WorkoutPage() {
                 <li key={r.id} className="relative">
                   <div className="flex items-stretch rounded-2xl bg-card overflow-hidden">
                     <button
-                      onClick={() => startWorkout(r)}
+                      onClick={() => {
+                        haptics.workoutStart();
+                        startWorkout(r);
+                      }}
                       className="flex-1 px-4 py-4 text-left transition-colors active:bg-secondary/70"
                     >
                       <div className="flex items-center gap-2">
@@ -545,7 +553,10 @@ function WorkoutPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteTarget && deleteRoutine(deleteTarget)}
+              onClick={() => {
+                haptics.delete();
+                if (deleteTarget) deleteRoutine(deleteTarget);
+              }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete

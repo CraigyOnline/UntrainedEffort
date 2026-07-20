@@ -13,6 +13,7 @@ import { UnilateralSetInputs } from "@/components/forms/UnilateralSetInputs";
 import { Button } from "@/components/ui/button";
 import { WorkoutSummary } from "@/components/WorkoutSummary";
 import { formatDuration } from "@/lib/format";
+import { haptics } from "@/lib/haptics";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -531,7 +532,10 @@ function HistoryDetailPage() {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={handleKeepEditing}>Keep editing</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDiscard}
+              onClick={() => {
+                haptics.delete();
+                handleDiscard();
+              }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Discard
@@ -551,7 +555,10 @@ function HistoryDetailPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmDelete}
+              onClick={() => {
+                haptics.delete();
+                confirmDelete();
+              }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete

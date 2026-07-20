@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { haptics } from "@/lib/haptics";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // useUndo<T>
@@ -102,6 +103,7 @@ export function useUndo<T>({
     setUndoItem(null);
     setSecondsLeft(duration);
     itemRef.current = null;
+    haptics.undo();
     void Promise.resolve(onUndo(item));
   }, [duration, onUndo]);
 
