@@ -22,6 +22,44 @@ export interface LiveSessionProps {
   onFinish: (save: boolean) => void;
 }
 
+// Shared by both the unilateral and standard set rows below — same two
+// actions (mark complete / delete), same sizing, same feedback. Extracted
+// so the two rows can't drift out of sync with each other.
+//
+// h-8/w-8 (32px) rather than the ideal 44px mobile touch target: these sit
+// in a tight 5-column row (set number, one or two steppers, these two
+// buttons) that's already close to overflowing on narrow Android screens,
+// so this is the largest size that doesn't risk the row wrapping. Revisit
+// alongside a wider layout change to that row if more room opens up.
+function SetActionButtons({
+  completed,
+  onToggleComplete,
+  onDelete,
+}: {
+  completed: boolean;
+  onToggleComplete: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <>
+      <button
+        onClick={onToggleComplete}
+        aria-label={completed ? "Mark set incomplete" : "Mark set complete"}
+        className={`flex h-8 w-8 items-center justify-center rounded transition-colors duration-150 active:scale-90 ${completed ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}
+      >
+        <Check className="h-4 w-4" />
+      </button>
+      <button
+        onClick={onDelete}
+        aria-label="Delete set"
+        className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground transition-colors active:bg-secondary active:text-foreground"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </>
+  );
+}
+
 export function LiveSession({
   session,
   setSession,
@@ -261,19 +299,19 @@ export function LiveSession({
         <WorkoutTimer startedAt={session.startedAt} />
       </header>
 
-      <div className="flex justify-end -mt-2">
+      <div className="flex justify-end">
         <div className="relative">
           <button
             onClick={() => setOptionsOpen((o) => !o)}
             aria-label="Workout options"
-            className="p-1 text-muted-foreground"
+            className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors active:text-foreground"
           >
             <MoreVertical className="h-4 w-4" />
           </button>
           {optionsOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setOptionsOpen(false)} />
-              <div className="absolute right-0 top-8 z-50 w-64 rounded-xl border border-border bg-card p-3 shadow-xl">
+              <div className="absolute right-0 top-11 z-50 w-64 rounded-xl border border-border bg-card p-3 shadow-xl">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm">Keep screen on</span>
                   <Switch checked={keepAwake} onCheckedChange={setKeepAwake} />
@@ -298,7 +336,8 @@ export function LiveSession({
               </div>
               <button
                 onClick={() => removeExercise(ei)}
-                className="p-1 text-muted-foreground"
+                aria-label="Remove exercise"
+                className="flex h-11 w-11 shrink-0 items-center justify-center text-muted-foreground transition-colors active:text-destructive"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -389,22 +428,11 @@ export function LiveSession({
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold">Set {si + 1}</span>
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => updateSet(ei, si, { completed: !s.completed })}
-                            className={`flex h-7 w-7 items-center justify-center rounded ${
-                              s.completed
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-secondary text-muted-foreground"
-                            }`}
-                          >
-                            <Check className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => removeSet(ei, si)}
-                            className="text-muted-foreground"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          <SetActionButtons
+                            completed={s.completed}
+                            onToggleComplete={() => updateSet(ei, si, { completed: !s.completed })}
+                            onDelete={() => removeSet(ei, si)}
+                          />
                         </div>
                       </div>
                       <div className="mt-2">
@@ -516,22 +544,11 @@ export function LiveSession({
                       </>
                     )}
 
-                    <button
-                      onClick={() => updateSet(ei, si, { completed: !s.completed })}
-                      className={`flex h-7 w-7 items-center justify-center rounded ${
-                        s.completed
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-muted-foreground"
-                      }`}
-                    >
-                      <Check className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => removeSet(ei, si)}
-                      className="text-muted-foreground"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <SetActionButtons
+                      completed={s.completed}
+                      onToggleComplete={() => updateSet(ei, si, { completed: !s.completed })}
+                      onDelete={() => removeSet(ei, si)}
+                    />
                   </div>
                 ))}
 
