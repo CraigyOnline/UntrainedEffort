@@ -70,27 +70,42 @@ export function UnilateralSetInputs({
             {row.label}
           </span>
           {schema.duration ? (
-            <MmSsInput
-              seconds={row.value.duration ?? 0}
-              onCommit={(v) => onChange(editSide(primary, secondary, row.key, "duration", v))}
-            />
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Sec
+              </span>
+              <MmSsInput
+                seconds={row.value.duration ?? 0}
+                onCommit={(v) => onChange(editSide(primary, secondary, row.key, "duration", v))}
+              />
+            </div>
           ) : (
             <>
-              <StepperInput
-                value={row.value.weight}
-                onCommit={(v) => onChange(editSide(primary, secondary, row.key, "weight", v))}
-                step={2.5}
-                decimal
-                min={0}
-                size={size}
-              />
-              <StepperInput
-                value={row.value.reps}
-                onCommit={(v) => onChange(editSide(primary, secondary, row.key, "reps", v))}
-                step={1}
-                min={0}
-                size={size}
-              />
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Kg
+                </span>
+                <StepperInput
+                  value={row.value.weight}
+                  onCommit={(v) => onChange(editSide(primary, secondary, row.key, "weight", v))}
+                  step={2.5}
+                  decimal
+                  min={0}
+                  size={size}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Reps
+                </span>
+                <StepperInput
+                  value={row.value.reps}
+                  onCommit={(v) => onChange(editSide(primary, secondary, row.key, "reps", v))}
+                  step={1}
+                  min={0}
+                  size={size}
+                />
+              </div>
             </>
           )}
         </div>
