@@ -145,6 +145,7 @@ function WorkoutPage() {
       const exercises: WorkoutExerciseLog[] = active.exercises.map((e) => ({
         exerciseId: e.exerciseId,
         sets: e.sets.map(({ timerStart: _t, ...s }) => ({
+          ...s,
           weight: Number(s.weight) || 0,
           reps: Number(s.reps) || 0,
           duration: Number(s.duration) || 0,
