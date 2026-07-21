@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Check, MoreVertical, Plus, Trash2, X } from "lucide-react";
+import { Check, Plus, Trash2, X } from "lucide-react";
 import { getDb, type WorkoutSet } from "@/lib/db";
 import { getExercise, getExerciseLoggingSchema, getIntervalConfig, formatCompletedSet, seedUnilateralSide, type IntervalConfig, type SetSide } from "@/lib/exercises";
 import { useUndo } from "@/hooks/useUndo";
@@ -8,13 +8,11 @@ import { NumberInput } from "@/components/forms/NumberInput";
 import { MmSsInput } from "@/components/forms/MmSsInput";
 import { UnilateralSetInputs } from "@/components/forms/UnilateralSetInputs";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { WorkoutTimer, SetTimer } from "./WorkoutTimer";
+import { SetTimer } from "./WorkoutTimer";
 import { IntervalTimer } from "./IntervalTimer";
+import { WorkoutHUD, WORKOUT_HUD_HEIGHT } from "./WorkoutHUD";
 import { type ActiveSession, makeSet } from "./workoutHelpers";
-import { getKeepAwakeDefault, enableKeepAwake, disableKeepAwake } from "@/lib/keepAwake";
 import { haptics } from "@/lib/haptics";
-import { useDismissOnBack } from "@/lib/backHandler";
 
 export interface LiveSessionProps {
   session: ActiveSession;
@@ -71,28 +69,6 @@ export function LiveSession({
   onFinish,
 }: LiveSessionProps) {
   const exerciseIds = session.exercises.map((e) => e.exerciseId);
-
-  // ── Keep screen awake (temporary, per-workout override) ────────────────
-  // Initialized fresh from the saved Settings default every time this
-  // component mounts — i.e. every time a new workout starts. Changing it
-  // only ever updates this local state; the saved default is never touched.
-  const [keepAwake, setKeepAwake] = useState(() => getKeepAwakeDefault());
-  const [optionsOpen, setOptionsOpen] = useState(false);
-  useDismissOnBack(optionsOpen, () => setOptionsOpen(false));
-
-  useEffect(() => {
-    if (keepAwake) {
-      enableKeepAwake();
-    } else {
-      disableKeepAwake();
-    }
-    // Runs on every exit path — Finish, Cancel, or navigating away all
-    // unmount LiveSession, and React guarantees this cleanup fires
-    // regardless of which of those caused it.
-    return () => {
-      disableKeepAwake();
-    };
-  }, [keepAwake]);
 
   const previousByExerciseResult = useLiveQuery(
     async (): Promise<Map<string, WorkoutSet[]>> => {
@@ -291,40 +267,8 @@ export function LiveSession({
   }
 
   return (
-    <div className="flex flex-col gap-4 px-4 pt-4 pb-8">
-      <header className="flex items-center justify-between">
-        <input
-          value={session.name}
-          onChange={(e) =>
-            setSession((s) => (s ? { ...s, name: e.target.value } : s))
-          }
-          className="min-w-0 flex-1 bg-transparent text-lg font-bold outline-none"
-        />
-        <WorkoutTimer startedAt={session.startedAt} />
-      </header>
-
-      <div className="flex justify-end">
-        <div className="relative">
-          <button
-            onClick={() => setOptionsOpen((o) => !o)}
-            aria-label="Workout options"
-            className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors active:text-foreground"
-          >
-            <MoreVertical className="h-4 w-4" />
-          </button>
-          {optionsOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setOptionsOpen(false)} />
-              <div className="absolute right-0 top-11 z-50 w-64 rounded-xl border border-border bg-card p-3 shadow-xl">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm">Keep screen on</span>
-                  <Switch checked={keepAwake} onCheckedChange={setKeepAwake} />
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+    <div className="flex flex-col gap-4 px-4 pb-8" style={{ paddingTop: WORKOUT_HUD_HEIGHT + 16 }}>
+      <WorkoutHUD session={session} setSession={setSession} onFinish={onFinish} />
 
       {session.exercises.map((ex, ei) => {
         const def = getExercise(ex.exerciseId);
@@ -571,12 +515,9 @@ export function LiveSession({
       <Button onClick={onAddExercise}>
         <Plus className="mr-2 h-4 w-4" /> Add exercise
       </Button>
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="ghost" onClick={() => onFinish(false)} className="text-destructive">
-          Cancel
-        </Button>
-        <Button onClick={() => onFinish(true)}>Finish</Button>
-      </div>
+      <Button variant="ghost" onClick={() => onFinish(false)} className="text-destructive">
+        Cancel
+      </Button>
 
       {undo && (
         <div className="fixed bottom-4 left-4 right-4 z-[9999] mx-auto flex max-w-md items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-foreground shadow-lg pointer-events-auto">

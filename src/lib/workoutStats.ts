@@ -4,6 +4,12 @@ import { getExercise, getExerciseLoggingSchema, setPerformances } from "@/lib/ex
 export interface WorkoutStats {
   totalSets: number;
   totalVolume: number;
+  /** Every set currently logged for this workout, completed or not — the
+   *  denominator for a "3 / 8 sets" progress display. Not filtered by
+   *  exercise type or completion the way totalSets/totalVolume are: it's
+   *  a plain count of rows, since "how many sets exist" has no notion of
+   *  hidden weight or unperformed work to exclude. */
+  loggedSets: number;
 }
 
 /**
@@ -21,17 +27,22 @@ export interface WorkoutStats {
  * a PR, volume is already an aggregate total-work figure, so both sides
  * contributing is the correct aggregate, not a "collapse" of anything.
  *
- * Only completed sets count towards either number, and a unilateral set
- * still counts as exactly one set here, matching how it's still one
- * logical set everywhere else in the app.
+ * Only completed sets count towards totalSets/totalVolume, and a unilateral
+ * set still counts as exactly one set here, matching how it's still one
+ * logical set everywhere else in the app. loggedSets counts every set
+ * regardless of completion — this is what a live "X / Y sets" progress
+ * indicator wants, so it's computed here rather than a caller re-deriving
+ * it from the same array a second time.
  */
 export function computeWorkoutStats(exercises: Workout["exercises"]): WorkoutStats {
   let totalSets = 0;
   let totalVolume = 0;
+  let loggedSets = 0;
 
   for (const ex of exercises) {
     const schema = getExerciseLoggingSchema(getExercise(ex.exerciseId));
     for (const s of ex.sets) {
+      loggedSets += 1;
       if (!s.completed) continue;
       totalSets += 1;
       if (schema.weight !== "hidden") {
@@ -42,5 +53,5 @@ export function computeWorkoutStats(exercises: Workout["exercises"]): WorkoutSta
     }
   }
 
-  return { totalSets, totalVolume };
+  return { totalSets, totalVolume, loggedSets };
 }
