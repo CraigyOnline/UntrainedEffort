@@ -1,8 +1,16 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, Plus, Trash2, X } from "lucide-react";
 import { getDb, type WorkoutSet } from "@/lib/db";
-import { getExercise, getExerciseLoggingSchema, getIntervalConfig, formatCompletedSet, seedUnilateralSide, type IntervalConfig, type SetSide } from "@/lib/exercises";
+import {
+  getExercise,
+  getExerciseLoggingSchema,
+  getIntervalConfig,
+  formatCompletedSet,
+  seedUnilateralSide,
+  type IntervalConfig,
+  type SetSide,
+} from "@/lib/exercises";
 import { useUndo } from "@/hooks/useUndo";
 import { NumberInput } from "@/components/forms/NumberInput";
 import { MmSsInput } from "@/components/forms/MmSsInput";
@@ -10,9 +18,32 @@ import { UnilateralSetInputs } from "@/components/forms/UnilateralSetInputs";
 import { Button } from "@/components/ui/button";
 import { SetTimer } from "./WorkoutTimer";
 import { IntervalTimer } from "./IntervalTimer";
-import { WorkoutHUD, WORKOUT_HUD_HEIGHT } from "./WorkoutHUD";
-import { type ActiveSession, makeSet } from "./workoutHelpers";
+import { WorkoutHUD, WORKOUT_HUD_HEIGHT, type WorkoutHUDCelebration } from "./WorkoutHUD";
+import { type ActiveSession, PR_CELEBRATION_VISIBLE_MS, makeSet } from "./workoutHelpers";
 import { haptics } from "@/lib/haptics";
+import { checkLivePRs, type LivePRHit, type PRType } from "@/lib/workoutIntegrity";
+
+// Presentation-only text for a live PR badge — not a duplicate of the PR
+// calculation itself (that's entirely inside checkLivePRs/relevantPRValues),
+// just how each existing PRType is worded for this one badge.
+function prTypeLabel(type: PRType): string {
+  switch (type) {
+    case "weight":
+      return "Weight";
+    case "reps":
+      return "Rep";
+    case "time":
+      return "Time";
+  }
+}
+
+// A single set can clear more than one PR type at once (e.g. a heavier
+// weight that's also a new rep count) — combined into one label so only
+// one badge/pulse/haptic ever fires per set, per the spec.
+function buildPRBadgeLabel(hits: LivePRHit[]): string {
+  const labels = Array.from(new Set(hits.map((h) => prTypeLabel(h.type))));
+  return labels.length === 1 ? `New ${labels[0]} PR` : labels.map((l) => `${l} PR`).join(" • ");
+}
 
 export interface LiveSessionProps {
   session: ActiveSession;
@@ -30,6 +61,11 @@ export interface LiveSessionProps {
 // buttons) that's already close to overflowing on narrow Android screens,
 // so this is the largest size that doesn't risk the row wrapping. Revisit
 // alongside a wider layout change to that row if more room opens up.
+//
+// Doesn't fire a haptic itself on completion — the caller's
+// onToggleComplete needs the set's actual values to run the live PR
+// check and decide between the routine tap and the PR celebration, so
+// that decision (and the resulting haptic) lives there instead.
 function SetActionButtons({
   completed,
   onToggleComplete,
@@ -42,10 +78,7 @@ function SetActionButtons({
   return (
     <>
       <button
-        onClick={() => {
-          if (!completed) haptics.setComplete();
-          onToggleComplete();
-        }}
+        onClick={onToggleComplete}
         aria-label={completed ? "Mark set incomplete" : "Mark set complete"}
         className={`flex h-8 w-8 items-center justify-center rounded transition-colors duration-150 active:scale-90 ${completed ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}
       >
@@ -62,45 +95,36 @@ function SetActionButtons({
   );
 }
 
-export function LiveSession({
-  session,
-  setSession,
-  onAddExercise,
-  onFinish,
-}: LiveSessionProps) {
+export function LiveSession({ session, setSession, onAddExercise, onFinish }: LiveSessionProps) {
   const exerciseIds = session.exercises.map((e) => e.exerciseId);
 
-  const previousByExerciseResult = useLiveQuery(
-    async (): Promise<Map<string, WorkoutSet[]>> => {
-      const map = new Map<string, WorkoutSet[]>();
-      if (typeof window === "undefined") return map;
+  const previousByExerciseResult = useLiveQuery(async (): Promise<Map<string, WorkoutSet[]>> => {
+    const map = new Map<string, WorkoutSet[]>();
+    if (typeof window === "undefined") return map;
 
-      const remaining = new Set(exerciseIds);
-      if (remaining.size === 0) return map;
+    const remaining = new Set(exerciseIds);
+    if (remaining.size === 0) return map;
 
-      await getDb()
-        .workouts.orderBy("startedAt")
-        .reverse()
-        .until(() => remaining.size === 0)
-        .each((w) => {
-          if (w.startedAt === session.startedAt) return;
-          for (const e of w.exercises) {
-            if (!remaining.has(e.exerciseId)) continue;
-            const done = e.sets.filter((s) => s.completed);
-            if (done.length > 0) {
-              map.set(e.exerciseId, done);
-              remaining.delete(e.exerciseId);
-            }
+    await getDb()
+      .workouts.orderBy("startedAt")
+      .reverse()
+      .until(() => remaining.size === 0)
+      .each((w) => {
+        if (w.startedAt === session.startedAt) return;
+        for (const e of w.exercises) {
+          if (!remaining.has(e.exerciseId)) continue;
+          const done = e.sets.filter((s) => s.completed);
+          if (done.length > 0) {
+            map.set(e.exerciseId, done);
+            remaining.delete(e.exerciseId);
           }
-        });
+        }
+      });
 
-      return map;
-    },
-    [exerciseIds.join(","), session.startedAt],
-  );
+    return map;
+  }, [exerciseIds.join(","), session.startedAt]);
 
-  const previousByExercise: Map<string, WorkoutSet[]> =
-    previousByExerciseResult ?? new Map();
+  const previousByExercise: Map<string, WorkoutSet[]> = previousByExerciseResult ?? new Map();
 
   const {
     undoItem: undo,
@@ -122,6 +146,62 @@ export function LiveSession({
       });
     },
   });
+
+  // ── Live PR celebration ──────────────────────────────────────────────
+  // Which exercise (if any) just cleared a live PR, and the badge text to
+  // show for it. Read by both WorkoutHUD (pulse/glow/badge) and this
+  // component's own exercise-card highlight below, so the two stay in
+  // sync — they're reactions to the same event, not two separate ones.
+  const [celebration, setCelebration] = useState<{
+    key: number;
+    exerciseId: string;
+    label: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!celebration) return;
+    const t = setTimeout(() => setCelebration(null), PR_CELEBRATION_VISIBLE_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed off celebration?.key only, not the whole object, so this doesn't re-fire on unrelated re-renders
+  }, [celebration?.key]);
+
+  // Keys (exerciseId+type+side) already credited with a live celebration
+  // during this session — mirrors the one-PR-per-key-per-workout rule the
+  // save path enforces, so a threshold already celebrated once doesn't
+  // fire again for a later, even-higher set in the same still-unsaved
+  // workout. Reset only on remount (a fresh workout), which is deliberate:
+  // if the app is backgrounded and the OS kills/restores the activity
+  // mid-workout, this resets too, and an already-celebrated threshold
+  // could in theory re-fire once. That's an acceptable, rare edge case
+  // for presentation-only state — it can't affect what's actually saved.
+  const alreadyCreditedRef = useRef<Set<string>>(new Set());
+
+  async function celebrateIfPR(
+    exerciseId: string,
+    set: WorkoutSet & { timerStart?: number | null },
+  ) {
+    const hits = await checkLivePRs(exerciseId, set, alreadyCreditedRef.current);
+    if (hits.length === 0) {
+      haptics.setComplete();
+      return;
+    }
+    haptics.prAchieved();
+    setCelebration({ key: Date.now(), exerciseId, label: buildPRBadgeLabel(hits) });
+  }
+
+  // The single point a set transitions to completed — SetActionButtons no
+  // longer fires a haptic itself for exactly this reason: only here do we
+  // have both the set's actual values (for the PR check) and the decision
+  // of which haptic fits the result.
+  function toggleSetCompletion(ei: number, si: number) {
+    const ex = session.exercises[ei];
+    const set = ex.sets[si];
+    const willComplete = !set.completed;
+    updateSet(ei, si, { completed: willComplete });
+    if (willComplete) {
+      void celebrateIfPR(ex.exerciseId, set);
+    }
+  }
 
   function updateSet(
     ei: number,
@@ -150,16 +230,13 @@ export function LiveSession({
         set.timerStart != null
           ? {
               timerStart: null,
-              duration:
-                (Number(set.duration) || 0) + Math.round((ts - set.timerStart) / 1000),
+              duration: (Number(set.duration) || 0) + Math.round((ts - set.timerStart) / 1000),
             }
           : { timerStart: ts };
       return {
         ...s,
         exercises: s.exercises.map((e, i) =>
-          i !== ei
-            ? e
-            : { ...e, sets: e.sets.map((x, j) => (j !== si ? x : { ...x, ...patch })) },
+          i !== ei ? e : { ...e, sets: e.sets.map((x, j) => (j !== si ? x : { ...x, ...patch })) },
         ),
       };
     });
@@ -210,9 +287,7 @@ export function LiveSession({
   }
 
   function removeExercise(ei: number) {
-    setSession((s) =>
-      s ? { ...s, exercises: s.exercises.filter((_, i) => i !== ei) } : s,
-    );
+    setSession((s) => (s ? { ...s, exercises: s.exercises.filter((_, i) => i !== ei) } : s));
   }
 
   // An interval exercise (e.g. Rowing Intervals) has no per-set editing UI —
@@ -239,7 +314,12 @@ export function LiveSession({
             : {
                 ...e,
                 sets: [
-                  { ...makeSet(), duration: totalDuration, completed: true, intervalConfig: config },
+                  {
+                    ...makeSet(),
+                    duration: totalDuration,
+                    completed: true,
+                    intervalConfig: config,
+                  },
                 ],
               },
         ),
@@ -268,7 +348,16 @@ export function LiveSession({
 
   return (
     <div className="flex flex-col gap-4 px-4 pb-8" style={{ paddingTop: WORKOUT_HUD_HEIGHT + 16 }}>
-      <WorkoutHUD session={session} setSession={setSession} onFinish={onFinish} />
+      <WorkoutHUD
+        session={session}
+        setSession={setSession}
+        onFinish={onFinish}
+        celebration={
+          celebration
+            ? ({ key: celebration.key, label: celebration.label } satisfies WorkoutHUDCelebration)
+            : null
+        }
+      />
 
       {session.exercises.map((ex, ei) => {
         const def = getExercise(ex.exerciseId);
@@ -276,7 +365,14 @@ export function LiveSession({
         const defaultIntervalConfig = getIntervalConfig(def);
         const intervalConfig = ex.intervalConfig ?? defaultIntervalConfig;
         return (
-          <div key={ei} className="rounded-xl bg-card p-3">
+          <div
+            key={ei}
+            className={`rounded-xl bg-card p-3 ring-2 transition-shadow duration-500 ease-out ${
+              celebration?.exerciseId === ex.exerciseId
+                ? "ring-pr-gold shadow-[0_0_16px_2px_var(--color-pr-gold)]"
+                : "ring-transparent shadow-none"
+            }`}
+          >
             <div className="flex items-center justify-between">
               <div className="min-w-0">
                 <p className="truncate font-semibold">{def?.name ?? ex.exerciseId}</p>
@@ -365,7 +461,11 @@ export function LiveSession({
             {!intervalConfig && schema.unilateral && (
               <div className="mt-3 flex flex-col gap-2">
                 {ex.sets.map((s, si) => {
-                  const primary: SetSide = { weight: s.weight ?? 0, reps: s.reps ?? 0, duration: s.duration };
+                  const primary: SetSide = {
+                    weight: s.weight ?? 0,
+                    reps: s.reps ?? 0,
+                    duration: s.duration,
+                  };
                   const secondary: SetSide = s.additionalPerformances?.[0] ?? {
                     weight: 0,
                     reps: 0,
@@ -378,7 +478,7 @@ export function LiveSession({
                         <div className="flex items-center gap-2">
                           <SetActionButtons
                             completed={s.completed}
-                            onToggleComplete={() => updateSet(ei, si, { completed: !s.completed })}
+                            onToggleComplete={() => toggleSetCompletion(ei, si)}
                             onDelete={() => removeSet(ei, si)}
                           />
                         </div>
@@ -433,14 +533,27 @@ export function LiveSession({
                       <>
                         <div className="flex items-center bg-secondary rounded-lg overflow-hidden h-8 border w-fit">
                           <button
-                            onClick={() => updateSet(ei, si, { weight: Math.max(0, (s.weight ?? 0) - 0.1) })}
+                            onClick={() =>
+                              updateSet(ei, si, { weight: Math.max(0, (s.weight ?? 0) - 0.1) })
+                            }
                             className="w-7 h-full text-sm"
-                          >−</button>
-                          <NumberInput value={s.weight ?? 0} onCommit={(v) => updateSet(ei, si, { weight: v })} decimal min={0} placeholder="0" className="w-12" />
+                          >
+                            −
+                          </button>
+                          <NumberInput
+                            value={s.weight ?? 0}
+                            onCommit={(v) => updateSet(ei, si, { weight: v })}
+                            decimal
+                            min={0}
+                            placeholder="0"
+                            className="w-12"
+                          />
                           <button
                             onClick={() => updateSet(ei, si, { weight: (s.weight ?? 0) + 0.1 })}
                             className="w-7 h-full text-sm"
-                          >+</button>
+                          >
+                            +
+                          </button>
                         </div>
                         <div className="flex items-center gap-2">
                           <SetTimer duration={s.duration ?? 0} timerStart={s.timerStart} />
@@ -469,32 +582,57 @@ export function LiveSession({
                       <>
                         <div className="flex items-center bg-secondary rounded-lg overflow-hidden h-8 border w-fit">
                           <button
-                            onClick={() => updateSet(ei, si, { weight: Math.max(0, (s.weight ?? 0) - 2.5) })}
+                            onClick={() =>
+                              updateSet(ei, si, { weight: Math.max(0, (s.weight ?? 0) - 2.5) })
+                            }
                             className="w-7 h-full text-sm"
-                          >−</button>
-                          <NumberInput value={s.weight ?? 0} onCommit={(v) => updateSet(ei, si, { weight: v })} decimal min={0} placeholder="0" className="w-12" />
+                          >
+                            −
+                          </button>
+                          <NumberInput
+                            value={s.weight ?? 0}
+                            onCommit={(v) => updateSet(ei, si, { weight: v })}
+                            decimal
+                            min={0}
+                            placeholder="0"
+                            className="w-12"
+                          />
                           <button
                             onClick={() => updateSet(ei, si, { weight: (s.weight ?? 0) + 2.5 })}
                             className="w-7 h-full text-sm"
-                          >+</button>
+                          >
+                            +
+                          </button>
                         </div>
                         <div className="flex items-center bg-secondary rounded-lg overflow-hidden h-8 border w-fit">
                           <button
-                            onClick={() => updateSet(ei, si, { reps: Math.max(0, (s.reps ?? 0) - 1) })}
+                            onClick={() =>
+                              updateSet(ei, si, { reps: Math.max(0, (s.reps ?? 0) - 1) })
+                            }
                             className="w-7 h-full text-sm"
-                          >−</button>
-                          <NumberInput value={s.reps ?? 0} onCommit={(v) => updateSet(ei, si, { reps: v })} min={0} placeholder="0" className="w-12" />
+                          >
+                            −
+                          </button>
+                          <NumberInput
+                            value={s.reps ?? 0}
+                            onCommit={(v) => updateSet(ei, si, { reps: v })}
+                            min={0}
+                            placeholder="0"
+                            className="w-12"
+                          />
                           <button
                             onClick={() => updateSet(ei, si, { reps: (s.reps ?? 0) + 1 })}
                             className="w-7 h-full text-sm"
-                          >+</button>
+                          >
+                            +
+                          </button>
                         </div>
                       </>
                     )}
 
                     <SetActionButtons
                       completed={s.completed}
-                      onToggleComplete={() => updateSet(ei, si, { completed: !s.completed })}
+                      onToggleComplete={() => toggleSetCompletion(ei, si)}
                       onDelete={() => removeSet(ei, si)}
                     />
                   </div>

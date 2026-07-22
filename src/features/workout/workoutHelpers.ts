@@ -1,9 +1,4 @@
-import {
-  getDb,
-  type Workout,
-  type WorkoutExerciseLog,
-  type WorkoutSet,
-} from "@/lib/db";
+import { getDb, type Workout, type WorkoutExerciseLog, type WorkoutSet } from "@/lib/db";
 import { recordNewWorkoutPRs } from "@/lib/workoutIntegrity";
 import { haptics } from "@/lib/haptics";
 
@@ -22,6 +17,18 @@ export type {
   IntervalTimerState,
 } from "@/lib/db";
 import type { ActiveWorkoutDraft as ActiveSession } from "@/lib/db";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PR_CELEBRATION_VISIBLE_MS
+//
+// How long a live PR celebration's badge (WorkoutHUD) and exercise-card
+// highlight (LiveSession) stay fully visible before starting to fade.
+// Shared so the two pieces of UI — owned by separate components but
+// triggered by the same event — read as one coherent moment rather than
+// drifting out of sync with each other.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const PR_CELEBRATION_VISIBLE_MS = 2400;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // sessionHasData

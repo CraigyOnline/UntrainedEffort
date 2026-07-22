@@ -8,7 +8,7 @@ import { computeIntensity } from "@/lib/muscles";
 import { getKeepAwakeDefault, enableKeepAwake, disableKeepAwake } from "@/lib/keepAwake";
 import { useDismissOnBack } from "@/lib/backHandler";
 import { WorkoutTimer } from "./WorkoutTimer";
-import { type ActiveSession } from "./workoutHelpers";
+import { PR_CELEBRATION_VISIBLE_MS, type ActiveSession } from "./workoutHelpers";
 
 /**
  * Content height of the HUD below the safe-area inset — i.e. the number
@@ -28,10 +28,26 @@ import { type ActiveSession } from "./workoutHelpers";
  */
 export const WORKOUT_HUD_HEIGHT = 137;
 
+export interface WorkoutHUDCelebration {
+  /** Changes on every new live PR, even back-to-back ones with identical
+   *  text — the effects below key off this changing to (re)start the
+   *  pulse/glow/badge, so a plain counter or Date.now() both work. */
+  key: number;
+  /** Pre-built display text, e.g. "New Weight PR" or "Weight PR • Rep PR"
+   *  — LiveSession owns combining multiple simultaneous PR types into one
+   *  label, since that's presentation logic specific to this badge. */
+  label: string;
+}
+
 export interface WorkoutHUDProps {
   session: ActiveSession;
   setSession: React.Dispatch<React.SetStateAction<ActiveSession | null>>;
   onFinish: (save: boolean) => void;
+  /** Set by LiveSession when the just-completed set clears a live PR
+   *  check. Absent/null the vast majority of the time — this HUD has no
+   *  opinion on what counts as a PR, it only animates when told one just
+   *  happened. */
+  celebration?: WorkoutHUDCelebration | null;
 }
 
 /**
@@ -57,7 +73,7 @@ export interface WorkoutHUDProps {
  * exercises are structurally compatible with that (a superset of fields),
  * so both are reused here completely unmodified.
  */
-export function WorkoutHUD({ session, setSession, onFinish }: WorkoutHUDProps) {
+export function WorkoutHUD({ session, setSession, onFinish, celebration }: WorkoutHUDProps) {
   // ── Keep screen awake (temporary, per-workout override) ────────────────
   // Moved here from LiveSession along with the options menu that controls
   // it — nothing else in LiveSession reads this state.
@@ -79,6 +95,60 @@ export function WorkoutHUD({ session, setSession, onFinish }: WorkoutHUDProps) {
     };
   }, [keepAwake]);
 
+  // ── Live PR celebration ──────────────────────────────────────────────
+  // Everything below is driven by real state transitions with CSS
+  // *transitions* (not @keyframes animations) on purpose: a transition
+  // triggered by an actual prop/state change always plays correctly, even
+  // when a new celebration arrives mid-animation, unlike a CSS keyframe
+  // animation replayed via toggling the same class (which silently no-ops
+  // unless the element is remounted). Remounting was avoided here since
+  // that would also reset keepAwake/optionsOpen above for no reason.
+
+  // Pulse: quick scale up and back — the "HUD briefly pulses" part.
+  const [pulsing, setPulsing] = useState(false);
+  useEffect(() => {
+    if (!celebration) return;
+    setPulsing(true);
+    const t = setTimeout(() => setPulsing(false), 200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed off celebration?.key only, not the whole object, so this doesn't re-fire on unrelated re-renders
+  }, [celebration?.key]);
+
+  // Glow: appears quickly, holds briefly, then fades slowly — achieved by
+  // swapping both the shadow value AND the transition-duration class at
+  // the same time for the "in → out" step, so the browser uses the fast
+  // duration going in and the slow one coming back out.
+  const [glowPhase, setGlowPhase] = useState<"idle" | "in" | "out">("idle");
+  useEffect(() => {
+    if (!celebration) return;
+    setGlowPhase("in");
+    const toOut = setTimeout(() => setGlowPhase("out"), 150);
+    const toIdle = setTimeout(() => setGlowPhase("idle"), 150 + 650);
+    return () => {
+      clearTimeout(toOut);
+      clearTimeout(toIdle);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed off celebration?.key only, not the whole object, so this doesn't re-fire on unrelated re-renders
+  }, [celebration?.key]);
+
+  // Badge: animates in, holds for PR_CELEBRATION_VISIBLE_MS (shared with
+  // LiveSession's exercise-card highlight so both fade around the same
+  // moment), then fades out over 350ms.
+  const [badgeState, setBadgeState] = useState<"hidden" | "visible" | "leaving">("hidden");
+  const [badgeLabel, setBadgeLabel] = useState("");
+  useEffect(() => {
+    if (!celebration) return;
+    setBadgeLabel(celebration.label);
+    setBadgeState("visible");
+    const toLeaving = setTimeout(() => setBadgeState("leaving"), PR_CELEBRATION_VISIBLE_MS);
+    const toHidden = setTimeout(() => setBadgeState("hidden"), PR_CELEBRATION_VISIBLE_MS + 350);
+    return () => {
+      clearTimeout(toLeaving);
+      clearTimeout(toHidden);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed off celebration?.key only, not the whole object, so this doesn't re-fire on unrelated re-renders
+  }, [celebration?.key]);
+
   const { totalSets, totalVolume, loggedSets } = computeWorkoutStats(session.exercises);
   // live: true — a freshly-added exercise with no completed sets yet
   // should read as untrained on this live map, unlike the finished-workout
@@ -88,7 +158,17 @@ export function WorkoutHUD({ session, setSession, onFinish }: WorkoutHUDProps) {
 
   return (
     <div className="fixed inset-x-0 top-0 z-30 flex justify-center bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="flex w-full max-w-md min-w-0 flex-col gap-2 border-b border-border px-4 pt-3 pb-2">
+      <div
+        className={`relative flex w-full max-w-md min-w-0 flex-col gap-2 border-b border-border px-4 pt-3 pb-2 transition-transform ease-out ${
+          pulsing ? "scale-[1.02] duration-200" : "scale-100 duration-200"
+        } ${
+          glowPhase === "in"
+            ? "shadow-[0_0_28px_6px_var(--color-pr-gold)] transition-shadow duration-150 ease-out"
+            : glowPhase === "out"
+              ? "shadow-none transition-shadow duration-700 ease-out"
+              : ""
+        }`}
+      >
         <div className="flex items-center gap-2">
           <input
             value={session.name}
@@ -144,6 +224,19 @@ export function WorkoutHUD({ session, setSession, onFinish }: WorkoutHUDProps) {
             Finish
           </Button>
         </div>
+
+        {badgeState !== "hidden" && (
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute left-1/2 top-full z-40 -translate-x-1/2 whitespace-nowrap rounded-full border border-pr-gold/40 bg-pr-gold/15 px-3 py-1 text-xs font-semibold text-pr-gold shadow-sm transition-all duration-300 ease-out ${
+              badgeState === "visible"
+                ? "mt-1 translate-y-0 opacity-100"
+                : "mt-0 -translate-y-1 opacity-0"
+            }`}
+          >
+            🏆 {badgeLabel}
+          </div>
+        )}
       </div>
     </div>
   );

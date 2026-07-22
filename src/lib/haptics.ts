@@ -55,4 +55,9 @@ export const haptics = {
   delete: () => fire(() => Haptics.impact({ style: ImpactStyle.Medium })),
   /** Tapping Undo. */
   undo: () => fire(() => Haptics.impact({ style: ImpactStyle.Light })),
+  /** A completed set just achieved a new Personal Record. Deliberately
+   *  heavier than setComplete() and distinct from workoutFinish()'s
+   *  notification pattern, so it reads as its own kind of moment rather
+   *  than a stronger "tap" or an early finish signal. */
+  prAchieved: () => fire(() => Haptics.impact({ style: ImpactStyle.Heavy })),
 };

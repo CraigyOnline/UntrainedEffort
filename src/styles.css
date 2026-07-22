@@ -36,6 +36,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-pr-gold: var(--pr-gold);
   --font-display: "Inter", system-ui, -apple-system, sans-serif;
 }
 
@@ -68,6 +69,11 @@
   --chart-3: oklch(0.72 0.18 50);
   --chart-4: oklch(0.7 0.2 310);
   --chart-5: oklch(0.7 0.2 0);
+  /** Live PR celebration accent (HUD glow/badge, exercise-card highlight)
+   *  — a dedicated token rather than reusing --chart-3, which happens to
+   *  be a similar hue but is scoped to chart palettes and free to change
+   *  independently of this feature's branding. */
+  --pr-gold: oklch(0.8 0.15 85);
 }
 
 @layer base {

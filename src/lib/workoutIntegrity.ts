@@ -1,9 +1,15 @@
 import { getDb, type Workout, type PRRecord } from "@/lib/db";
-import { getExercise, getIntervalConfig, isTimeBased, setPerformances, type SetSide } from "@/lib/exercises";
+import {
+  getExercise,
+  getIntervalConfig,
+  isTimeBased,
+  setPerformances,
+  type SetSide,
+} from "@/lib/exercises";
 
-type PRType = PRRecord["type"];
+export type PRType = PRRecord["type"];
 
-interface SetLike {
+export interface SetLike {
   weight?: number;
   reps?: number;
   duration?: number;
@@ -32,10 +38,7 @@ interface PRCandidate {
  * path as everything else — this function doesn't need its own notion of
  * "is this exercise unilateral" at all.
  */
-function relevantPRValues(
-  def: ReturnType<typeof getExercise>,
-  set: SetLike,
-): PRCandidate[] {
+function relevantPRValues(def: ReturnType<typeof getExercise>, set: SetLike): PRCandidate[] {
   if (!def) return [];
   if (getIntervalConfig(def)) {
     // Rounds/work/rest isn't a single scalar where "bigger is better" the
@@ -191,9 +194,7 @@ export async function recordNewWorkoutPRs(workout: Workout & { id: number }): Pr
         // side isn't an indexed field, so filter it in JS over the
         // (already small, per exercise+type) result rather than pushing
         // it into the Dexie query.
-        const existing = await db.prHistory
-          .where({ exerciseId: ex.exerciseId, type })
-          .toArray();
+        const existing = await db.prHistory.where({ exerciseId: ex.exerciseId, type }).toArray();
         const previousBest = existing
           .filter((p) => p.side === side)
           .reduce((m, p) => Math.max(m, p.value), 0);
@@ -214,4 +215,64 @@ export async function recordNewWorkoutPRs(workout: Workout & { id: number }): Pr
       }
     }
   }
+}
+
+export interface LivePRHit {
+  type: PRType;
+  value: number;
+  side?: number;
+  previousBest: number;
+}
+
+/**
+ * Read-only PR check for a single just-completed set, for real-time
+ * celebration during an in-progress (unsaved) workout — the workout HUD's
+ * pulse/badge/exercise-highlight, nothing else.
+ *
+ * This is deliberately NOT a new PR calculation: it calls the exact same
+ * relevantPRValues() that both recordNewWorkoutPRs and
+ * rebuildPersonalRecords use to decide what's PR-worthy, and reads
+ * "previous best" via the identical prHistory where-clause
+ * recordNewWorkoutPRs already runs. So "is this a PR" means precisely the
+ * same thing here as it will at save time — there's no second definition
+ * of a PR anywhere. Never writes to prHistory; the finish-workout save
+ * path remains the only writer.
+ *
+ * `alreadyCredited`, if passed, is mutated in place with each key
+ * (exerciseId+type+side) this returns a hit for. Reusing the same Set
+ * across an entire live workout session mirrors the one-PR-per-key-per-
+ * workout rule recordNewWorkoutPRs enforces at save time: once a
+ * threshold has been credited once during the session, later sets that
+ * clear the same still-unsaved threshold don't re-trigger a celebration
+ * for it. Pass a fresh Set per workout (e.g. a ref created once per
+ * mounted session).
+ */
+export async function checkLivePRs(
+  exerciseId: string,
+  set: SetLike,
+  alreadyCredited?: Set<string>,
+): Promise<LivePRHit[]> {
+  const def = getExercise(exerciseId);
+  const candidates = relevantPRValues(def, set);
+  if (candidates.length === 0) return [];
+
+  const db = getDb();
+  const hits: LivePRHit[] = [];
+
+  for (const { type, value, side } of candidates) {
+    const key = prKey(exerciseId, type, side);
+    if (alreadyCredited?.has(key)) continue;
+
+    const existing = await db.prHistory.where({ exerciseId, type }).toArray();
+    const previousBest = existing
+      .filter((p) => p.side === side)
+      .reduce((m, p) => Math.max(m, p.value), 0);
+
+    if (value > previousBest) {
+      hits.push({ type, value, side, previousBest });
+      alreadyCredited?.add(key);
+    }
+  }
+
+  return hits;
 }
