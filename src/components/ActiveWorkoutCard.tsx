@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Link, useLocation } from "@tanstack/react-router";
-import { ArrowRight, Dumbbell } from "lucide-react";
+import { ArrowRight, Play } from "lucide-react";
 import { getDb, type ActiveWorkoutDraft } from "@/lib/db";
-import { computeWorkoutStats, getCurrentExerciseId } from "@/lib/workoutStats";
-import { getExercise } from "@/lib/exercises";
+import { computeWorkoutStats, getCurrentExerciseName } from "@/lib/workoutStats";
 import { WorkoutTimer } from "@/features/workout/WorkoutTimer";
+import { SetProgressBar } from "@/components/SetProgressBar";
 
 /** Entrance/exit transition duration. The card stays mounted (rendering
  *  its last known content) for this long after the workout disappears or
@@ -26,10 +26,10 @@ const TRANSITION_MS = 300;
  *   useActiveWorkoutDraft read and write, via useLiveQuery — the exact
  *   pattern useWorkoutNotificationLifecycle already uses for the same
  *   kind of read-only, reactive, elsewhere-in-the-app consumer.
- * - `computeWorkoutStats()` and `getCurrentExerciseId()` are the same
- *   functions the HUD, the notification content, and the live PR check
- *   all call — no second definition of "completed sets" or "current
- *   exercise" exists here.
+ * - `computeWorkoutStats()` and `getCurrentExerciseName()` are the same
+ *   functions (the latter built on getCurrentExerciseId()) the HUD, the
+ *   notification content, and the live PR check all call — no second
+ *   definition of "completed sets" or "current exercise" exists here.
  * - `<WorkoutTimer>` is the literal component the HUD renders for its own
  *   elapsed-time display, reused as-is rather than re-implementing a
  *   ticking clock a third time.
@@ -71,33 +71,27 @@ export function ActiveWorkoutCard() {
   if (!mounted || !renderedDraft) return null;
 
   const { totalSets, loggedSets } = computeWorkoutStats(renderedDraft.exercises);
-  const currentExerciseId = getCurrentExerciseId(renderedDraft.exercises);
-  const currentExerciseName = currentExerciseId ? getExercise(currentExerciseId)?.name : undefined;
+  const currentExerciseName = getCurrentExerciseName(renderedDraft.exercises);
   const progress = loggedSets > 0 ? Math.min(1, totalSets / loggedSets) : 0;
 
   return (
     <Link
       to="/workout"
-      className={`mx-4 mb-1 mt-3 block shrink-0 overflow-hidden rounded-xl border border-border bg-card shadow-md transition-all ease-out ${
+      className={`mx-4 mb-3 mt-3 block shrink-0 overflow-hidden rounded-2xl border border-border bg-card shadow-md transition-all ease-out ${
         entered ? "translate-y-0 opacity-100 duration-300" : "-translate-y-2 opacity-0 duration-300"
       }`}
     >
-      <div className="flex border-l-4 border-primary">
-        <div className="min-w-0 flex-1 px-3 py-3">
+      <div className="flex border-l-4 border-primary transition-transform duration-150 active:scale-[0.99]">
+        <div className="min-w-0 flex-1 p-4">
           <div className="flex items-center gap-2">
-            <Dumbbell className="h-4 w-4 shrink-0 text-primary" />
+            <Play className="h-4 w-4 shrink-0 text-primary" />
             <span className="min-w-0 flex-1 truncate font-semibold">
               {renderedDraft.name || "Workout in progress"}
             </span>
             <WorkoutTimer startedAt={renderedDraft.startedAt} />
           </div>
 
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-300"
-              style={{ width: `${progress * 100}%` }}
-            />
-          </div>
+          <SetProgressBar value={progress} className="mt-2" />
 
           <div className="mt-2 flex items-end justify-between gap-2">
             <div className="min-w-0 text-xs text-muted-foreground">

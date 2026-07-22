@@ -75,3 +75,14 @@ export function getCurrentExerciseId(exercises: Workout["exercises"]): string | 
   }
   return exercises.at(-1)?.exerciseId;
 }
+
+/**
+ * Display name for getCurrentExerciseId()'s result, or undefined for an
+ * empty workout. Both the workout notification and the Active Workout
+ * Card needed this exact id-to-name resolution; consolidated here so
+ * there's one place doing it instead of two copies of the same two lines.
+ */
+export function getCurrentExerciseName(exercises: Workout["exercises"]): string | undefined {
+  const currentExerciseId = getCurrentExerciseId(exercises);
+  return currentExerciseId ? getExercise(currentExerciseId)?.name : undefined;
+}

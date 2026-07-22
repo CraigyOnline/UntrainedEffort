@@ -3,6 +3,7 @@ import { MoreVertical } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
+import { SetProgressBar } from "@/components/SetProgressBar";
 import { computeWorkoutStats } from "@/lib/workoutStats";
 import { computeIntensity } from "@/lib/muscles";
 import { getKeepAwakeDefault, enableKeepAwake, disableKeepAwake } from "@/lib/keepAwake";
@@ -212,12 +213,7 @@ export function WorkoutHUD({ session, setSession, onFinish, celebration }: Worko
               </span>
               <span>{Math.round(totalVolume)} kg</span>
             </div>
-            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
-              <div
-                className="h-full rounded-full bg-primary transition-all duration-300"
-                style={{ width: `${progress * 100}%` }}
-              />
-            </div>
+            <SetProgressBar value={progress} className="mt-1" />
           </div>
 
           <Button size="sm" onClick={() => onFinish(true)}>

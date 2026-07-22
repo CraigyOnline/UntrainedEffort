@@ -3,8 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { App as CapacitorApp } from "@capacitor/app";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { getDb, type ActiveWorkoutDraft } from "@/lib/db";
-import { computeWorkoutStats, getCurrentExerciseId } from "@/lib/workoutStats";
-import { getExercise } from "@/lib/exercises";
+import { computeWorkoutStats, getCurrentExerciseName } from "@/lib/workoutStats";
 import { formatDuration } from "@/lib/format";
 
 const CHANNEL_ID = "workout-progress";
@@ -50,11 +49,10 @@ async function ensureWorkoutNotificationPermission(): Promise<void> {
 /**
  * Builds the notification's text from the same shared calculations the
  * floating Workout HUD uses — computeWorkoutStats() for sets/volume,
- * getCurrentExerciseId() for what's next, formatDuration() for elapsed
+ * getCurrentExerciseName() for what's next, formatDuration() for elapsed
  * time. Nothing here re-derives a number that already has a home
- * elsewhere; a new helper (getCurrentExerciseId) was added to
- * workoutStats.ts, alongside computeWorkoutStats, so this and any future
- * summary view read "current exercise" from the same place.
+ * elsewhere; workoutStats.ts is the single place both this and the
+ * Active Workout Card resolve "current exercise" from.
  *
  * `body` is the single-line collapsed form; `largeBody` is the Android
  * big-text style shown once expanded, so the collapsed line stays short
@@ -67,8 +65,7 @@ function buildWorkoutNotificationContent(draft: ActiveWorkoutDraft): {
 } {
   const elapsedSec = Math.max(0, Math.round((Date.now() - draft.startedAt) / 1000));
   const { totalSets, totalVolume, loggedSets } = computeWorkoutStats(draft.exercises);
-  const currentExerciseId = getCurrentExerciseId(draft.exercises);
-  const currentExerciseName = currentExerciseId ? getExercise(currentExerciseId)?.name : undefined;
+  const currentExerciseName = getCurrentExerciseName(draft.exercises);
   const roundedVolume = Math.round(totalVolume);
 
   const title = draft.name || "Workout in progress";
