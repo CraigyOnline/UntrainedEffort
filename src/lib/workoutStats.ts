@@ -55,3 +55,23 @@ export function computeWorkoutStats(exercises: Workout["exercises"]): WorkoutSta
 
   return { totalSets, totalVolume, loggedSets };
 }
+
+/**
+ * The exercise the user is currently working on, for displays (e.g. the
+ * workout notification) that only have room for one at a time.
+ *
+ * The workout screen itself is a flat scrollable list, not a wizard — a
+ * user can complete sets on any exercise in any order — so there's no
+ * existing "current index" anywhere to read. This defines "current" as
+ * the first exercise (in list order) that still has an incomplete set,
+ * i.e. what's next. Once every logged set is complete the workout is
+ * still active until the user taps Finish, so this falls back to the
+ * last exercise rather than returning nothing. Returns undefined only
+ * when the workout has no exercises at all.
+ */
+export function getCurrentExerciseId(exercises: Workout["exercises"]): string | undefined {
+  for (const ex of exercises) {
+    if (ex.sets.some((s) => !s.completed)) return ex.exerciseId;
+  }
+  return exercises.at(-1)?.exerciseId;
+}

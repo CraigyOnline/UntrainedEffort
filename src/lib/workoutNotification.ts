@@ -3,9 +3,17 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { App as CapacitorApp } from "@capacitor/app";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { getDb, type ActiveWorkoutDraft } from "@/lib/db";
+import { computeWorkoutStats, getCurrentExerciseId } from "@/lib/workoutStats";
+import { getExercise } from "@/lib/exercises";
+import { formatDuration } from "@/lib/format";
 
 const CHANNEL_ID = "workout-progress";
 const NOTIFICATION_ID = 918273;
+/** How often to refresh the notification purely for the elapsed-time tick
+ *  while it's visible. Per the feature spec this doesn't need second-by-
+ *  second precision, so a single fixed interval is enough — no wake lock
+ *  or high-frequency timer required. */
+const ELAPSED_REFRESH_MS = 45_000;
 
 /** Tags the notification so a tap can be told apart from any other kind
  *  of notification this app might add later. */
@@ -39,21 +47,64 @@ async function ensureWorkoutNotificationPermission(): Promise<void> {
   }
 }
 
+/**
+ * Builds the notification's text from the same shared calculations the
+ * floating Workout HUD uses — computeWorkoutStats() for sets/volume,
+ * getCurrentExerciseId() for what's next, formatDuration() for elapsed
+ * time. Nothing here re-derives a number that already has a home
+ * elsewhere; a new helper (getCurrentExerciseId) was added to
+ * workoutStats.ts, alongside computeWorkoutStats, so this and any future
+ * summary view read "current exercise" from the same place.
+ *
+ * `body` is the single-line collapsed form; `largeBody` is the Android
+ * big-text style shown once expanded, so the collapsed line stays short
+ * while the expanded view gets the full breakdown.
+ */
+function buildWorkoutNotificationContent(draft: ActiveWorkoutDraft): {
+  title: string;
+  body: string;
+  largeBody: string;
+} {
+  const elapsedSec = Math.max(0, Math.round((Date.now() - draft.startedAt) / 1000));
+  const { totalSets, totalVolume, loggedSets } = computeWorkoutStats(draft.exercises);
+  const currentExerciseId = getCurrentExerciseId(draft.exercises);
+  const currentExerciseName = currentExerciseId ? getExercise(currentExerciseId)?.name : undefined;
+  const roundedVolume = Math.round(totalVolume);
+
+  const title = draft.name || "Workout in progress";
+  const body = currentExerciseName
+    ? `${currentExerciseName} · ${totalSets}/${loggedSets} sets · ${roundedVolume} kg`
+    : `${totalSets}/${loggedSets} sets · ${roundedVolume} kg`;
+  const largeBody = [
+    `Elapsed: ${formatDuration(elapsedSec)}`,
+    currentExerciseName ? `Current exercise: ${currentExerciseName}` : undefined,
+    `Sets: ${totalSets} / ${loggedSets}`,
+    `Volume: ${roundedVolume} kg`,
+    "Tap to resume.",
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");
+
+  return { title, body, largeBody };
+}
+
 async function showWorkoutNotification(draft: ActiveWorkoutDraft): Promise<void> {
   try {
     await ensureChannel();
+    const { title, body, largeBody } = buildWorkoutNotificationContent(draft);
     // No `schedule` field: omitting it displays the notification right
     // away rather than scheduling it for a future trigger. Re-showing
     // with the same id replaces the existing one in place, so this is
-    // safe to call every time the app backgrounds without first checking
-    // whether it's already showing.
+    // safe to call every time the content might have changed without
+    // first checking whether it's already showing.
     await LocalNotifications.schedule({
       notifications: [
         {
           id: NOTIFICATION_ID,
           channelId: CHANNEL_ID,
-          title: "Workout in progress",
-          body: draft.name ? `${draft.name} — tap to resume.` : "Tap to resume your workout.",
+          title,
+          body,
+          largeBody,
           ongoing: true,
           autoCancel: false,
           extra: WORKOUT_NOTIFICATION_EXTRA,
@@ -92,6 +143,13 @@ async function cancelWorkoutNotification(): Promise<void> {
  * normal Android UX (e.g. music playback), and it keeps this to exactly
  * the three transitions asked for: shown on backgrounding, left alone
  * until finished or discarded, removed immediately on either of those.
+ *
+ * While backgrounded, the notification's content also stays live: it's
+ * re-shown (same NOTIFICATION_ID, so it replaces in place rather than
+ * stacking) whenever the draft changes — name edits, completed sets,
+ * exercise or volume changes — and on a fixed timer purely to keep the
+ * elapsed-time figure moving, since that's the one field that changes
+ * without the draft itself changing.
  */
 export function useWorkoutNotificationLifecycle(): void {
   const draft = useLiveQuery(() => getDb().activeWorkout.toCollection().first(), []);
@@ -103,6 +161,13 @@ export function useWorkoutNotificationLifecycle(): void {
   // for no behavioral benefit.
   const draftRef = useRef<ActiveWorkoutDraft | null | undefined>(draft);
   draftRef.current = draft;
+
+  // Whether the app is currently backgrounded — i.e. whether the
+  // notification is actually visible right now. Read at fire-time by the
+  // draft-change effect and the elapsed-time timer below, same reasoning
+  // as draftRef: avoids re-running effects on every foreground/background
+  // flip just to keep a value in a dependency array current.
+  const isBackgroundedRef = useRef(false);
 
   // Prime the permission + channel the moment a workout actually starts,
   // not on every app launch — the prompt should appear in context, and
@@ -123,17 +188,46 @@ export function useWorkoutNotificationLifecycle(): void {
     if (!draft) cancelWorkoutNotification();
   }, [draft]);
 
+  // Keep the visible notification's content current while backgrounded —
+  // covers every content change (set completed, exercise changed, volume
+  // changed, name edited) without duplicating any of the "when did the
+  // workout change" tracking useLiveQuery already does.
+  useEffect(() => {
+    if (draft && isBackgroundedRef.current) {
+      showWorkoutNotification(draft);
+    }
+  }, [draft]);
+
   // Show the reminder only when the app is actually backgrounded with a
-  // draft still active — never while the user is looking at the app.
+  // draft still active — never while the user is looking at the app —
+  // and keep its elapsed-time figure ticking while it stays backgrounded.
   useEffect(() => {
     let removeListener: (() => void) | undefined;
+    let elapsedRefreshTimer: ReturnType<typeof setInterval> | undefined;
+
     CapacitorApp.addListener("appStateChange", ({ isActive }) => {
-      if (!isActive && draftRef.current) {
-        showWorkoutNotification(draftRef.current);
+      isBackgroundedRef.current = !isActive;
+
+      if (!isActive) {
+        if (draftRef.current) showWorkoutNotification(draftRef.current);
+        // Every other field is already kept current by the draft-change
+        // effect above; this timer's only job is the passive elapsed-time
+        // tick, so it fires on a fixed cadence regardless of whether
+        // anything else has changed.
+        elapsedRefreshTimer = setInterval(() => {
+          if (draftRef.current) showWorkoutNotification(draftRef.current);
+        }, ELAPSED_REFRESH_MS);
+      } else if (elapsedRefreshTimer) {
+        clearInterval(elapsedRefreshTimer);
+        elapsedRefreshTimer = undefined;
       }
     }).then((handle) => {
       removeListener = () => handle.remove();
     });
-    return () => removeListener?.();
+
+    return () => {
+      removeListener?.();
+      if (elapsedRefreshTimer) clearInterval(elapsedRefreshTimer);
+    };
   }, []);
 }
