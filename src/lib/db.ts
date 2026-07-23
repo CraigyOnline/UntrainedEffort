@@ -157,6 +157,18 @@ export interface ActiveWorkoutDraft {
   name: string;
   startedAt: number;
   exercises: ActiveSessionExercise[];
+  /** Keys (see prKey() in workoutIntegrity.ts) of live PRs already
+   *  celebrated during this workout session. This is what makes a live
+   *  celebration fire once per workout rather than once per LiveSession
+   *  component instance: it's part of the same persisted draft every
+   *  other session field already rides through
+   *  (useActiveWorkoutDraft's debounced write), so it survives
+   *  navigating away and back or an app restart's recovery the same way
+   *  the sets themselves do. Absent/empty means nothing has been
+   *  celebrated yet. Never written to prHistory or the saved workout —
+   *  purely a live-session record for the celebration UI, same as
+   *  everything else stripped by handleFinish. */
+  celebratedPRKeys?: string[];
 }
 
 /**

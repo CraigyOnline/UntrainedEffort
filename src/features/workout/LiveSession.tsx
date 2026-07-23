@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, Plus, Trash2, X } from "lucide-react";
 import { getDb, type WorkoutSet, type LiveWorkoutSet } from "@/lib/db";
@@ -148,13 +148,14 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
   });
 
   // ── Live PR celebration ──────────────────────────────────────────────
-  // Which exercise (if any) just cleared a live PR, and the badge text to
-  // show for it. Read by both WorkoutHUD (pulse/glow/badge) and this
-  // component's own exercise-card highlight below, so the two stay in
-  // sync — they're reactions to the same event, not two separate ones.
+  // Which set (if any) just cleared a live PR, and the badge text to show
+  // for it. Read by both WorkoutHUD (pulse/glow/badge) and this
+  // component's own per-set highlight below, so the two stay in sync —
+  // they're reactions to the same event, not two separate ones.
   const [celebration, setCelebration] = useState<{
     key: number;
     exerciseId: string;
+    setId: string | undefined;
     label: string;
   } | null>(null);
 
@@ -166,24 +167,24 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
   }, [celebration?.key]);
 
   // Keys (exerciseId+type+side) already credited with a live celebration
-  // during this session — mirrors the one-PR-per-key-per-workout rule the
-  // save path enforces, so a threshold already celebrated once doesn't
-  // fire again for a later, even-higher set in the same still-unsaved
-  // workout. Reset only on remount (a fresh workout), which is deliberate:
-  // if the app is backgrounded and the OS kills/restores the activity
-  // mid-workout, this resets too, and an already-celebrated threshold
-  // could in theory re-fire once. That's an acceptable, rare edge case
-  // for presentation-only state — it can't affect what's actually saved.
-  const alreadyCreditedRef = useRef<Set<string>>(new Set());
-
-  async function celebrateIfPR(exerciseId: string, set: LiveWorkoutSet) {
-    const hits = await checkLivePRs(exerciseId, set, alreadyCreditedRef.current);
+  // during this workout — persisted on the session draft itself
+  // (celebratedPRKeys) rather than kept in a ref, precisely so a PR
+  // celebrates once per *workout*, not once per LiveSession component
+  // instance: navigating away and back, or the app being killed and
+  // recovered, both remount this component, and a plain ref would lose
+  // the history and let an already-celebrated threshold fire again.
+  // Riding on the same debounced draft write every other session field
+  // already uses means this needs no new persistence of its own.
+  async function celebrateIfPR(exerciseId: string, setId: string | undefined, set: LiveWorkoutSet) {
+    const alreadyCredited = new Set(session.celebratedPRKeys ?? []);
+    const hits = await checkLivePRs(exerciseId, set, alreadyCredited);
     if (hits.length === 0) {
       haptics.setComplete();
       return;
     }
     haptics.prAchieved();
-    setCelebration({ key: Date.now(), exerciseId, label: buildPRBadgeLabel(hits) });
+    setSession((s) => (s ? { ...s, celebratedPRKeys: Array.from(alreadyCredited) } : s));
+    setCelebration({ key: Date.now(), exerciseId, setId, label: buildPRBadgeLabel(hits) });
   }
 
   // The single point a set transitions to completed — SetActionButtons no
@@ -196,7 +197,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
     const willComplete = !set.completed;
     updateSet(ei, si, { completed: willComplete });
     if (willComplete) {
-      void celebrateIfPR(ex.exerciseId, set);
+      void celebrateIfPR(ex.exerciseId, set.id, set);
     }
   }
 
@@ -393,14 +394,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
         const defaultIntervalConfig = getIntervalConfig(def);
         const intervalConfig = ex.intervalConfig ?? defaultIntervalConfig;
         return (
-          <div
-            key={ei}
-            className={`rounded-xl bg-card p-3 ring-2 transition-shadow duration-500 ease-out ${
-              celebration?.exerciseId === ex.exerciseId
-                ? "ring-pr-gold shadow-[0_0_16px_2px_var(--color-pr-gold)]"
-                : "ring-transparent shadow-none"
-            }`}
-          >
+          <div key={ei} className="rounded-xl bg-card p-3">
             <div className="flex items-center justify-between">
               <div className="min-w-0">
                 <p className="truncate font-semibold">{def?.name ?? ex.exerciseId}</p>
@@ -500,7 +494,14 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
                     duration: 0,
                   };
                   return (
-                    <div key={si} className="rounded-lg bg-secondary/40 p-2">
+                    <div
+                      key={si}
+                      className={`rounded-lg bg-secondary/40 p-2 ring-2 transition-shadow duration-500 ease-out ${
+                        celebration?.exerciseId === ex.exerciseId && celebration?.setId === s.id
+                          ? "ring-pr-gold shadow-[0_0_16px_2px_var(--color-pr-gold)]"
+                          : "ring-transparent shadow-none"
+                      }`}
+                    >
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold">Set {si + 1}</span>
                         <div className="flex items-center gap-2">
@@ -561,7 +562,11 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
                 {ex.sets.map((s, si) => (
                   <div
                     key={si}
-                    className="mt-2 grid grid-cols-[24px_1fr_1fr_auto_auto] items-center gap-2"
+                    className={`mt-2 grid grid-cols-[24px_1fr_1fr_auto_auto] items-center gap-2 rounded-lg ring-2 transition-shadow duration-500 ease-out ${
+                      celebration?.exerciseId === ex.exerciseId && celebration?.setId === s.id
+                        ? "ring-pr-gold shadow-[0_0_16px_2px_var(--color-pr-gold)]"
+                        : "ring-transparent shadow-none"
+                    }`}
                   >
                     <span className="text-sm font-semibold">{si + 1}</span>
 
