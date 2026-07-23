@@ -140,6 +140,10 @@ async function cancelWorkoutNotification(): Promise<void> {
  * normal Android UX (e.g. music playback), and it keeps this to exactly
  * the three transitions asked for: shown on backgrounding, left alone
  * until finished or discarded, removed immediately on either of those.
+ * Because of that, a screen lock/unlock (which fires the same
+ * appStateChange event as a real background/foreground switch, but
+ * doesn't actually make the notification go anywhere) must not re-post
+ * it either — notificationVisibleRef is what makes that idempotent.
  *
  * While backgrounded, the notification's content also stays live: it's
  * re-shown (same NOTIFICATION_ID, so it replaces in place rather than
@@ -166,6 +170,17 @@ export function useWorkoutNotificationLifecycle(): void {
   // flip just to keep a value in a dependency array current.
   const isBackgroundedRef = useRef(false);
 
+  // Whether the notification has actually been posted for the current
+  // workout. Deliberately NOT the same thing as isBackgroundedRef: on
+  // Android, locking/unlocking the screen also fires appStateChange
+  // (isActive:false/true) even though the app was never really
+  // backgrounded, so isBackgroundedRef flips on every lock cycle. This
+  // ref only flips back to false when the workout actually ends (see the
+  // cancel effect below) — a bare screen lock/unlock never resets it,
+  // which is what stops the notification being re-posted (and visibly
+  // re-firing) on every sleep/wake cycle even though it never went away.
+  const notificationVisibleRef = useRef(false);
+
   // Prime the permission + channel the moment a workout actually starts,
   // not on every app launch — the prompt should appear in context, and
   // there's nothing to prompt for otherwise.
@@ -180,9 +195,14 @@ export function useWorkoutNotificationLifecycle(): void {
 
   // Remove the notification the instant the draft is gone — whether
   // from finishing or discarding, and regardless of which screen that
-  // happened on.
+  // happened on. This is the only place notificationVisibleRef resets:
+  // the notification genuinely stops existing here, unlike a screen
+  // lock/unlock, which never actually removes it.
   useEffect(() => {
-    if (!draft) cancelWorkoutNotification();
+    if (!draft) {
+      cancelWorkoutNotification();
+      notificationVisibleRef.current = false;
+    }
   }, [draft]);
 
   // Keep the visible notification's content current while backgrounded —
@@ -206,14 +226,21 @@ export function useWorkoutNotificationLifecycle(): void {
       isBackgroundedRef.current = !isActive;
 
       if (!isActive) {
-        if (draftRef.current) showWorkoutNotification(draftRef.current);
-        // Every other field is already kept current by the draft-change
-        // effect above; this timer's only job is the passive elapsed-time
-        // tick, so it fires on a fixed cadence regardless of whether
-        // anything else has changed.
-        elapsedRefreshTimer = setInterval(() => {
-          if (draftRef.current) showWorkoutNotification(draftRef.current);
-        }, ELAPSED_REFRESH_MS);
+        // Post only if it isn't already up — a screen lock/unlock fires
+        // this same isActive:false transition without the notification
+        // ever having gone away, so re-posting unconditionally here was
+        // the bug (see notificationVisibleRef's comment above).
+        if (draftRef.current && !notificationVisibleRef.current) {
+          showWorkoutNotification(draftRef.current);
+          notificationVisibleRef.current = true;
+        }
+        // Same idempotency for the interval itself — guards against the
+        // same repeated-lock scenario restarting it redundantly.
+        if (!elapsedRefreshTimer) {
+          elapsedRefreshTimer = setInterval(() => {
+            if (draftRef.current) showWorkoutNotification(draftRef.current);
+          }, ELAPSED_REFRESH_MS);
+        }
       } else if (elapsedRefreshTimer) {
         clearInterval(elapsedRefreshTimer);
         elapsedRefreshTimer = undefined;
