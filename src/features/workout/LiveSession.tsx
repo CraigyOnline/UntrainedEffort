@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Check, Plus, Trash2, X } from "lucide-react";
-import { getDb, type WorkoutSet } from "@/lib/db";
+import { getDb, type WorkoutSet, type LiveWorkoutSet } from "@/lib/db";
 import {
   getExercise,
   getExerciseLoggingSchema,
@@ -131,7 +131,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
     secondsLeft: undoSecondsLeft,
     trigger: triggerUndo,
     undo: undoDelete,
-  } = useUndo<{ exerciseId: string; set: WorkoutSet & { timerStart?: number | null } }>({
+  } = useUndo<{ exerciseId: string; set: LiveWorkoutSet }>({
     duration: 3,
     onUndo: ({ exerciseId, set }) => {
       setSession((s) => {
@@ -176,10 +176,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
   // for presentation-only state — it can't affect what's actually saved.
   const alreadyCreditedRef = useRef<Set<string>>(new Set());
 
-  async function celebrateIfPR(
-    exerciseId: string,
-    set: WorkoutSet & { timerStart?: number | null },
-  ) {
+  async function celebrateIfPR(exerciseId: string, set: LiveWorkoutSet) {
     const hits = await checkLivePRs(exerciseId, set, alreadyCreditedRef.current);
     if (hits.length === 0) {
       haptics.setComplete();
@@ -203,11 +200,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
     }
   }
 
-  function updateSet(
-    ei: number,
-    si: number,
-    patch: Partial<WorkoutSet & { timerStart: number | null }>,
-  ) {
+  function updateSet(ei: number, si: number, patch: Partial<LiveWorkoutSet>) {
     setSession((s) => {
       if (!s) return s;
       return {
@@ -221,18 +214,53 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
     });
   }
 
-  function toggleTimer(ei: number, si: number) {
+  // Pure start/stop/accumulate math for a single timerStart+duration pair
+  // — the one implementation of "how a timer starts and stops", reused
+  // below for both a set's primary side and (for a unilateral timed
+  // exercise) its secondary side, rather than writing the same math twice.
+  function toggleTimerValue(current: { timerStart?: number | null; duration?: number }): {
+    timerStart: number | null;
+    duration: number;
+  } {
+    const ts = Date.now();
+    return current.timerStart != null
+      ? {
+          timerStart: null,
+          duration: (Number(current.duration) || 0) + Math.round((ts - current.timerStart) / 1000),
+        }
+      : { timerStart: ts, duration: Number(current.duration) || 0 };
+  }
+
+  // `side` defaults to "primary" so every existing (bilateral) call site
+  // is unaffected. "secondary" targets additionalPerformances[0] instead
+  // — the two sides are otherwise identical, just different storage
+  // slots for the same start/stop/accumulate math above. Left and right
+  // are never mirrored: each side's timer is toggled independently, and
+  // nothing here reads the other side's value.
+  function toggleTimer(ei: number, si: number, side: "primary" | "secondary" = "primary") {
     setSession((s) => {
       if (!s) return s;
       const set = s.exercises[ei].sets[si];
-      const ts = Date.now();
-      const patch =
-        set.timerStart != null
-          ? {
-              timerStart: null,
-              duration: (Number(set.duration) || 0) + Math.round((ts - set.timerStart) / 1000),
-            }
-          : { timerStart: ts };
+
+      if (side === "secondary") {
+        const current = set.additionalPerformances?.[0] ?? { weight: 0, reps: 0, duration: 0 };
+        const nextSecondary = { ...current, ...toggleTimerValue(current) };
+        return {
+          ...s,
+          exercises: s.exercises.map((e, i) =>
+            i !== ei
+              ? e
+              : {
+                  ...e,
+                  sets: e.sets.map((x, j) =>
+                    j !== si ? x : { ...x, additionalPerformances: [nextSecondary] },
+                  ),
+                },
+          ),
+        };
+      }
+
+      const patch = toggleTimerValue(set);
       return {
         ...s,
         exercises: s.exercises.map((e, i) =>
@@ -489,6 +517,14 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
                           primary={primary}
                           secondary={secondary}
                           size="large"
+                          mode={{
+                            kind: "live",
+                            timerStart: {
+                              primary: s.timerStart,
+                              secondary: s.additionalPerformances?.[0]?.timerStart,
+                            },
+                            onToggleTimer: (side) => toggleTimer(ei, si, side),
+                          }}
                           onChange={({ primary: p, secondary: sec }) =>
                             updateSet(ei, si, {
                               weight: p.weight,

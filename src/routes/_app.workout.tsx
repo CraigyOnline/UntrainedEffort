@@ -154,6 +154,13 @@ function WorkoutPage() {
             (Number(s.weight) || 0) > 0 ||
             (Number(s.reps) || 0) > 0 ||
             (Number(s.duration) || 0) > 0,
+          // A unilateral timed exercise's secondary side carries the same
+          // ephemeral timerStart the primary side does (see LiveWorkoutSet)
+          // — strip it here too so a completed workout only ever contains
+          // plain SetSide entries, matching the primary side's strip above.
+          additionalPerformances: s.additionalPerformances?.map(
+            ({ timerStart: _st, ...side }) => side,
+          ),
         })),
       }));
       if (!sessionHasData(active)) {

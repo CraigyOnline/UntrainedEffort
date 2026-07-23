@@ -386,6 +386,7 @@ function HistoryDetailPage() {
                             s.additionalPerformances?.[0] ?? { weight: 0, reps: 0, duration: 0 }
                           }
                           size="compact"
+                          mode={{ kind: "history" }}
                           onChange={({ primary: p, secondary: sec }) =>
                             patchSet(ei, si, {
                               weight: p.weight,

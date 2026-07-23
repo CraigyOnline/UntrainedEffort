@@ -1,4 +1,4 @@
-import { getDb, type Workout, type WorkoutExerciseLog, type WorkoutSet } from "@/lib/db";
+import { getDb, type Workout, type WorkoutExerciseLog, type LiveWorkoutSet } from "@/lib/db";
 import { recordNewWorkoutPRs } from "@/lib/workoutIntegrity";
 import { haptics } from "@/lib/haptics";
 
@@ -61,7 +61,7 @@ export function newId(): string {
   return `s_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-export function makeSet(): WorkoutSet & { timerStart: number | null } {
+export function makeSet(): LiveWorkoutSet {
   return { id: newId(), weight: 0, reps: 0, duration: 0, completed: false, timerStart: null };
 }
 

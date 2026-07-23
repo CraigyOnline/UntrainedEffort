@@ -112,9 +112,30 @@ export interface IntervalTimerState {
     | { kind: "paused"; remaining: number }; // seconds left in the current phase
 }
 
+/**
+ * A WorkoutSet as it exists during a live, in-progress workout — adds an
+ * ephemeral `timerStart` (an absolute epoch timestamp, or null/absent
+ * when not running) that a timed exercise's set uses while its timer is
+ * running. Never part of the persisted WorkoutSet; stripped back down
+ * before a workout is saved to history (see handleFinish in
+ * _app.workout.tsx).
+ *
+ * For a unilateral exercise, `additionalPerformances` entries get the
+ * same ephemeral field — a timed unilateral set (e.g. Side Plank) has two
+ * independent timers, one per side, and this is the one place both are
+ * defined. Previously this shape was hand-written as an inline
+ * intersection in three separate places (this interface, LiveSession's
+ * undo generic, and updateSet's patch type); consolidated here so
+ * there's one name for it instead of three copies that could drift.
+ */
+export type LiveWorkoutSet = Omit<WorkoutSet, "additionalPerformances"> & {
+  timerStart?: number | null;
+  additionalPerformances?: Array<SetSide & { timerStart?: number | null }>;
+};
+
 export interface ActiveSessionExercise {
   exerciseId: string;
-  sets: Array<WorkoutSet & { timerStart?: number | null }>;
+  sets: LiveWorkoutSet[];
   /** Overrides this exercise's default interval config (rounds/work/rest)
    *  for this workout only — never written back to the exercise catalog.
    *  Absent means "use getIntervalConfig(def)". Editable only before the
