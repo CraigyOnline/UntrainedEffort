@@ -43,7 +43,7 @@
 :root {
   --radius: 0.75rem;
   /* Untrained Effort dark theme */
-  --background: oklch(0.16 0.012 250);
+  --background: oklch(0.13 0.012 250);
   --foreground: oklch(0.98 0.005 250);
   --card: oklch(0.21 0.014 250);
   --card-foreground: oklch(0.98 0.005 250);
@@ -51,7 +51,7 @@
   --popover-foreground: oklch(0.98 0.005 250);
   --primary: oklch(0.72 0.18 145);
   --primary-foreground: oklch(0.16 0.02 145);
-  --secondary: oklch(0.26 0.016 250);
+  --secondary: oklch(0.275 0.016 250);
   --secondary-foreground: oklch(0.98 0.005 250);
   --muted: oklch(0.24 0.014 250);
   --muted-foreground: oklch(0.66 0.02 250);
@@ -61,8 +61,8 @@
   --destructive-foreground: oklch(0.98 0.005 250);
   --success: oklch(0.72 0.18 145);
   --success-foreground: oklch(0.16 0.02 145);
-  --border: oklch(0.28 0.014 250);
-  --input: oklch(0.26 0.014 250);
+  --border: oklch(0.32 0.014 250);
+  --input: oklch(0.275 0.014 250);
   --ring: oklch(0.72 0.18 145);
   --chart-1: oklch(0.72 0.18 145);
   --chart-2: oklch(0.68 0.18 220);

@@ -1,7 +1,7 @@
 import { sideLabel, type ExerciseLoggingSchema, type SetSide } from "@/lib/exercises";
 import { MmSsInput } from "@/components/forms/MmSsInput";
 import { StepperInput } from "@/components/forms/NumberInput";
-import { SetTimer } from "@/features/workout/WorkoutTimer";
+import { SetTimer, TimerToggleButton } from "@/features/workout/WorkoutTimer";
 
 /**
  * Which context this is rendering in, decided by the parent rather than
@@ -103,12 +103,10 @@ export function UnilateralSetInputs({
                   duration={row.value.duration ?? 0}
                   timerStart={mode.timerStart[row.key]}
                 />
-                <button
+                <TimerToggleButton
+                  running={!!mode.timerStart[row.key]}
                   onClick={() => mode.onToggleTimer(row.key)}
-                  className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground"
-                >
-                  {mode.timerStart[row.key] ? "■" : "▶"}
-                </button>
+                />
               </div>
             ) : (
               <div className="flex flex-col gap-1">

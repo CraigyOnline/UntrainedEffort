@@ -12,11 +12,11 @@ import {
   type SetSide,
 } from "@/lib/exercises";
 import { useUndo } from "@/hooks/useUndo";
-import { NumberInput } from "@/components/forms/NumberInput";
+import { NumberInput, StepperInput } from "@/components/forms/NumberInput";
 import { MmSsInput } from "@/components/forms/MmSsInput";
 import { UnilateralSetInputs } from "@/components/forms/UnilateralSetInputs";
 import { Button } from "@/components/ui/button";
-import { SetTimer } from "./WorkoutTimer";
+import { SetTimer, TimerToggleButton } from "./WorkoutTimer";
 import { IntervalTimer } from "./IntervalTimer";
 import { WorkoutHUD, WORKOUT_HUD_HEIGHT, type WorkoutHUDCelebration } from "./WorkoutHUD";
 import { type ActiveSession, PR_CELEBRATION_VISIBLE_MS, makeSet } from "./workoutHelpers";
@@ -56,11 +56,20 @@ export interface LiveSessionProps {
 // actions (mark complete / delete), same sizing, same feedback. Extracted
 // so the two rows can't drift out of sync with each other.
 //
-// h-8/w-8 (32px) rather than the ideal 44px mobile touch target: these sit
-// in a tight 5-column row (set number, one or two steppers, these two
-// buttons) that's already close to overflowing on narrow Android screens,
-// so this is the largest size that doesn't risk the row wrapping. Revisit
-// alongside a wider layout change to that row if more room opens up.
+// Visible box stays h-8/w-8 (32px) rather than growing toward the ideal
+// 44px mobile touch target: these sit in a tight 5-column row (set number,
+// one or two steppers, these two buttons) that's already close to
+// overflowing on narrow Android screens, so growing the box itself risks
+// the row wrapping. Instead each button extends its actual tap target via
+// an invisible `after:-inset-2` overlay (~16px added on every side, taken
+// out of layout flow) — same functional touch-target win, zero layout risk.
+//
+// The delete icon is deliberately a notch quieter (muted-foreground/70,
+// no persistent fill) than the completion button (which always has a
+// visible box, filled solid once completed) — a completed-workout screen
+// full of Trash2 icons at equal visual weight to the primary action
+// (mark done) made a destructive, irreversible action too easy to
+// mis-tap for at a glance.
 //
 // Doesn't fire a haptic itself on completion — the caller's
 // onToggleComplete needs the set's actual values to run the live PR
@@ -80,14 +89,14 @@ function SetActionButtons({
       <button
         onClick={onToggleComplete}
         aria-label={completed ? "Mark set incomplete" : "Mark set complete"}
-        className={`flex h-8 w-8 items-center justify-center rounded transition-colors duration-150 active:scale-90 ${completed ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}
+        className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-150 active:scale-90 after:absolute after:-inset-2 after:content-[''] ${completed ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}
       >
         <Check className="h-4 w-4" />
       </button>
       <button
         onClick={onDelete}
         aria-label="Delete set"
-        className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground transition-colors active:bg-secondary active:text-foreground"
+        className="relative flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/70 transition-colors after:absolute after:-inset-2 after:content-[''] active:bg-secondary active:text-foreground"
       >
         <Trash2 className="h-4 w-4" />
       </button>
@@ -413,7 +422,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
               const prev = previousByExercise.get(ex.exerciseId);
               if (!prev || prev.length === 0) return null;
               return (
-                <div className="mt-2 rounded-md bg-secondary/50 px-2 py-1.5">
+                <div className="mt-2 rounded-lg bg-secondary/50 px-2 py-1.5">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Previous Workout
                   </p>
@@ -427,7 +436,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
             })()}
 
             {intervalConfig && !ex.intervalState && (
-              <div className="mt-3 flex items-center justify-between gap-2 rounded-md bg-secondary/50 px-3 py-2">
+              <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-secondary/50 px-3 py-2">
                 <label className="flex flex-col items-center gap-1">
                   <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                     Rounds
@@ -572,102 +581,50 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
 
                     {schema.distance ? (
                       <>
-                        <div className="flex items-center bg-secondary rounded-lg overflow-hidden h-8 border w-fit">
-                          <button
-                            onClick={() =>
-                              updateSet(ei, si, { weight: Math.max(0, (s.weight ?? 0) - 0.1) })
-                            }
-                            className="w-7 h-full text-sm"
-                          >
-                            −
-                          </button>
-                          <NumberInput
-                            value={s.weight ?? 0}
-                            onCommit={(v) => updateSet(ei, si, { weight: v })}
-                            decimal
-                            min={0}
-                            placeholder="0"
-                            className="w-12"
-                          />
-                          <button
-                            onClick={() => updateSet(ei, si, { weight: (s.weight ?? 0) + 0.1 })}
-                            className="w-7 h-full text-sm"
-                          >
-                            +
-                          </button>
-                        </div>
+                        <StepperInput
+                          value={s.weight ?? 0}
+                          onCommit={(v) => updateSet(ei, si, { weight: v })}
+                          step={0.1}
+                          decimal
+                          min={0}
+                          size="normal"
+                        />
                         <div className="flex items-center gap-2">
                           <SetTimer duration={s.duration ?? 0} timerStart={s.timerStart} />
-                          <button
+                          <TimerToggleButton
+                            running={!!s.timerStart}
                             onClick={() => toggleTimer(ei, si)}
-                            className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground"
-                          >
-                            {s.timerStart ? "■" : "▶"}
-                          </button>
+                          />
                         </div>
                       </>
                     ) : schema.duration ? (
                       <>
                         <div className="flex items-center gap-2">
                           <SetTimer duration={s.duration ?? 0} timerStart={s.timerStart} />
-                          <button
+                          <TimerToggleButton
+                            running={!!s.timerStart}
                             onClick={() => toggleTimer(ei, si)}
-                            className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground"
-                          >
-                            {s.timerStart ? "■" : "▶"}
-                          </button>
+                          />
                         </div>
                         <span />
                       </>
                     ) : (
                       <>
-                        <div className="flex items-center bg-secondary rounded-lg overflow-hidden h-8 border w-fit">
-                          <button
-                            onClick={() =>
-                              updateSet(ei, si, { weight: Math.max(0, (s.weight ?? 0) - 2.5) })
-                            }
-                            className="w-7 h-full text-sm"
-                          >
-                            −
-                          </button>
-                          <NumberInput
-                            value={s.weight ?? 0}
-                            onCommit={(v) => updateSet(ei, si, { weight: v })}
-                            decimal
-                            min={0}
-                            placeholder="0"
-                            className="w-12"
-                          />
-                          <button
-                            onClick={() => updateSet(ei, si, { weight: (s.weight ?? 0) + 2.5 })}
-                            className="w-7 h-full text-sm"
-                          >
-                            +
-                          </button>
-                        </div>
-                        <div className="flex items-center bg-secondary rounded-lg overflow-hidden h-8 border w-fit">
-                          <button
-                            onClick={() =>
-                              updateSet(ei, si, { reps: Math.max(0, (s.reps ?? 0) - 1) })
-                            }
-                            className="w-7 h-full text-sm"
-                          >
-                            −
-                          </button>
-                          <NumberInput
-                            value={s.reps ?? 0}
-                            onCommit={(v) => updateSet(ei, si, { reps: v })}
-                            min={0}
-                            placeholder="0"
-                            className="w-12"
-                          />
-                          <button
-                            onClick={() => updateSet(ei, si, { reps: (s.reps ?? 0) + 1 })}
-                            className="w-7 h-full text-sm"
-                          >
-                            +
-                          </button>
-                        </div>
+                        <StepperInput
+                          value={s.weight ?? 0}
+                          onCommit={(v) => updateSet(ei, si, { weight: v })}
+                          step={2.5}
+                          decimal
+                          min={0}
+                          size="normal"
+                        />
+                        <StepperInput
+                          value={s.reps ?? 0}
+                          onCommit={(v) => updateSet(ei, si, { reps: v })}
+                          step={1}
+                          min={0}
+                          size="normal"
+                        />
                       </>
                     )}
 
@@ -706,7 +663,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
           </span>
           <button
             onClick={undoDelete}
-            className="rounded bg-primary px-3 py-1 text-sm font-medium text-primary-foreground"
+            className="rounded-lg bg-primary px-3 py-1 text-sm font-medium text-primary-foreground"
           >
             Undo
           </button>

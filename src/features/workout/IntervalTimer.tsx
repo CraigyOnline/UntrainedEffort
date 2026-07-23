@@ -148,7 +148,7 @@ export function IntervalTimer({ config, state, onChange, onComplete }: IntervalT
 
   return (
     <div className="mt-3 space-y-2">
-      <div className="rounded-md bg-secondary/50 px-3 py-2 text-xs">
+      <div className="rounded-lg bg-secondary/50 px-3 py-2 text-xs">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Interval
         </p>
@@ -160,7 +160,7 @@ export function IntervalTimer({ config, state, onChange, onComplete }: IntervalT
       </div>
 
       <div
-        className={`rounded-md px-3 py-2 ${
+        className={`rounded-lg px-3 py-2 ${
           done
             ? "bg-primary/10"
             : !started
@@ -198,12 +198,15 @@ export function IntervalTimer({ config, state, onChange, onComplete }: IntervalT
             {!done && (
               <button
                 onClick={toggle}
-                className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground"
+                className="min-w-[64px] rounded-lg bg-primary px-2 py-1 text-center text-xs text-primary-foreground"
               >
                 {running ? "Pause" : started ? "Resume" : "Start"}
               </button>
             )}
-            <button onClick={reset} className="rounded bg-secondary px-2 py-1 text-xs">
+            <button
+              onClick={reset}
+              className="min-w-[56px] rounded-lg bg-secondary px-2 py-1 text-center text-xs"
+            >
               Reset
             </button>
           </div>
