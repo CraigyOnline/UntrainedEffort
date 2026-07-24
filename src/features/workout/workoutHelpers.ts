@@ -99,7 +99,8 @@ export async function doSaveWorkout(
   setSummary: (w: Workout) => void,
   setSaveErrorDialogOpen: (v: boolean) => void,
 ): Promise<void> {
-  const endedAt = Date.now();
+  const startedSavingAt = Date.now();
+  const endedAt = startedSavingAt;
   const workout: Workout = {
     routineId: active.routine?.id,
     name: active.name,
@@ -118,6 +119,18 @@ export async function doSaveWorkout(
       workoutId = (await db.workouts.add(workout)) as number;
       await recordNewWorkoutPRs({ ...workout, id: workoutId });
     });
+    // This is what actually triggers the screen swap (via setActive/
+    // setSummary below) — a WorkoutHUD-local timer has no influence over
+    // when THIS fires, so the Finish button's anticipation floor has to be
+    // enforced right here. A local IndexedDB write typically resolves in a
+    // handful of ms, so without this the swap would happen almost
+    // instantly regardless of whatever the button itself is displaying.
+    // Measured against real elapsed time so a save that's already slower
+    // than the floor doesn't get an unnecessary extra delay stacked on top.
+    const elapsed = Date.now() - startedSavingAt;
+    if (elapsed < FINISH_ANTICIPATION_MS) {
+      await new Promise((resolve) => setTimeout(resolve, FINISH_ANTICIPATION_MS - elapsed));
+    }
     setActive(null);
     setSummary({ ...workout, id: workoutId });
     haptics.workoutFinish();

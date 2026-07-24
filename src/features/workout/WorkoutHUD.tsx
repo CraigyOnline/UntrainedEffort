@@ -9,12 +9,7 @@ import { computeIntensity } from "@/lib/muscles";
 import { getKeepAwakeDefault, enableKeepAwake, disableKeepAwake } from "@/lib/keepAwake";
 import { useDismissOnBack } from "@/lib/backHandler";
 import { WorkoutTimer } from "./WorkoutTimer";
-import {
-  FINISH_ANTICIPATION_MS,
-  PR_CELEBRATION_VISIBLE_MS,
-  sessionHasData,
-  type ActiveSession,
-} from "./workoutHelpers";
+import { PR_CELEBRATION_VISIBLE_MS, sessionHasData, type ActiveSession } from "./workoutHelpers";
 
 /**
  * Content height of the HUD below the safe-area inset — i.e. the number
@@ -88,8 +83,12 @@ export function WorkoutHUD({ session, setSession, onFinish, celebration }: Worko
   useDismissOnBack(optionsOpen, () => setOptionsOpen(false));
 
   // ── Finish button anticipation ──────────────────────────────────────────
-  // See FINISH_ANTICIPATION_MS for why this is a floor enforced against the
-  // real save, not a fixed pre-save delay.
+  // The actual anticipation floor (FINISH_ANTICIPATION_MS) is enforced in
+  // doSaveWorkout, right before it calls setActive/setSummary — that's the
+  // real trigger for the screen swap, so a timer here would have no
+  // influence over when that fires. This local state just needs to reflect
+  // "finishing" for as long as this component stays mounted, and reset
+  // itself if the save fails instead of the screen swapping away.
   const [finishing, setFinishing] = useState(false);
   const mountedRef = useRef(true);
   useEffect(
@@ -109,10 +108,7 @@ export function WorkoutHUD({ session, setSession, onFinish, celebration }: Worko
     }
     setFinishing(true);
     try {
-      await Promise.all([
-        onFinish(true),
-        new Promise((resolve) => setTimeout(resolve, FINISH_ANTICIPATION_MS)),
-      ]);
+      await onFinish(true);
     } finally {
       // Only reached while still mounted on the save-error path (the
       // success path unmounts this component when the screen swaps to
