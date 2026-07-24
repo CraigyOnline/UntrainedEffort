@@ -319,7 +319,7 @@ function WorkoutPage() {
             const completedSets = ex.sets.filter((s) => s.completed);
             if (completedSets.length === 0) return null;
             return (
-              <div key={ei} className="rounded-xl bg-card px-4 py-3">
+              <div key={ei} className="rounded-xl bg-muted px-4 py-3">
                 <p className="font-semibold text-sm">{def?.name ?? ex.exerciseId}</p>
                 <ul className="mt-1 flex flex-col gap-0.5">
                   {completedSets.map((s, si) => (
