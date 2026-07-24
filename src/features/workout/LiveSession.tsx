@@ -560,7 +560,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
 
             {!intervalConfig && !schema.unilateral && (
               <>
-                <div className="mt-3 grid grid-cols-[24px_1fr_1fr_auto_auto] items-center gap-2 text-xs text-muted-foreground">
+                <div className="mt-3 grid grid-cols-[24px_1fr_1fr_auto_auto] items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                   <span>{schema.distance ? "Set" : "#"}</span>
                   <span>{schema.distance ? "Km" : schema.duration ? "Sec" : "Kg"}</span>
                   <span>{schema.distance ? "Time" : schema.duration ? "" : "Reps"}</span>
@@ -651,7 +651,11 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
       <Button onClick={onAddExercise}>
         <Plus className="mr-2 h-4 w-4" /> Add exercise
       </Button>
-      <Button variant="ghost" onClick={() => onFinish(false)} className="text-destructive">
+      <Button
+        variant="ghost"
+        onClick={() => onFinish(false)}
+        className="mt-2 self-center px-6 text-muted-foreground active:text-destructive"
+      >
         Cancel
       </Button>
 

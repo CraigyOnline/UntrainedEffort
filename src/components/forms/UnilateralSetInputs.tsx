@@ -101,7 +101,7 @@ export function UnilateralSetInputs({
   return (
     <div className="flex flex-col gap-2">
       {showValueHeader && (
-        <div className="grid grid-cols-[3rem_1fr_1fr] gap-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="grid grid-cols-[3rem_1fr_1fr] gap-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           <span />
           {valueHeaderLabel ? (
             <span className="col-span-2">{valueHeaderLabel}</span>

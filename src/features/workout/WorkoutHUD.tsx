@@ -174,7 +174,7 @@ export function WorkoutHUD({ session, setSession, onFinish, celebration }: Worko
           <input
             value={session.name}
             onChange={(e) => setSession((s) => (s ? { ...s, name: e.target.value } : s))}
-            className="min-w-0 flex-1 bg-transparent text-lg font-bold outline-none"
+            className="min-w-0 flex-1 border-b border-border/30 bg-transparent text-lg font-bold outline-none transition-colors focus:border-border"
           />
           <WorkoutTimer startedAt={session.startedAt} />
 
