@@ -226,6 +226,11 @@ function WorkoutPage() {
   // ── Workout complete summary ───────────────────────────────────────────────
   if (summary) {
     const hasPRs = !!summaryPRs && summaryPRs.length > 0;
+    // Shared stagger helper — every section reveals off the same
+    // completeVisible clock from Phase 1, just offset by delayMs, so the
+    // whole sequence (hero -> stats -> PRs -> log -> Done) stays perfectly
+    // in sync without introducing per-section animation state.
+    const revealStyle = (delayMs: number) => ({ transitionDelay: `${delayMs}ms` });
     return (
       <div
         className={`flex flex-col gap-4 px-4 pt-6 pb-8 transition-all duration-300 ease-out ${
@@ -241,34 +246,19 @@ function WorkoutPage() {
             durationSec={summary.durationSec}
             exercises={summary.exercises}
             showName
+            revealed={completeVisible}
           />
         </div>
 
-        <div className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            What you did
-          </h2>
-          {summary.exercises.map((ex, ei) => {
-            const def = getExercise(ex.exerciseId);
-            const completedSets = ex.sets.filter((s) => s.completed);
-            if (completedSets.length === 0) return null;
-            return (
-              <div key={ei} className="rounded-xl bg-card px-4 py-3">
-                <p className="font-semibold text-sm">{def?.name ?? ex.exerciseId}</p>
-                <ul className="mt-1 flex flex-col gap-0.5">
-                  {completedSets.map((s, si) => (
-                    <li key={si} className="text-xs text-muted-foreground tabular-nums">
-                      Set {si + 1}: {formatCompletedSet(def, s)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </div>
-
         {summaryPRs && summaryPRs.length > 0 && (
-          <div className="flex flex-col gap-2">
+          <div
+            className={`flex flex-col gap-2 transition-all duration-300 ease-out ${
+              completeVisible
+                ? "translate-y-0 scale-100 opacity-100"
+                : "translate-y-1 scale-[0.97] opacity-0"
+            }`}
+            style={revealStyle(260)}
+          >
             <h2 className="text-sm font-semibold text-pr-gold uppercase tracking-wide">
               Personal Records 🏆
             </h2>
@@ -315,11 +305,43 @@ function WorkoutPage() {
           </div>
         )}
 
+        <div
+          className={`flex flex-col gap-2 transition-opacity duration-300 ease-out ${
+            completeVisible ? "opacity-100" : "opacity-0"
+          }`}
+          style={revealStyle(hasPRs ? 320 : 260)}
+        >
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            What you did
+          </h2>
+          {summary.exercises.map((ex, ei) => {
+            const def = getExercise(ex.exerciseId);
+            const completedSets = ex.sets.filter((s) => s.completed);
+            if (completedSets.length === 0) return null;
+            return (
+              <div key={ei} className="rounded-xl bg-card px-4 py-3">
+                <p className="font-semibold text-sm">{def?.name ?? ex.exerciseId}</p>
+                <ul className="mt-1 flex flex-col gap-0.5">
+                  {completedSets.map((s, si) => (
+                    <li key={si} className="text-xs text-muted-foreground tabular-nums">
+                      Set {si + 1}: {formatCompletedSet(def, s)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+
         <Button
           onClick={() => {
             setSummary(null);
             navigate({ to: "/history" });
           }}
+          className={`transition-opacity duration-300 ease-out ${
+            completeVisible ? "opacity-100" : "opacity-0"
+          }`}
+          style={revealStyle(hasPRs ? 360 : 300)}
         >
           Done
         </Button>
