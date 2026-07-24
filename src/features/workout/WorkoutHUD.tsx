@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { MoreVertical } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, MoreVertical } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
@@ -9,7 +9,12 @@ import { computeIntensity } from "@/lib/muscles";
 import { getKeepAwakeDefault, enableKeepAwake, disableKeepAwake } from "@/lib/keepAwake";
 import { useDismissOnBack } from "@/lib/backHandler";
 import { WorkoutTimer } from "./WorkoutTimer";
-import { PR_CELEBRATION_VISIBLE_MS, type ActiveSession } from "./workoutHelpers";
+import {
+  FINISH_ANTICIPATION_MS,
+  PR_CELEBRATION_VISIBLE_MS,
+  sessionHasData,
+  type ActiveSession,
+} from "./workoutHelpers";
 
 /**
  * Content height of the HUD below the safe-area inset — i.e. the number
@@ -43,7 +48,7 @@ export interface WorkoutHUDCelebration {
 export interface WorkoutHUDProps {
   session: ActiveSession;
   setSession: React.Dispatch<React.SetStateAction<ActiveSession | null>>;
-  onFinish: (save: boolean) => void;
+  onFinish: (save: boolean) => void | Promise<void>;
   /** Set by LiveSession when the just-completed set clears a live PR
    *  check. Absent/null the vast majority of the time — this HUD has no
    *  opinion on what counts as a PR, it only animates when told one just
@@ -81,6 +86,40 @@ export function WorkoutHUD({ session, setSession, onFinish, celebration }: Worko
   const [keepAwake, setKeepAwake] = useState(() => getKeepAwakeDefault());
   const [optionsOpen, setOptionsOpen] = useState(false);
   useDismissOnBack(optionsOpen, () => setOptionsOpen(false));
+
+  // ── Finish button anticipation ──────────────────────────────────────────
+  // See FINISH_ANTICIPATION_MS for why this is a floor enforced against the
+  // real save, not a fixed pre-save delay.
+  const [finishing, setFinishing] = useState(false);
+  const mountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
+
+  async function handleFinishClick() {
+    if (finishing) return;
+    if (!sessionHasData(session)) {
+      // Nothing to save — this opens the discard-confirmation dialog
+      // instead of actually finishing, so there's nothing to anticipate.
+      onFinish(true);
+      return;
+    }
+    setFinishing(true);
+    try {
+      await Promise.all([
+        onFinish(true),
+        new Promise((resolve) => setTimeout(resolve, FINISH_ANTICIPATION_MS)),
+      ]);
+    } finally {
+      // Only reached while still mounted on the save-error path (the
+      // success path unmounts this component when the screen swaps to
+      // Workout Complete) — resets the button so the person can retry.
+      if (mountedRef.current) setFinishing(false);
+    }
+  }
 
   useEffect(() => {
     if (keepAwake) {
@@ -216,8 +255,13 @@ export function WorkoutHUD({ session, setSession, onFinish, celebration }: Worko
             <SetProgressBar value={progress} className="mt-1" />
           </div>
 
-          <Button size="sm" onClick={() => onFinish(true)}>
-            Finish
+          <Button
+            size="sm"
+            onClick={handleFinishClick}
+            disabled={finishing}
+            className={`transition-colors duration-200 ${finishing ? "bg-primary/70" : ""}`}
+          >
+            {finishing ? <Check className="h-4 w-4" /> : "Finish"}
           </Button>
         </div>
 

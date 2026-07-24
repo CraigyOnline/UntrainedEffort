@@ -1,0 +1,206 @@
+From 9bc43f966fb58cd5e970c26f9c1b18938581a00b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@example.com>
+Date: Fri, 24 Jul 2026 09:39:45 +0000
+Subject: [PATCH 2/2] =?UTF-8?q?Completion=20flow=20=E2=80=94=20Phase=201:?=
+ =?UTF-8?q?=20Finish=20interaction=20+=20transition?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Redesigns the moment from Finish through arriving on Workout Complete,
+previously an instant, abrupt cut (tap Finish -> screen replaced in the
+same render). Expands the earlier Workout Complete screen work into the
+full completion-experience redesign requested — this is the first of
+that expanded plan's phases, not a continuation of the old numbering.
+
+- Finish button now gives its own brief 'confirming' state (dimmed fill,
+  checkmark, disabled) instead of firing the screen swap in the same
+  instant as the tap. Enforced as a floor via Promise.all against the
+  real save (FINISH_ANTICIPATION_MS = 350ms, same shared-constant pattern
+  as PR_CELEBRATION_VISIBLE_MS) rather than a fixed pre-save delay, so a
+  near-instant IndexedDB write can't produce a too-brief flash and a
+  slower one doesn't add perceived latency beyond the intentional beat.
+- Skips the anticipation entirely when there's nothing to save
+  (sessionHasData false) — that path opens the discard-confirmation
+  dialog instead of actually finishing, so there's nothing to anticipate.
+- Handles the save-error path explicitly: onFinish resolves (doSaveWorkout
+  catches internally, doesn't rethrow) but the component stays mounted, so
+  a mountedRef guard resets the button after the error dialog rather than
+  leaving Finish stuck disabled.
+- The swap into Workout Complete is now a 300ms fade+rise entrance
+  instead of an instant appearance, using the same real-state-plus-CSS-
+  transition technique WorkoutHUD's PR celebration already uses — no
+  animation library, nothing keyframe-based.
+
+onFinish's prop type widened to (save: boolean) => void | Promise<void>
+to match what it actually is (handleFinish is async) — a typing fix, not
+a behavior change; LiveSession's own onFinish usage (Cancel) is
+unaffected and still fire-and-forget.
+
+Verified via tsc/eslint against a clean main baseline — no new errors
+introduced; confirmed no incidental reformatting of unrelated code in
+_app.workout.tsx leaked into the diff.
+---
+ src/features/workout/WorkoutHUD.tsx    | 56 +++++++++++++++++++++++---
+ src/features/workout/workoutHelpers.ts | 13 ++++++
+ src/routes/_app.workout.tsx            | 21 +++++++++-
+ 3 files changed, 83 insertions(+), 7 deletions(-)
+
+diff --git a/src/features/workout/WorkoutHUD.tsx b/src/features/workout/WorkoutHUD.tsx
+index 61ed9d4..4992d44 100644
+--- a/src/features/workout/WorkoutHUD.tsx
++++ b/src/features/workout/WorkoutHUD.tsx
+@@ -1,5 +1,5 @@
+-import { useEffect, useState } from "react";
+-import { MoreVertical } from "lucide-react";
++import { useEffect, useRef, useState } from "react";
++import { Check, MoreVertical } from "lucide-react";
+ import { Switch } from "@/components/ui/switch";
+ import { Button } from "@/components/ui/button";
+ import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
+@@ -9,7 +9,12 @@ import { computeIntensity } from "@/lib/muscles";
+ import { getKeepAwakeDefault, enableKeepAwake, disableKeepAwake } from "@/lib/keepAwake";
+ import { useDismissOnBack } from "@/lib/backHandler";
+ import { WorkoutTimer } from "./WorkoutTimer";
+-import { PR_CELEBRATION_VISIBLE_MS, type ActiveSession } from "./workoutHelpers";
++import {
++  FINISH_ANTICIPATION_MS,
++  PR_CELEBRATION_VISIBLE_MS,
++  sessionHasData,
++  type ActiveSession,
++} from "./workoutHelpers";
+ 
+ /**
+  * Content height of the HUD below the safe-area inset — i.e. the number
+@@ -43,7 +48,7 @@ export interface WorkoutHUDCelebration {
+ export interface WorkoutHUDProps {
+   session: ActiveSession;
+   setSession: React.Dispatch<React.SetStateAction<ActiveSession | null>>;
+-  onFinish: (save: boolean) => void;
++  onFinish: (save: boolean) => void | Promise<void>;
+   /** Set by LiveSession when the just-completed set clears a live PR
+    *  check. Absent/null the vast majority of the time — this HUD has no
+    *  opinion on what counts as a PR, it only animates when told one just
+@@ -82,6 +87,40 @@ export function WorkoutHUD({ session, setSession, onFinish, celebration }: Worko
+   const [optionsOpen, setOptionsOpen] = useState(false);
+   useDismissOnBack(optionsOpen, () => setOptionsOpen(false));
+ 
++  // ── Finish button anticipation ──────────────────────────────────────────
++  // See FINISH_ANTICIPATION_MS for why this is a floor enforced against the
++  // real save, not a fixed pre-save delay.
++  const [finishing, setFinishing] = useState(false);
++  const mountedRef = useRef(true);
++  useEffect(
++    () => () => {
++      mountedRef.current = false;
++    },
++    [],
++  );
++
++  async function handleFinishClick() {
++    if (finishing) return;
++    if (!sessionHasData(session)) {
++      // Nothing to save — this opens the discard-confirmation dialog
++      // instead of actually finishing, so there's nothing to anticipate.
++      onFinish(true);
++      return;
++    }
++    setFinishing(true);
++    try {
++      await Promise.all([
++        onFinish(true),
++        new Promise((resolve) => setTimeout(resolve, FINISH_ANTICIPATION_MS)),
++      ]);
++    } finally {
++      // Only reached while still mounted on the save-error path (the
++      // success path unmounts this component when the screen swaps to
++      // Workout Complete) — resets the button so the person can retry.
++      if (mountedRef.current) setFinishing(false);
++    }
++  }
++
+   useEffect(() => {
+     if (keepAwake) {
+       enableKeepAwake();
+@@ -216,8 +255,13 @@ export function WorkoutHUD({ session, setSession, onFinish, celebration }: Worko
+             <SetProgressBar value={progress} className="mt-1" />
+           </div>
+ 
+-          <Button size="sm" onClick={() => onFinish(true)}>
+-            Finish
++          <Button
++            size="sm"
++            onClick={handleFinishClick}
++            disabled={finishing}
++            className={`transition-colors duration-200 ${finishing ? "bg-primary/70" : ""}`}
++          >
++            {finishing ? <Check className="h-4 w-4" /> : "Finish"}
+           </Button>
+         </div>
+ 
+diff --git a/src/features/workout/workoutHelpers.ts b/src/features/workout/workoutHelpers.ts
+index 472b3f6..7bafec4 100644
+--- a/src/features/workout/workoutHelpers.ts
++++ b/src/features/workout/workoutHelpers.ts
+@@ -30,6 +30,19 @@ import type { ActiveWorkoutDraft as ActiveSession } from "@/lib/db";
+ 
+ export const PR_CELEBRATION_VISIBLE_MS = 2400;
+ 
++// ─────────────────────────────────────────────────────────────────────────────
++// FINISH_ANTICIPATION_MS
++//
++// Minimum time the Finish button stays in its "confirming" state before the
++// screen swaps to Workout Complete — enforced as a floor via Promise.all
++// against the real save (see WorkoutHUD's handleFinishClick), not a fixed
++// delay before saving starts. A near-instant IndexedDB write shouldn't
++// produce a confirm-state flash too brief to register; this guarantees a
++// deliberate, consistent beat regardless of how fast the save itself is.
++// ─────────────────────────────────────────────────────────────────────────────
++
++export const FINISH_ANTICIPATION_MS = 350;
++
+ // ─────────────────────────────────────────────────────────────────────────────
+ // sessionHasData
+ //
+diff --git a/src/routes/_app.workout.tsx b/src/routes/_app.workout.tsx
+index b40b892..93bd700 100644
+--- a/src/routes/_app.workout.tsx
++++ b/src/routes/_app.workout.tsx
+@@ -92,6 +92,21 @@ function WorkoutPage() {
+   const [active, setActive] = useActiveWorkoutDraft();
+   const [picking, setPicking] = useState(false);
+   const [summary, setSummary] = useState<Workout | null>(null);
++  // Workout Complete entrance transition — starts hidden and flips to visible
++  // one frame after `summary` is set, so the fade+rise below has an actual
++  // "from" state to animate from (mounting already-opacity-100 would just be
++  // an instant appearance again, the exact "abrupt" problem this exists to
++  // fix). Same real-state-plus-CSS-transition technique as WorkoutHUD's PR
++  // celebration — no animation library, nothing keyframe-based.
++  const [completeVisible, setCompleteVisible] = useState(false);
++  useEffect(() => {
++    if (!summary) {
++      setCompleteVisible(false);
++      return;
++    }
++    const raf = requestAnimationFrame(() => setCompleteVisible(true));
++    return () => cancelAnimationFrame(raf);
++  }, [summary]);
+   const [editingRoutine, setEditingRoutine] = useState<Routine | "new" | null>(null);
+   const [deleteTarget, setDeleteTarget] = useState<Routine | null>(null);
+   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
+@@ -212,7 +227,11 @@ function WorkoutPage() {
+   if (summary) {
+     const hasPRs = !!summaryPRs && summaryPRs.length > 0;
+     return (
+-      <div className="flex flex-col gap-4 px-4 pt-6 pb-8">
++      <div
++        className={`flex flex-col gap-4 px-4 pt-6 pb-8 transition-all duration-300 ease-out ${
++          completeVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
++        }`}
++      >
+         <h1 className={`text-2xl font-bold ${hasPRs ? "text-pr-gold" : ""}`}>
+           Workout Complete 🎉
+         </h1>
+-- 
+2.43.0
+

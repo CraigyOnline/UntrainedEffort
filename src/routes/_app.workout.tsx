@@ -92,6 +92,21 @@ function WorkoutPage() {
   const [active, setActive] = useActiveWorkoutDraft();
   const [picking, setPicking] = useState(false);
   const [summary, setSummary] = useState<Workout | null>(null);
+  // Workout Complete entrance transition — starts hidden and flips to visible
+  // one frame after `summary` is set, so the fade+rise below has an actual
+  // "from" state to animate from (mounting already-opacity-100 would just be
+  // an instant appearance again, the exact "abrupt" problem this exists to
+  // fix). Same real-state-plus-CSS-transition technique as WorkoutHUD's PR
+  // celebration — no animation library, nothing keyframe-based.
+  const [completeVisible, setCompleteVisible] = useState(false);
+  useEffect(() => {
+    if (!summary) {
+      setCompleteVisible(false);
+      return;
+    }
+    const raf = requestAnimationFrame(() => setCompleteVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, [summary]);
   const [editingRoutine, setEditingRoutine] = useState<Routine | "new" | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Routine | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
@@ -210,15 +225,24 @@ function WorkoutPage() {
 
   // ── Workout complete summary ───────────────────────────────────────────────
   if (summary) {
+    const hasPRs = !!summaryPRs && summaryPRs.length > 0;
     return (
-      <div className="flex flex-col gap-4 px-4 pt-6 pb-8">
-        <h1 className="text-2xl font-bold">Workout Complete 🎉</h1>
-        <WorkoutSummary
-          name={summary.name}
-          durationSec={summary.durationSec}
-          exercises={summary.exercises}
-          showName
-        />
+      <div
+        className={`flex flex-col gap-4 px-4 pt-6 pb-8 transition-all duration-300 ease-out ${
+          completeVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
+        }`}
+      >
+        <h1 className={`text-2xl font-bold ${hasPRs ? "text-pr-gold" : ""}`}>
+          Workout Complete 🎉
+        </h1>
+        <div className={hasPRs ? "rounded-xl ring-2 ring-pr-gold/50" : ""}>
+          <WorkoutSummary
+            name={summary.name}
+            durationSec={summary.durationSec}
+            exercises={summary.exercises}
+            showName
+          />
+        </div>
 
         <div className="flex flex-col gap-2">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -245,10 +269,10 @@ function WorkoutPage() {
 
         {summaryPRs && summaryPRs.length > 0 && (
           <div className="flex flex-col gap-2">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            <h2 className="text-sm font-semibold text-pr-gold uppercase tracking-wide">
               Personal Records 🏆
             </h2>
-            <div className="rounded-xl bg-card px-4 py-3 flex flex-col gap-2">
+            <div className="rounded-xl bg-pr-gold/10 ring-1 ring-pr-gold/30 px-4 py-3 flex flex-col gap-2">
               {summaryPRs.map((pr, i) => {
                 const def = getExercise(pr.exerciseId);
                 const name = def?.name ?? pr.exerciseId;
@@ -270,17 +294,17 @@ function WorkoutPage() {
                       <p className="text-xs text-muted-foreground">
                         {typeLabel} •{" "}
                         {isFirst ? (
-                          <span className="text-primary">First PR ({fmt(pr.value)})</span>
+                          <span className="text-pr-gold">First PR ({fmt(pr.value)})</span>
                         ) : (
                           <span>
                             {fmt(pr.previousBest ?? 0)} →{" "}
-                            <span className="text-primary font-semibold">{fmt(pr.value)}</span>
+                            <span className="text-pr-gold font-semibold">{fmt(pr.value)}</span>
                           </span>
                         )}
                       </p>
                     </div>
                     {!isFirst && (
-                      <span className="shrink-0 text-xs text-primary font-semibold">
+                      <span className="shrink-0 text-xs text-pr-gold font-semibold">
                         +{fmt(pr.delta ?? pr.value)}
                       </span>
                     )}

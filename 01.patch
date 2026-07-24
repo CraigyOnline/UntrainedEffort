@@ -1,0 +1,107 @@
+From e952db71c81273a8b559ef56172a8998eb7bbc23 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@example.com>
+Date: Fri, 24 Jul 2026 05:33:57 +0000
+Subject: [PATCH 1/2] =?UTF-8?q?Workout=20Complete=20screen=20=E2=80=94=20P?=
+ =?UTF-8?q?hase=201:=20PR-gold=20continuity=20+=20hero=20moment?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Personal Records now uses --pr-gold throughout (header, values, delta
+  badges) instead of --primary (green) — the live session already uses
+  pr-gold for every PR signal (HUD glow/pulse/badge, exercise-card ring),
+  so this screen showing the same PRs in the generic 'good' green was a
+  continuity break at the exact moment a user would want confirmation
+  it's the same big deal that just flashed gold a minute ago.
+- Personal Records' card gets a pr-gold tint + ring instead of plain
+  bg-card, folded in from the plan's Phase 3 sketch since it's the same
+  block of JSX already being touched here — splitting it across two
+  commits would mean re-diffing these exact lines twice for no benefit.
+- When the session includes PRs, the title and the stat-summary card get
+  a static pr-gold accent (colored title, gold ring around the summary
+  card) — a quiet, permanent callout rather than the live HUD's temporary
+  glow/pulse, since this screen stays on screen instead of flashing once.
+  No visual change on a no-PR session (confirmed via the uploaded
+  screenshot, which is a no-PR run).
+
+Scope note: WorkoutSummary.tsx itself (the stat/duration/muscle-map card)
+is untouched — only wrapped from the outside in this route file — since
+that component is also rendered by the History detail screen and wasn't
+part of what changed here.
+
+Verified via tsc/eslint against a clean main baseline — no new errors
+introduced; confirmed no incidental reformatting of unrelated code in
+this file leaked into the diff.
+---
+ src/routes/_app.workout.tsx | 29 +++++++++++++++++------------
+ 1 file changed, 17 insertions(+), 12 deletions(-)
+
+diff --git a/src/routes/_app.workout.tsx b/src/routes/_app.workout.tsx
+index 4479f9a..b40b892 100644
+--- a/src/routes/_app.workout.tsx
++++ b/src/routes/_app.workout.tsx
+@@ -210,15 +210,20 @@ function WorkoutPage() {
+ 
+   // ── Workout complete summary ───────────────────────────────────────────────
+   if (summary) {
++    const hasPRs = !!summaryPRs && summaryPRs.length > 0;
+     return (
+       <div className="flex flex-col gap-4 px-4 pt-6 pb-8">
+-        <h1 className="text-2xl font-bold">Workout Complete 🎉</h1>
+-        <WorkoutSummary
+-          name={summary.name}
+-          durationSec={summary.durationSec}
+-          exercises={summary.exercises}
+-          showName
+-        />
++        <h1 className={`text-2xl font-bold ${hasPRs ? "text-pr-gold" : ""}`}>
++          Workout Complete 🎉
++        </h1>
++        <div className={hasPRs ? "rounded-xl ring-2 ring-pr-gold/50" : ""}>
++          <WorkoutSummary
++            name={summary.name}
++            durationSec={summary.durationSec}
++            exercises={summary.exercises}
++            showName
++          />
++        </div>
+ 
+         <div className="flex flex-col gap-2">
+           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+@@ -245,10 +250,10 @@ function WorkoutPage() {
+ 
+         {summaryPRs && summaryPRs.length > 0 && (
+           <div className="flex flex-col gap-2">
+-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
++            <h2 className="text-sm font-semibold text-pr-gold uppercase tracking-wide">
+               Personal Records 🏆
+             </h2>
+-            <div className="rounded-xl bg-card px-4 py-3 flex flex-col gap-2">
++            <div className="rounded-xl bg-pr-gold/10 ring-1 ring-pr-gold/30 px-4 py-3 flex flex-col gap-2">
+               {summaryPRs.map((pr, i) => {
+                 const def = getExercise(pr.exerciseId);
+                 const name = def?.name ?? pr.exerciseId;
+@@ -270,17 +275,17 @@ function WorkoutPage() {
+                       <p className="text-xs text-muted-foreground">
+                         {typeLabel} •{" "}
+                         {isFirst ? (
+-                          <span className="text-primary">First PR ({fmt(pr.value)})</span>
++                          <span className="text-pr-gold">First PR ({fmt(pr.value)})</span>
+                         ) : (
+                           <span>
+                             {fmt(pr.previousBest ?? 0)} →{" "}
+-                            <span className="text-primary font-semibold">{fmt(pr.value)}</span>
++                            <span className="text-pr-gold font-semibold">{fmt(pr.value)}</span>
+                           </span>
+                         )}
+                       </p>
+                     </div>
+                     {!isFirst && (
+-                      <span className="shrink-0 text-xs text-primary font-semibold">
++                      <span className="shrink-0 text-xs text-pr-gold font-semibold">
+                         +{fmt(pr.delta ?? pr.value)}
+                       </span>
+                     )}
+-- 
+2.43.0
+

@@ -31,6 +31,19 @@ import type { ActiveWorkoutDraft as ActiveSession } from "@/lib/db";
 export const PR_CELEBRATION_VISIBLE_MS = 2400;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// FINISH_ANTICIPATION_MS
+//
+// Minimum time the Finish button stays in its "confirming" state before the
+// screen swaps to Workout Complete — enforced as a floor via Promise.all
+// against the real save (see WorkoutHUD's handleFinishClick), not a fixed
+// delay before saving starts. A near-instant IndexedDB write shouldn't
+// produce a confirm-state flash too brief to register; this guarantees a
+// deliberate, consistent beat regardless of how fast the save itself is.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const FINISH_ANTICIPATION_MS = 350;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // sessionHasData
 //
 // Whether a session has anything worth keeping — i.e. at least one set
