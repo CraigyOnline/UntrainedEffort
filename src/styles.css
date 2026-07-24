@@ -101,3 +101,56 @@
 /* Hide scrollbar but allow scroll */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Workout Complete — weighted entrance keyframes
+ *
+ * Replaces the plain opacity/translate `transition` used elsewhere in the
+ * app (e.g. WorkoutHUD's PR celebration) with actual `@keyframes` for this
+ * one screen. A `transition` interpolates linearly from A to B — it can't
+ * express "drops from above, overshoots the resting position, settles back"
+ * in one property change, which is what gives an element a sense of mass
+ * landing rather than a UI element easing into place. Percentage-based
+ * keyframes bake the overshoot/settle curve directly into the animation, so
+ * `animation-timing-function` stays `linear` (the curve already lives in
+ * the keyframe steps) and only `animation-delay` needs to vary per element
+ * for sequencing — same staggering technique as the transition-delay
+ * approach before it, just driving a keyframe instead of a transition.
+ *
+ * Two tiers for now (hero, stat) — a third, heavier tier for the Personal
+ * Record moment (bigger drop distance, box-shadow light flash, synced with
+ * haptics.prAchieved()) is Phase 2, not implemented yet.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+@keyframes drop-settle-hero {
+  0% {
+    transform: translateY(-24px) scale(0.96);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(3px) scale(1.01);
+    opacity: 1;
+  }
+  80% {
+    transform: translateY(-1px) scale(0.997);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes drop-settle-stat {
+  0% {
+    transform: translateY(-14px) scale(0.97);
+    opacity: 0;
+  }
+  65% {
+    transform: translateY(2px) scale(1.005);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}

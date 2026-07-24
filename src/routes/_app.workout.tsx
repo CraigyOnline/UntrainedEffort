@@ -226,20 +226,26 @@ function WorkoutPage() {
   // ── Workout complete summary ───────────────────────────────────────────────
   if (summary) {
     const hasPRs = !!summaryPRs && summaryPRs.length > 0;
-    // Shared stagger helper — every section reveals off the same
-    // completeVisible clock from Phase 1, just offset by delayMs, so the
-    // whole sequence (hero -> stats -> PRs -> log -> Done) stays perfectly
-    // in sync without introducing per-section animation state.
+    // Everything below stays on the single completeVisible clock from
+    // Phase 1 — hero and stats now drive their entrance via the
+    // drop-settle-* keyframes (see styles.css), PR/log/Done still use the
+    // transition-based reveal from Phase 2 (redesigning the PR moment
+    // itself is Phase 2 of this new plan). Delays re-timed so PR/log/Done
+    // fire after the new, slower hero+stat sequence actually settles
+    // (~840ms) instead of the old ~260-360ms, which would now land while
+    // the stats are still dropping in.
     const revealStyle = (delayMs: number) => ({ transitionDelay: `${delayMs}ms` });
     return (
-      <div
-        className={`flex flex-col gap-4 px-4 pt-6 pb-8 transition-all duration-300 ease-out ${
-          completeVisible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
-        }`}
-      >
-        <h1 className={`text-2xl font-bold ${hasPRs ? "text-pr-gold" : ""}`}>
-          Workout Complete 🎉
-        </h1>
+      <div className="flex flex-col gap-4 px-4 pt-6 pb-8">
+        <div
+          className={
+            completeVisible ? "animate-[drop-settle-hero_480ms_linear_forwards]" : "opacity-0"
+          }
+        >
+          <h1 className={`text-2xl font-bold ${hasPRs ? "text-pr-gold" : ""}`}>
+            Workout Complete 🎉
+          </h1>
+        </div>
         <div className={hasPRs ? "rounded-xl ring-2 ring-pr-gold/50" : ""}>
           <WorkoutSummary
             name={summary.name}
@@ -257,7 +263,7 @@ function WorkoutPage() {
                 ? "translate-y-0 scale-100 opacity-100"
                 : "translate-y-1 scale-[0.97] opacity-0"
             }`}
-            style={revealStyle(260)}
+            style={revealStyle(900)}
           >
             <h2 className="text-sm font-semibold text-pr-gold uppercase tracking-wide">
               Personal Records 🏆
@@ -309,7 +315,7 @@ function WorkoutPage() {
           className={`flex flex-col gap-2 transition-opacity duration-300 ease-out ${
             completeVisible ? "opacity-100" : "opacity-0"
           }`}
-          style={revealStyle(hasPRs ? 320 : 260)}
+          style={revealStyle(hasPRs ? 1020 : 900)}
         >
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
             What you did
@@ -341,7 +347,7 @@ function WorkoutPage() {
           className={`transition-opacity duration-300 ease-out ${
             completeVisible ? "opacity-100" : "opacity-0"
           }`}
-          style={revealStyle(hasPRs ? 360 : 300)}
+          style={revealStyle(hasPRs ? 1080 : 960)}
         >
           Done
         </Button>
