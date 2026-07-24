@@ -422,7 +422,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
               const prev = previousByExercise.get(ex.exerciseId);
               if (!prev || prev.length === 0) return null;
               return (
-                <div className="mt-2 rounded-lg bg-secondary/50 px-2 py-1.5">
+                <div className="mt-2 rounded-lg bg-muted px-2 py-1.5">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Previous Workout
                   </p>
@@ -551,9 +551,9 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
 
                 <button
                   onClick={() => addSet(ei)}
-                  className="mt-1 w-full rounded-lg bg-primary/10 py-2 text-sm font-medium text-primary active:bg-primary/15"
+                  className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary/10 py-2 text-sm font-medium text-primary active:bg-primary/15"
                 >
-                  + Add set
+                  <Plus className="h-4 w-4" /> Add set
                 </button>
               </div>
             )}
@@ -638,9 +638,9 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
 
                 <button
                   onClick={() => addSet(ei)}
-                  className="mt-3 w-full rounded-lg bg-primary/10 py-2 text-sm font-medium text-primary active:bg-primary/15"
+                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary/10 py-2 text-sm font-medium text-primary active:bg-primary/15"
                 >
-                  + Add set
+                  <Plus className="h-4 w-4" /> Add set
                 </button>
               </>
             )}

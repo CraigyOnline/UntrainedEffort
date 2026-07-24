@@ -89,16 +89,36 @@ export function UnilateralSetInputs({
     { key: "secondary", label: sideLabel(1), value: secondary },
   ];
 
+  // One column-header row instead of one per side: the standard
+  // (non-unilateral) set row already shows a single "Kg / Reps" header
+  // per set, so a unilateral set repeating it twice (once per side) was
+  // pure duplication, not a different information need. Skipped for the
+  // live-timer case since there's no static column there — the running
+  // SetTimer already carries its own label.
+  const showValueHeader = !(schema.duration && mode.kind === "live");
+  const valueHeaderLabel = schema.duration ? "Sec" : null;
+
   return (
     <div className="flex flex-col gap-2">
+      {showValueHeader && (
+        <div className="grid grid-cols-[3rem_1fr_1fr] gap-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span />
+          {valueHeaderLabel ? (
+            <span className="col-span-2">{valueHeaderLabel}</span>
+          ) : (
+            <>
+              <span>Kg</span>
+              <span>Reps</span>
+            </>
+          )}
+        </div>
+      )}
       {rows.map((row) => (
-        <div key={row.key} className="flex items-center gap-3">
-          <span className="w-12 shrink-0 text-xs font-semibold text-muted-foreground">
-            {row.label}
-          </span>
+        <div key={row.key} className="grid grid-cols-[3rem_1fr_1fr] items-center gap-3">
+          <span className="text-xs font-semibold text-muted-foreground">{row.label}</span>
           {schema.duration ? (
             mode.kind === "live" ? (
-              <div className="flex items-center gap-2">
+              <div className="col-span-2 flex items-center gap-2">
                 <SetTimer
                   duration={row.value.duration ?? 0}
                   timerStart={mode.timerStart[row.key]}
@@ -109,10 +129,7 @@ export function UnilateralSetInputs({
                 />
               </div>
             ) : (
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Sec
-                </span>
+              <div className="col-span-2">
                 <MmSsInput
                   seconds={row.value.duration ?? 0}
                   onCommit={(v) => onChange(editSide(primary, secondary, row.key, "duration", v))}
@@ -121,31 +138,21 @@ export function UnilateralSetInputs({
             )
           ) : (
             <>
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Kg
-                </span>
-                <StepperInput
-                  value={row.value.weight}
-                  onCommit={(v) => onChange(editSide(primary, secondary, row.key, "weight", v))}
-                  step={2.5}
-                  decimal
-                  min={0}
-                  size={size}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Reps
-                </span>
-                <StepperInput
-                  value={row.value.reps}
-                  onCommit={(v) => onChange(editSide(primary, secondary, row.key, "reps", v))}
-                  step={1}
-                  min={0}
-                  size={size}
-                />
-              </div>
+              <StepperInput
+                value={row.value.weight}
+                onCommit={(v) => onChange(editSide(primary, secondary, row.key, "weight", v))}
+                step={2.5}
+                decimal
+                min={0}
+                size={size}
+              />
+              <StepperInput
+                value={row.value.reps}
+                onCommit={(v) => onChange(editSide(primary, secondary, row.key, "reps", v))}
+                step={1}
+                min={0}
+                size={size}
+              />
             </>
           )}
         </div>

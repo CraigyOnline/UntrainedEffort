@@ -153,9 +153,15 @@ export function IntervalTimer({ config, state, onChange, onComplete }: IntervalT
           Interval
         </p>
         <div className="mt-1 flex gap-4 tabular-nums">
-          <span>Rounds: <b>{config.rounds}</b></span>
-          <span>Work: <b>{fmt(config.workSeconds)}</b></span>
-          <span>Rest: <b>{fmt(config.restSeconds)}</b></span>
+          <span>
+            Rounds: <b>{config.rounds}</b>
+          </span>
+          <span>
+            Work: <b>{fmt(config.workSeconds)}</b>
+          </span>
+          <span>
+            Rest: <b>{fmt(config.restSeconds)}</b>
+          </span>
         </div>
       </div>
 
@@ -166,29 +172,25 @@ export function IntervalTimer({ config, state, onChange, onComplete }: IntervalT
             : !started
               ? "bg-secondary"
               : phase === "work"
-                ? "bg-destructive/15"
+                ? "bg-intensity/15"
                 : "bg-primary/15"
         }`}
       >
-        {/* Work phase reuses the destructive token (red, reads as exertion);
-            rest phase reuses primary (green, reads as recovery). Neither is a
-            literal destructive/primary action here — they're the closest
-            existing tokens to the intended meaning, since this app's theme
-            has no separate "info" or "alert" colour and one wasn't wanted. */}
+        {/* Work phase uses the dedicated --intensity token (amber, reads as
+            exertion); rest phase reuses primary (green, reads as recovery).
+            Work previously reused --destructive (red) here, but that token
+            already means delete/cancel/error everywhere else in the app —
+            an intense-but-fine phase of a workout shouldn't borrow the
+            colour a user has learned to associate with something going
+            wrong. See --intensity's definition in styles.css. */}
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Interval Timer
             </p>
             <p className="text-sm font-semibold">
-              {done
-                ? "Complete"
-                : !started
-                  ? "Ready"
-                  : phase === "work"
-                    ? "WORK"
-                    : "REST"}{" "}
-              · Round {Math.min(round, config.rounds)}/{config.rounds}
+              {done ? "Complete" : !started ? "Ready" : phase === "work" ? "WORK" : "REST"} · Round{" "}
+              {Math.min(round, config.rounds)}/{config.rounds}
             </p>
           </div>
           <div className="flex items-center gap-2">

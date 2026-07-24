@@ -37,6 +37,7 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   --color-pr-gold: var(--pr-gold);
+  --color-intensity: var(--intensity);
   --font-display: "Inter", system-ui, -apple-system, sans-serif;
 }
 
@@ -74,6 +75,11 @@
    *  be a similar hue but is scoped to chart palettes and free to change
    *  independently of this feature's branding. */
   --pr-gold: oklch(0.8 0.15 85);
+  /** Interval timer's WORK phase — previously reused --destructive (red),
+   *  which already means delete/cancel/error everywhere else in the app.
+   *  A dedicated amber token (same pattern as --pr-gold above) reads as
+   *  "active exertion" without colliding with that learned meaning. */
+  --intensity: oklch(0.75 0.17 55);
 }
 
 @layer base {
