@@ -1,6 +1,7 @@
 import { getDb, type Workout, type WorkoutExerciseLog, type LiveWorkoutSet } from "@/lib/db";
 import { recordNewWorkoutPRs } from "@/lib/workoutIntegrity";
 import { haptics } from "@/lib/haptics";
+import { selectCompletionMessage, type CompletionMessage } from "@/lib/completionMessages";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Domain types
@@ -98,6 +99,7 @@ export async function doSaveWorkout(
   setActive: (v: null) => void,
   setSummary: (w: Workout) => void,
   setSaveErrorDialogOpen: (v: boolean) => void,
+  setCompletionMessage: (m: CompletionMessage) => void,
 ): Promise<void> {
   const startedSavingAt = Date.now();
   const endedAt = startedSavingAt;
@@ -119,6 +121,9 @@ export async function doSaveWorkout(
       workoutId = (await db.workouts.add(workout)) as number;
       await recordNewWorkoutPRs({ ...workout, id: workoutId });
     });
+    const savedWorkout = { ...workout, id: workoutId };
+    const hasPR = (await db.prHistory.where("workoutId").equals(workoutId).count()) > 0;
+    const completionMessage = await selectCompletionMessage(savedWorkout, hasPR);
     // This is what actually triggers the screen swap (via setActive/
     // setSummary below) — a WorkoutHUD-local timer has no influence over
     // when THIS fires, so the Finish button's anticipation floor has to be
@@ -132,7 +137,8 @@ export async function doSaveWorkout(
       await new Promise((resolve) => setTimeout(resolve, FINISH_ANTICIPATION_MS - elapsed));
     }
     setActive(null);
-    setSummary({ ...workout, id: workoutId });
+    setCompletionMessage(completionMessage);
+    setSummary(savedWorkout);
     haptics.workoutFinish();
   } catch (err) {
     console.error("Failed to save workout", err);

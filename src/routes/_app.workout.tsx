@@ -21,6 +21,7 @@ import {
 import { ArrowDown, ArrowUp, Dumbbell, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useDismissOnBack } from "@/lib/backHandler";
 import { doSaveWorkout, makeSet, sessionHasData } from "@/features/workout/workoutHelpers";
+import type { CompletionMessage } from "@/lib/completionMessages";
 import { useActiveWorkoutDraft } from "@/features/workout/useActiveWorkoutDraft";
 import { LiveSession } from "@/features/workout/LiveSession";
 import { RoutineEditor } from "@/features/workout/RoutineEditor";
@@ -92,6 +93,7 @@ function WorkoutPage() {
   const [active, setActive] = useActiveWorkoutDraft();
   const [picking, setPicking] = useState(false);
   const [summary, setSummary] = useState<Workout | null>(null);
+  const [completionMessage, setCompletionMessage] = useState<CompletionMessage | null>(null);
   // Workout Complete entrance transition — starts hidden and flips to visible
   // one frame after `summary` is set, so the fade+rise below has an actual
   // "from" state to animate from (mounting already-opacity-100 would just be
@@ -182,7 +184,14 @@ function WorkoutPage() {
         setDiscardDialogOpen(true);
         return;
       }
-      await doSaveWorkout(exercises, active, setActive, setSummary, setSaveErrorDialogOpen);
+      await doSaveWorkout(
+        exercises,
+        active,
+        setActive,
+        setSummary,
+        setSaveErrorDialogOpen,
+        setCompletionMessage,
+      );
       return;
     }
 
@@ -245,6 +254,9 @@ function WorkoutPage() {
           <h1 className={`text-2xl font-bold ${hasPRs ? "text-pr-gold" : ""}`}>
             Workout Complete 🎉
           </h1>
+          {completionMessage && (
+            <p className="mt-1 text-base text-muted-foreground">{completionMessage.headline}</p>
+          )}
         </div>
         <div className={hasPRs ? "rounded-xl ring-2 ring-pr-gold/50" : ""}>
           <WorkoutSummary
