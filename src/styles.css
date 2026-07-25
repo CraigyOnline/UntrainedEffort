@@ -122,6 +122,12 @@
  * haptics.prAchieved()) is Phase 2, not implemented yet.
  * ─────────────────────────────────────────────────────────────────────────── */
 
+/* Currently unused by the Workout Complete screen itself — the
+ * acknowledgment's entrance there is now a plain, non-bouncing transition
+ * (deliberately calmer; see _app.workout.tsx), not this keyframe. Kept
+ * because this landing/overshoot character is likely the right fit for
+ * the Personal Record "impact" moment from the earlier PR-as-highlight
+ * plan, which hasn't been rebuilt into this new structure yet. */
 @keyframes drop-settle-hero {
   0% {
     transform: translateY(-24px) scale(0.96);
@@ -151,6 +157,21 @@
   }
   100% {
     transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Stage 2 (Workout Complete's detailed breakdown — muscle map, PRs, log,
+ * Done): deliberately calmer than drop-settle-hero/stat above. This
+ * content is reference material supporting the achievement, not
+ * competing with it, so it just settles in rather than landing. */
+@keyframes fade-in-soft {
+  0% {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
     opacity: 1;
   }
 }

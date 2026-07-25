@@ -7,7 +7,8 @@ import { getExercise, formatCompletedSet, seedUnilateralSide } from "@/lib/exerc
 import { ExercisePicker } from "@/components/forms/ExercisePicker";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
-import { WorkoutSummary } from "@/components/WorkoutSummary";
+import { WorkoutStatsRow } from "@/components/WorkoutSummary";
+import { computeIntensity } from "@/lib/muscles";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -94,20 +95,39 @@ function WorkoutPage() {
   const [picking, setPicking] = useState(false);
   const [summary, setSummary] = useState<Workout | null>(null);
   const [completionMessage, setCompletionMessage] = useState<CompletionMessage | null>(null);
-  // Workout Complete entrance transition — starts hidden and flips to visible
-  // one frame after `summary` is set, so the fade+rise below has an actual
-  // "from" state to animate from (mounting already-opacity-100 would just be
-  // an instant appearance again, the exact "abrupt" problem this exists to
-  // fix). Same real-state-plus-CSS-transition technique as WorkoutHUD's PR
-  // celebration — no animation library, nothing keyframe-based.
-  const [completeVisible, setCompleteVisible] = useState(false);
+  // Workout Complete staged reveal. This screen's whole point changed from
+  // "reveal information faster/nicer" to "let the achievement be felt
+  // before analysing it" — so it's no longer one clock with per-element
+  // delays. Three real stages:
+  //   0 — the acknowledgment alone. Nothing else exists yet.
+  //   1 — the acknowledgment recedes to a quieter heading; today's numbers
+  //       arrive.
+  //   2 — the detailed breakdown (muscle map, PRs if any, the log, Done).
+  // messageVisible is just the acknowledgment's own entrance fade — kept
+  // separate from `stage` because it needs to flip true almost immediately
+  // (one frame after mount, same technique as before) while `stage`
+  // advances on genuine pauses measured in seconds, not frames.
+  const [messageVisible, setMessageVisible] = useState(false);
+  const [stage, setStage] = useState<0 | 1 | 2>(0);
   useEffect(() => {
     if (!summary) {
-      setCompleteVisible(false);
+      setMessageVisible(false);
+      setStage(0);
       return;
     }
-    const raf = requestAnimationFrame(() => setCompleteVisible(true));
-    return () => cancelAnimationFrame(raf);
+    const raf = requestAnimationFrame(() => setMessageVisible(true));
+    // These durations are the actual design decision here, not the motion
+    // curves — the brief this responds to explicitly asked for stillness
+    // before analysis, not another speed target. ~1.7s of just sitting
+    // with the acknowledgment, then a further ~1s with just the numbers,
+    // before the reference material (map/log) arrives.
+    const toStage1 = setTimeout(() => setStage(1), 1700);
+    const toStage2 = setTimeout(() => setStage(2), 2700);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(toStage1);
+      clearTimeout(toStage2);
+    };
   }, [summary]);
   const [editingRoutine, setEditingRoutine] = useState<Routine | "new" | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Routine | null>(null);
@@ -235,47 +255,62 @@ function WorkoutPage() {
   // ── Workout complete summary ───────────────────────────────────────────────
   if (summary) {
     const hasPRs = !!summaryPRs && summaryPRs.length > 0;
-    // Everything below stays on the single completeVisible clock from
-    // Phase 1 — hero and stats now drive their entrance via the
-    // drop-settle-* keyframes (see styles.css), PR/log/Done still use the
-    // transition-based reveal from Phase 2 (redesigning the PR moment
-    // itself is Phase 2 of this new plan). Delays re-timed so PR/log/Done
-    // fire after the new, slower hero+stat sequence actually settles
-    // (~840ms) instead of the old ~260-360ms, which would now land while
-    // the stats are still dropping in.
-    const revealStyle = (delayMs: number) => ({ transitionDelay: `${delayMs}ms` });
+    const intensity = computeIntensity(summary.exercises);
     return (
-      <div className="flex flex-col gap-4 px-4 pt-6 pb-8">
+      <div className="flex flex-col gap-4 px-4 pb-8">
+        {/* Stage 0: the acknowledgment, alone. Stage 1+: recedes to a
+            quieter heading that still frames what follows — it doesn't
+            vanish, since the numbers below are still about the thing it
+            just said. The recede is a plain, non-bouncing transition
+            (font-size + container height), deliberately calmer than the
+            drop-settle-* keyframes used elsewhere — this specific moment
+            is meant to feel composed, not impactful. */}
         <div
-          className={
-            completeVisible ? "animate-[drop-settle-hero_480ms_linear_forwards]" : "opacity-0"
-          }
+          className={`flex flex-col items-center justify-center text-center transition-all duration-500 ease-in-out ${
+            stage === 0 ? "min-h-[42vh] pt-6" : "min-h-0 pt-8 pb-1"
+          }`}
         >
-          <h1 className={`text-2xl font-bold ${hasPRs ? "text-pr-gold" : ""}`}>
-            Workout Complete 🎉
-          </h1>
           {completionMessage && (
-            <p className="mt-1 text-base text-muted-foreground">{completionMessage.headline}</p>
+            <p
+              className={`transition-all duration-500 ease-in-out ${
+                messageVisible ? "scale-100 opacity-100" : "scale-[0.97] opacity-0"
+              } ${
+                stage === 0
+                  ? `text-3xl font-bold ${hasPRs ? "text-pr-gold" : ""}`
+                  : `text-lg font-semibold ${hasPRs ? "text-pr-gold" : "text-muted-foreground"}`
+              }`}
+            >
+              {completionMessage.headline}
+            </p>
           )}
         </div>
-        <div className={hasPRs ? "rounded-xl ring-2 ring-pr-gold/50" : ""}>
-          <WorkoutSummary
-            name={summary.name}
-            durationSec={summary.durationSec}
-            exercises={summary.exercises}
-            showName
-            revealed={completeVisible}
-          />
-        </div>
 
-        {summaryPRs && summaryPRs.length > 0 && (
+        {/* Stage 1: today's numbers. */}
+        {stage >= 1 && (
+          <div className={`rounded-xl bg-card p-3 ${hasPRs ? "ring-2 ring-pr-gold/50" : ""}`}>
+            <WorkoutStatsRow
+              durationSec={summary.durationSec}
+              exercises={summary.exercises}
+              revealed={stage >= 1}
+            />
+          </div>
+        )}
+
+        {/* Stage 2: the detailed breakdown — reference material, supporting
+            the achievement above rather than competing with it. Mounts
+            fresh at this stage (rather than being present-but-hidden the
+            whole time), so the fade-in-soft keyframe plays automatically
+            on mount without needing its own revealed/visible state. */}
+        {stage >= 2 && (
+          <div className="animate-[fade-in-soft_320ms_ease-out_forwards]">
+            <ExpandableMuscleMap intensity={intensity} />
+          </div>
+        )}
+
+        {stage >= 2 && summaryPRs && summaryPRs.length > 0 && (
           <div
-            className={`flex flex-col gap-2 transition-all duration-300 ease-out ${
-              completeVisible
-                ? "translate-y-0 scale-100 opacity-100"
-                : "translate-y-1 scale-[0.97] opacity-0"
-            }`}
-            style={revealStyle(900)}
+            className="flex flex-col gap-2 animate-[fade-in-soft_320ms_ease-out_forwards]"
+            style={{ animationDelay: "100ms" }}
           >
             <h2 className="text-sm font-semibold text-pr-gold uppercase tracking-wide">
               Personal Records 🏆
@@ -323,46 +358,46 @@ function WorkoutPage() {
           </div>
         )}
 
-        <div
-          className={`flex flex-col gap-2 transition-opacity duration-300 ease-out ${
-            completeVisible ? "opacity-100" : "opacity-0"
-          }`}
-          style={revealStyle(hasPRs ? 1020 : 900)}
-        >
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            What you did
-          </h2>
-          {summary.exercises.map((ex, ei) => {
-            const def = getExercise(ex.exerciseId);
-            const completedSets = ex.sets.filter((s) => s.completed);
-            if (completedSets.length === 0) return null;
-            return (
-              <div key={ei} className="rounded-xl bg-muted px-4 py-3">
-                <p className="font-semibold text-sm">{def?.name ?? ex.exerciseId}</p>
-                <ul className="mt-1 flex flex-col gap-0.5">
-                  {completedSets.map((s, si) => (
-                    <li key={si} className="text-xs text-muted-foreground tabular-nums">
-                      Set {si + 1}: {formatCompletedSet(def, s)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </div>
+        {stage >= 2 && (
+          <div
+            className="flex flex-col gap-2 animate-[fade-in-soft_320ms_ease-out_forwards]"
+            style={{ animationDelay: hasPRs ? "200ms" : "100ms" }}
+          >
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              What you did
+            </h2>
+            {summary.exercises.map((ex, ei) => {
+              const def = getExercise(ex.exerciseId);
+              const completedSets = ex.sets.filter((s) => s.completed);
+              if (completedSets.length === 0) return null;
+              return (
+                <div key={ei} className="rounded-xl bg-muted px-4 py-3">
+                  <p className="font-semibold text-sm">{def?.name ?? ex.exerciseId}</p>
+                  <ul className="mt-1 flex flex-col gap-0.5">
+                    {completedSets.map((s, si) => (
+                      <li key={si} className="text-xs text-muted-foreground tabular-nums">
+                        Set {si + 1}: {formatCompletedSet(def, s)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-        <Button
-          onClick={() => {
-            setSummary(null);
-            navigate({ to: "/history" });
-          }}
-          className={`transition-opacity duration-300 ease-out ${
-            completeVisible ? "opacity-100" : "opacity-0"
-          }`}
-          style={revealStyle(hasPRs ? 1080 : 960)}
-        >
-          Done
-        </Button>
+        {stage >= 2 && (
+          <Button
+            onClick={() => {
+              setSummary(null);
+              navigate({ to: "/history" });
+            }}
+            className="animate-[fade-in-soft_320ms_ease-out_forwards]"
+            style={{ animationDelay: hasPRs ? "280ms" : "180ms" }}
+          >
+            Done
+          </Button>
+        )}
       </div>
     );
   }

@@ -4,11 +4,9 @@ import { computeIntensity } from "@/lib/muscles";
 import { computeWorkoutStats } from "@/lib/workoutStats";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
 
-interface Props {
-  name?: string;
+interface StatsRowProps {
   durationSec: number;
   exercises: Workout["exercises"];
-  showName?: boolean;
   /** Externally controlled reveal flag for the stat values' staggered
    *  entrance — driven by the Workout Complete screen's own completion
    *  timing so the whole sequence stays on one clock rather than this
@@ -23,10 +21,16 @@ interface Props {
   revealed?: boolean;
 }
 
-export function WorkoutSummary({ name, durationSec, exercises, showName, revealed }: Props) {
-  const intensity = computeIntensity(exercises);
+/**
+ * The three headline numbers (Duration/Sets/Volume) on their own, without
+ * the name heading or muscle map — split out of WorkoutSummary so the
+ * Workout Complete screen's staged reveal can show these in one beat and
+ * the muscle map in a separate, later beat (reference material arriving
+ * after the achievement, not bundled with it). History's WorkoutSummary
+ * usage below is unaffected — it still composes this internally.
+ */
+export function WorkoutStatsRow({ durationSec, exercises, revealed }: StatsRowProps) {
   const { totalSets, totalVolume } = computeWorkoutStats(exercises);
-
   const animated = revealed !== undefined;
 
   const statClass = (delayMs: number) => {
@@ -38,22 +42,38 @@ export function WorkoutSummary({ name, durationSec, exercises, showName, reveale
   };
 
   return (
+    <div className="grid grid-cols-3 gap-2 text-center">
+      <div {...statClass(0)}>
+        <p className="text-xs text-muted-foreground">Duration</p>
+        <p className="font-bold">{formatDuration(durationSec)}</p>
+      </div>
+      <div {...statClass(70)}>
+        <p className="text-xs text-muted-foreground">Sets</p>
+        <p className="font-bold">{totalSets}</p>
+      </div>
+      <div {...statClass(140)}>
+        <p className="text-xs text-muted-foreground">Volume</p>
+        <p className="font-bold">{Math.round(totalVolume)} kg</p>
+      </div>
+    </div>
+  );
+}
+
+interface Props {
+  name?: string;
+  durationSec: number;
+  exercises: Workout["exercises"];
+  showName?: boolean;
+  revealed?: boolean;
+}
+
+export function WorkoutSummary({ name, durationSec, exercises, showName, revealed }: Props) {
+  const intensity = computeIntensity(exercises);
+
+  return (
     <div className="flex flex-col gap-3 rounded-xl bg-card p-3">
       {showName && name && <h2 className="text-lg font-bold">{name}</h2>}
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div {...statClass(320)}>
-          <p className="text-xs text-muted-foreground">Duration</p>
-          <p className="font-bold">{formatDuration(durationSec)}</p>
-        </div>
-        <div {...statClass(390)}>
-          <p className="text-xs text-muted-foreground">Sets</p>
-          <p className="font-bold">{totalSets}</p>
-        </div>
-        <div {...statClass(460)}>
-          <p className="text-xs text-muted-foreground">Volume</p>
-          <p className="font-bold">{Math.round(totalVolume)} kg</p>
-        </div>
-      </div>
+      <WorkoutStatsRow durationSec={durationSec} exercises={exercises} revealed={revealed} />
       <ExpandableMuscleMap intensity={intensity} />
     </div>
   );
