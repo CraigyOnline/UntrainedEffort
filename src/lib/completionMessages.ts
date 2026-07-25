@@ -26,6 +26,10 @@ import { computeWorkoutStats } from "@/lib/workoutStats";
  * overrides tenure — someone returning after a break gets the warm
  * welcome-back message, not a line that glosses over the gap they just
  * came back from.
+ *
+ * Every contextual message pairs its factual observation with an actual
+ * word or two of recognition — "3 weeks of consistency" on its own is a
+ * statistic, not encouragement. Keep that pairing when adding messages.
  */
 
 export type CompletionMessageKind =
@@ -149,14 +153,17 @@ export async function selectCompletionMessage(
     cursor -= 1;
   }
   if (streak >= 3) {
-    return { headline: `${streak} weeks of consistency.`, kind: "streak" };
+    return { headline: `${streak} weeks of consistency — well earned.`, kind: "streak" };
   }
 
   // ── Workouts in the trailing 7 days, including this one ────────────────
   const workoutsThisWeek =
     history.filter((w) => justFinished.startedAt - w.startedAt < WEEK_MS).length + 1;
   if (workoutsThisWeek >= 3) {
-    return { headline: "You're building momentum.", kind: "weekly-frequency" };
+    return {
+      headline: "You're building real momentum this week.",
+      kind: "weekly-frequency",
+    };
   }
 
   // ── Welcome back ────────────────────────────────────────────────────────
@@ -175,7 +182,7 @@ export async function selectCompletionMessage(
     thisMonth.length > 0 &&
     justFinished.durationSec > Math.max(...thisMonth.map((w) => w.durationSec))
   ) {
-    return { headline: "Your biggest session this month.", kind: "longest-session" };
+    return { headline: "Your biggest session this month — strong work.", kind: "longest-session" };
   }
 
   // ── More volume than the last comparable session ────────────────────────
@@ -190,7 +197,7 @@ export async function selectCompletionMessage(
     const thisVolume = computeWorkoutStats(justFinished.exercises).totalVolume;
     const lastVolume = computeWorkoutStats(lastComparable.exercises).totalVolume;
     if (lastVolume > 0 && thisVolume > lastVolume) {
-      return { headline: "More work than last time.", kind: "more-volume" };
+      return { headline: "More work than last time — nice progress.", kind: "more-volume" };
     }
   }
 

@@ -117,17 +117,20 @@
  * for sequencing — same staggering technique as the transition-delay
  * approach before it, just driving a keyframe instead of a transition.
  *
- * Two tiers for now (hero, stat) — a third, heavier tier for the Personal
- * Record moment (bigger drop distance, box-shadow light flash, synced with
- * haptics.prAchieved()) is Phase 2, not implemented yet.
+ * Three tiers: hero/stat (defined here) for the general entrance
+ * language, and pr-impact (below, its own comment) for the Personal
+ * Record moment specifically — bigger drop distance, a box-shadow light
+ * flash, synced with haptics.prAchieved().
  * ─────────────────────────────────────────────────────────────────────────── */
 
 /* Currently unused by the Workout Complete screen itself — the
  * acknowledgment's entrance there is now a plain, non-bouncing transition
- * (deliberately calmer; see _app.workout.tsx), not this keyframe. Kept
- * because this landing/overshoot character is likely the right fit for
- * the Personal Record "impact" moment from the earlier PR-as-highlight
- * plan, which hasn't been rebuilt into this new structure yet. */
+ * (deliberately calmer; see _app.workout.tsx), not this keyframe. Its
+ * landing/overshoot concept fed directly into pr-impact below, which is
+ * the PR moment's actual keyframe (drop-settle-hero itself has no glow
+ * component, so it wasn't reused as-is). Left here in case a future
+ * moment wants this exact character without the glow.
+ */
 @keyframes drop-settle-hero {
   0% {
     transform: translateY(-24px) scale(0.96);
@@ -143,6 +146,30 @@
   100% {
     transform: translateY(0) scale(1);
     opacity: 1;
+  }
+}
+
+/* The Personal Record moment — bigger drop distance than drop-settle-hero
+ * (more perceived mass) plus a box-shadow light flash that spikes then
+ * decays to a quiet resting glow. This is the one moment on the whole
+ * screen meant to feel like impact rather than composure; everywhere
+ * else (the acknowledgment, the stats, stage 2's supporting content)
+ * deliberately stays calmer so this doesn't have to compete for it. */
+@keyframes pr-impact {
+  0% {
+    transform: translateY(-32px) scale(0.92);
+    opacity: 0;
+    box-shadow: 0 0 0 0 oklch(0.8 0.15 85 / 0);
+  }
+  55% {
+    transform: translateY(4px) scale(1.02);
+    opacity: 1;
+    box-shadow: 0 0 36px 6px oklch(0.8 0.15 85 / 0.35);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    box-shadow: 0 0 12px 1px oklch(0.8 0.15 85 / 0.15);
   }
 }
 

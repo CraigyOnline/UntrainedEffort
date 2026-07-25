@@ -98,21 +98,28 @@ function WorkoutPage() {
   // Workout Complete staged reveal. This screen's whole point changed from
   // "reveal information faster/nicer" to "let the achievement be felt
   // before analysing it" — so it's no longer one clock with per-element
-  // delays. Three real stages:
+  // delays. Real stages:
   //   0 — the acknowledgment alone. Nothing else exists yet.
   //   1 — the acknowledgment recedes to a quieter heading; today's numbers
   //       arrive.
-  //   2 — the detailed breakdown (muscle map, PRs if any, the log, Done).
+  //   PR moment (if this session has one) — its own beat between stats and
+  //   the detail breakdown, not bundled into stage 2's supporting content.
+  //   Distinct on purpose: this is the one moment on the screen meant to
+  //   feel like impact, everywhere else stays calm.
+  //   2 — the detailed breakdown (muscle map, the log, Done). Reference
+  //       material, arrives last.
   // messageVisible is just the acknowledgment's own entrance fade — kept
   // separate from `stage` because it needs to flip true almost immediately
   // (one frame after mount, same technique as before) while `stage`
   // advances on genuine pauses measured in seconds, not frames.
   const [messageVisible, setMessageVisible] = useState(false);
   const [stage, setStage] = useState<0 | 1 | 2>(0);
+  const [prRevealed, setPrRevealed] = useState(false);
   useEffect(() => {
     if (!summary) {
       setMessageVisible(false);
       setStage(0);
+      setPrRevealed(false);
       return;
     }
     const raf = requestAnimationFrame(() => setMessageVisible(true));
@@ -120,15 +127,28 @@ function WorkoutPage() {
     // curves — the brief this responds to explicitly asked for stillness
     // before analysis, not another speed target. ~1.7s of just sitting
     // with the acknowledgment, then a further ~1s with just the numbers,
-    // before the reference material (map/log) arrives.
+    // before the PR moment (if any) or the reference material arrives.
     const toStage1 = setTimeout(() => setStage(1), 1700);
-    const toStage2 = setTimeout(() => setStage(2), 2700);
+    // completionMessage.kind is known synchronously from the save itself
+    // (see completionMessages.ts) — deliberately not derived from
+    // summaryPRs, which is a separate useLiveQuery that may not have
+    // resolved yet when this effect runs, and this timing can't wait on
+    // that.
+    const hasPRMoment = completionMessage?.kind === "pr";
+    const toPr = hasPRMoment
+      ? setTimeout(() => {
+          setPrRevealed(true);
+          haptics.prAchieved();
+        }, 2500)
+      : null;
+    const toStage2 = setTimeout(() => setStage(2), hasPRMoment ? 3400 : 2700);
     return () => {
       cancelAnimationFrame(raf);
       clearTimeout(toStage1);
+      if (toPr) clearTimeout(toPr);
       clearTimeout(toStage2);
     };
-  }, [summary]);
+  }, [summary, completionMessage]);
   const [editingRoutine, setEditingRoutine] = useState<Routine | "new" | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Routine | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
@@ -254,7 +274,7 @@ function WorkoutPage() {
 
   // ── Workout complete summary ───────────────────────────────────────────────
   if (summary) {
-    const hasPRs = !!summaryPRs && summaryPRs.length > 0;
+    const hasPRs = completionMessage?.kind === "pr";
     const intensity = computeIntensity(summary.exercises);
     return (
       <div className="flex flex-col gap-4 px-4 pb-8">
@@ -308,22 +328,16 @@ function WorkoutPage() {
           </div>
         )}
 
-        {/* Stage 2: the detailed breakdown — reference material, supporting
-            the achievement above rather than competing with it. Mounts
-            fresh at this stage (rather than being present-but-hidden the
-            whole time), so the fade-in-soft keyframe plays automatically
-            on mount without needing its own revealed/visible state. */}
-        {stage >= 2 && (
-          <div className="animate-[fade-in-soft_320ms_ease-out_forwards]">
-            <ExpandableMuscleMap intensity={intensity} />
-          </div>
-        )}
-
-        {stage >= 2 && summaryPRs && summaryPRs.length > 0 && (
-          <div
-            className="flex flex-col gap-2 animate-[fade-in-soft_320ms_ease-out_forwards]"
-            style={{ animationDelay: "100ms" }}
-          >
+        {/* The Personal Record moment — its own beat, not bundled into
+            stage 2's calm supporting content. pr-impact is the one
+            keyframe on this screen meant to feel like impact (bigger drop
+            distance, a glow flash that spikes then decays); haptics.
+            prAchieved() fires in the timing effect above at the exact
+            frame this mounts. Individual records stagger within the card
+            (120ms apart) for a sequential feel when there's more than
+            one, rather than every record landing at once. */}
+        {prRevealed && summaryPRs && summaryPRs.length > 0 && (
+          <div className="flex flex-col gap-2">
             <h2 className="text-sm font-semibold text-pr-gold uppercase tracking-wide">
               Personal Records 🏆
             </h2>
@@ -343,7 +357,11 @@ function WorkoutPage() {
                       : `${v}`;
                 const isFirst = (pr.previousBest ?? 0) === 0;
                 return (
-                  <div key={i} className="flex items-start justify-between gap-2">
+                  <div
+                    key={i}
+                    className="flex items-start justify-between gap-2 rounded-lg animate-[pr-impact_450ms_ease-out_forwards]"
+                    style={{ animationDelay: `${i * 120}ms` }}
+                  >
                     <div className="min-w-0">
                       <p className="text-sm font-semibold truncate">{name}</p>
                       <p className="text-xs text-muted-foreground">
@@ -370,10 +388,25 @@ function WorkoutPage() {
           </div>
         )}
 
+        {/* Stage 2: the detailed breakdown — reference material, supporting
+            the achievement above rather than competing with it. Mounts
+            fresh at this stage (rather than being present-but-hidden the
+            whole time), so the fade-in-soft keyframe plays automatically
+            on mount without needing its own revealed/visible state. Its
+            own internal stagger (0/100/180ms) no longer needs to branch on
+            hasPRs — the wait for the PR moment is handled by stage 2
+            starting later altogether (see the timing effect above), not
+            by extra per-element delay here. */}
+        {stage >= 2 && (
+          <div className="animate-[fade-in-soft_320ms_ease-out_forwards]">
+            <ExpandableMuscleMap intensity={intensity} />
+          </div>
+        )}
+
         {stage >= 2 && (
           <div
             className="flex flex-col gap-2 animate-[fade-in-soft_320ms_ease-out_forwards]"
-            style={{ animationDelay: hasPRs ? "200ms" : "100ms" }}
+            style={{ animationDelay: "100ms" }}
           >
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
               What you did
@@ -405,7 +438,7 @@ function WorkoutPage() {
               navigate({ to: "/history" });
             }}
             className="animate-[fade-in-soft_320ms_ease-out_forwards]"
-            style={{ animationDelay: hasPRs ? "280ms" : "180ms" }}
+            style={{ animationDelay: "180ms" }}
           >
             Done
           </Button>
