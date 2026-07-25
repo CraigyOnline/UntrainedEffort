@@ -264,7 +264,7 @@ export function WorkoutHUD({ session, setSession, onFinish, celebration }: Worko
         {badgeState !== "hidden" && (
           <div
             aria-hidden
-            className={`pointer-events-none absolute left-1/2 top-full z-40 -translate-x-1/2 whitespace-nowrap rounded-full border border-pr-gold/40 bg-pr-gold/15 px-3 py-1 text-xs font-semibold text-pr-gold shadow-sm transition-all duration-300 ease-out ${
+            className={`pointer-events-none absolute left-1/2 top-full z-40 -translate-x-1/2 whitespace-nowrap rounded-full border border-pr-gold/40 bg-pr-gold/15 px-3 py-1.5 text-xs font-semibold text-pr-gold shadow-sm transition-all duration-300 ease-out ${
               badgeState === "visible"
                 ? "mt-1 translate-y-0 opacity-100"
                 : "mt-0 -translate-y-1 opacity-0"

@@ -30,6 +30,13 @@ import { computeWorkoutStats } from "@/lib/workoutStats";
  * Every contextual message pairs its factual observation with an actual
  * word or two of recognition — "3 weeks of consistency" on its own is a
  * statistic, not encouragement. Keep that pairing when adding messages.
+ *
+ * Every signal — including the contextual ones, not just the universal
+ * fallback — rotates through a small pool of phrasings (deterministic by
+ * workout id, not random). A signal that keeps firing the same way (e.g.
+ * a streak sitting at "3 weeks" across several workouts in the same
+ * week) would otherwise show the exact same sentence every time, which
+ * reads as a canned notification rather than genuine recognition.
  */
 
 export type CompletionMessageKind =
@@ -71,6 +78,46 @@ const WELCOME_BACK_MESSAGES = [
   "Glad you're back.",
 ];
 
+const STREAK_MESSAGES: Array<(weeks: number) => string> = [
+  (n) => `${n} weeks of consistency — well earned.`,
+  (n) => `${n} weeks running. That's real discipline.`,
+  (n) => `${n} weeks in a row — you're building something.`,
+];
+
+const WEEKLY_FREQUENCY_MESSAGES = [
+  "You're building real momentum this week.",
+  "Three sessions this week — that's serious commitment.",
+  "This week's been a strong one for you.",
+];
+
+const LONGEST_SESSION_MESSAGES = [
+  "Your biggest session this month — strong work.",
+  "That's your toughest session this month. Well earned.",
+  "Biggest effort this month, right there.",
+];
+
+const MORE_VOLUME_MESSAGES = [
+  "More work than last time — nice progress.",
+  "You pushed harder than last time.",
+  "That's more than last time. Progress noted.",
+];
+
+const TENURE_YEARS_MESSAGES: Array<(span: string) => string> = [
+  (span) => `${span} of showing up. That adds up.`,
+  (span) => `${span} in. That's real dedication.`,
+  (span) => `${span} of training — that's a real commitment.`,
+];
+
+const TENURE_SIX_MONTHS_MESSAGES = [
+  "Six months of consistency. That adds up.",
+  "Half a year of showing up. That's real commitment.",
+];
+
+const TENURE_THREE_MONTHS_MESSAGES = [
+  "Three months in — a real habit now.",
+  "Three months of consistency. That's sticking with it.",
+];
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
 
@@ -81,6 +128,15 @@ const WEEK_MS = 7 * DAY_MS;
  *  message rather than anything needing calendar precision. */
 function weekIndex(ms: number): number {
   return Math.floor(ms / WEEK_MS);
+}
+
+/** Deterministic (not random) pool index, cycled by workout id — so
+ *  repeated triggers of the same signal (e.g. a multi-week streak that
+ *  stays at "3 weeks" across several workouts in the same week) don't
+ *  always show verbatim identical text, while staying testable/
+ *  reproducible rather than depending on Math.random(). */
+function pickIndex(poolLength: number, id: number | undefined): number {
+  return id ? id % poolLength : 0;
 }
 
 /**
@@ -134,12 +190,15 @@ export async function selectCompletionMessage(
       if (tenureDays >= 365) {
         const years = Math.floor(tenureDays / 365);
         const span = years === 1 ? "A year" : `${years} years`;
-        return { headline: `${span} of showing up. That adds up.`, kind: "tenure" };
+        const idx = pickIndex(TENURE_YEARS_MESSAGES.length, justFinished.id);
+        return { headline: TENURE_YEARS_MESSAGES[idx](span), kind: "tenure" };
       }
       if (tenureDays >= 180) {
-        return { headline: "Six months of consistency. That adds up.", kind: "tenure" };
+        const idx = pickIndex(TENURE_SIX_MONTHS_MESSAGES.length, justFinished.id);
+        return { headline: TENURE_SIX_MONTHS_MESSAGES[idx], kind: "tenure" };
       }
-      return { headline: "Three months in — a real habit now.", kind: "tenure" };
+      const idx = pickIndex(TENURE_THREE_MONTHS_MESSAGES.length, justFinished.id);
+      return { headline: TENURE_THREE_MONTHS_MESSAGES[idx], kind: "tenure" };
     }
   }
 
@@ -153,23 +212,22 @@ export async function selectCompletionMessage(
     cursor -= 1;
   }
   if (streak >= 3) {
-    return { headline: `${streak} weeks of consistency — well earned.`, kind: "streak" };
+    const idx = pickIndex(STREAK_MESSAGES.length, justFinished.id);
+    return { headline: STREAK_MESSAGES[idx](streak), kind: "streak" };
   }
 
   // ── Workouts in the trailing 7 days, including this one ────────────────
   const workoutsThisWeek =
     history.filter((w) => justFinished.startedAt - w.startedAt < WEEK_MS).length + 1;
   if (workoutsThisWeek >= 3) {
-    return {
-      headline: "You're building real momentum this week.",
-      kind: "weekly-frequency",
-    };
+    const idx = pickIndex(WEEKLY_FREQUENCY_MESSAGES.length, justFinished.id);
+    return { headline: WEEKLY_FREQUENCY_MESSAGES[idx], kind: "weekly-frequency" };
   }
 
   // ── Welcome back ────────────────────────────────────────────────────────
   if (previous && gapSincePrevious >= WEEK_MS) {
-    const index = justFinished.id ? justFinished.id % WELCOME_BACK_MESSAGES.length : 0;
-    return { headline: WELCOME_BACK_MESSAGES[index], kind: "welcome-back" };
+    const idx = pickIndex(WELCOME_BACK_MESSAGES.length, justFinished.id);
+    return { headline: WELCOME_BACK_MESSAGES[idx], kind: "welcome-back" };
   }
 
   // ── Longest session this calendar month ─────────────────────────────────
@@ -182,7 +240,8 @@ export async function selectCompletionMessage(
     thisMonth.length > 0 &&
     justFinished.durationSec > Math.max(...thisMonth.map((w) => w.durationSec))
   ) {
-    return { headline: "Your biggest session this month — strong work.", kind: "longest-session" };
+    const idx = pickIndex(LONGEST_SESSION_MESSAGES.length, justFinished.id);
+    return { headline: LONGEST_SESSION_MESSAGES[idx], kind: "longest-session" };
   }
 
   // ── More volume than the last comparable session ────────────────────────
@@ -197,13 +256,12 @@ export async function selectCompletionMessage(
     const thisVolume = computeWorkoutStats(justFinished.exercises).totalVolume;
     const lastVolume = computeWorkoutStats(lastComparable.exercises).totalVolume;
     if (lastVolume > 0 && thisVolume > lastVolume) {
-      return { headline: "More work than last time — nice progress.", kind: "more-volume" };
+      const idx = pickIndex(MORE_VOLUME_MESSAGES.length, justFinished.id);
+      return { headline: MORE_VOLUME_MESSAGES[idx], kind: "more-volume" };
     }
   }
 
   // ── Fallback: universal pool ─────────────────────────────────────────────
-  // Cycled by workout id rather than random, so it's deterministic and
-  // testable, and consecutive sessions don't repeat the same line.
-  const index = justFinished.id ? justFinished.id % UNIVERSAL_MESSAGES.length : 0;
+  const index = pickIndex(UNIVERSAL_MESSAGES.length, justFinished.id);
   return { headline: UNIVERSAL_MESSAGES[index], kind: "universal" };
 }

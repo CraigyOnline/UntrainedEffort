@@ -359,7 +359,7 @@ function WorkoutPage() {
                 return (
                   <div
                     key={i}
-                    className="flex items-start justify-between gap-2 rounded-lg animate-[pr-impact_450ms_ease-out_forwards]"
+                    className="flex items-start justify-between gap-2 rounded-lg px-3 py-2 animate-[pr-impact_450ms_ease-out_forwards]"
                     style={{ animationDelay: `${i * 120}ms` }}
                   >
                     <div className="min-w-0">
