@@ -264,7 +264,17 @@ function WorkoutPage() {
             just said. The recede is a plain, non-bouncing transition
             (font-size + container height), deliberately calmer than the
             drop-settle-* keyframes used elsewhere — this specific moment
-            is meant to feel composed, not impactful. */}
+            is meant to feel composed, not impactful.
+
+            Entrance adds a blur-to-focus touch (blur-md -> blur-none
+            alongside the existing scale/opacity) — a small crafted detail
+            that's affordable specifically because this is the only thing
+            on screen; tracking-tight/leading-snug give the large type a
+            more considered, less default feel. Deliberately kept at
+            text-3xl rather than sized up further: several pool messages
+            run 40-50 characters ("Welcome back — let's pick up where you
+            left off."), and a bigger size would wrap those onto 3-4 lines
+            on a narrow phone — overwhelming rather than confident. */}
         <div
           className={`flex flex-col items-center justify-center text-center transition-all duration-500 ease-in-out ${
             stage === 0 ? "min-h-[42vh] pt-6" : "min-h-0 pt-8 pb-1"
@@ -272,12 +282,14 @@ function WorkoutPage() {
         >
           {completionMessage && (
             <p
-              className={`transition-all duration-500 ease-in-out ${
-                messageVisible ? "scale-100 opacity-100" : "scale-[0.97] opacity-0"
+              className={`px-4 transition-all duration-500 ease-in-out ${
+                messageVisible
+                  ? "scale-100 opacity-100 blur-none"
+                  : "scale-[0.97] opacity-0 blur-md"
               } ${
                 stage === 0
-                  ? `text-3xl font-bold ${hasPRs ? "text-pr-gold" : ""}`
-                  : `text-lg font-semibold ${hasPRs ? "text-pr-gold" : "text-muted-foreground"}`
+                  ? `text-3xl leading-snug font-bold tracking-tight ${hasPRs ? "text-pr-gold" : ""}`
+                  : `text-lg leading-snug font-semibold ${hasPRs ? "text-pr-gold" : "text-muted-foreground"}`
               }`}
             >
               {completionMessage.headline}
