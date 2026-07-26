@@ -27,6 +27,7 @@ import { useActiveWorkoutDraft } from "@/features/workout/useActiveWorkoutDraft"
 import { LiveSession } from "@/features/workout/LiveSession";
 import { RoutineEditor } from "@/features/workout/RoutineEditor";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
+import icon from "@/assets/brand/icon.png";
 import { type MuscleGroup } from "@/lib/exercises";
 import { BOTTOM_NAV_HEIGHT } from "@/components/BottomTabs";
 import { haptics } from "@/lib/haptics";
@@ -286,34 +287,43 @@ function WorkoutPage() {
             drop-settle-* keyframes used elsewhere — this specific moment
             is meant to feel composed, not impactful.
 
-            Entrance adds a blur-to-focus touch (blur-md -> blur-none
-            alongside the existing scale/opacity) — a small crafted detail
-            that's affordable specifically because this is the only thing
-            on screen; tracking-tight/leading-snug give the large type a
-            more considered, less default feel. Deliberately kept at
-            text-3xl rather than sized up further: several pool messages
-            run 40-50 characters ("Welcome back — let's pick up where you
-            left off."), and a bigger size would wrap those onto 3-4 lines
-            on a narrow phone — overwhelming rather than confident. */}
+            Logo + message enter together as one group (same technique as
+            the launch screen at "/", which shows the same kind of moment
+            on app open) — blur-to-focus, scale/opacity, all on one
+            wrapping div rather than the logo and text animating
+            separately. The logo only shows at stage 0; it recedes away
+            with the rest of the group rather than shrinking awkwardly
+            alongside the heading. tracking-tight/leading-snug give the
+            large type a more considered, less default feel. Deliberately
+            kept at text-3xl rather than sized up further: several pool
+            messages run 40-50 characters ("Welcome back — let's pick up
+            where you left off."), and a bigger size would wrap those onto
+            3-4 lines on a narrow phone — overwhelming rather than
+            confident. */}
         <div
           className={`flex flex-col items-center justify-center text-center transition-all duration-500 ease-in-out ${
             stage === 0 ? "min-h-[42vh] pt-6" : "min-h-0 pt-8 pb-1"
           }`}
         >
           {completionMessage && (
-            <p
-              className={`px-4 transition-all duration-500 ease-in-out ${
+            <div
+              className={`flex flex-col items-center gap-4 transition-all duration-500 ease-in-out ${
                 messageVisible
                   ? "scale-100 opacity-100 blur-none"
                   : "scale-[0.97] opacity-0 blur-md"
-              } ${
-                stage === 0
-                  ? `text-3xl leading-snug font-bold tracking-tight ${hasPRs ? "text-pr-gold" : ""}`
-                  : `text-lg leading-snug font-semibold ${hasPRs ? "text-pr-gold" : "text-muted-foreground"}`
               }`}
             >
-              {completionMessage.headline}
-            </p>
+              {stage === 0 && <img src={icon} alt="" className="h-12 w-12 rounded-2xl" />}
+              <p
+                className={`px-4 ${
+                  stage === 0
+                    ? `text-3xl leading-snug font-bold tracking-tight ${hasPRs ? "text-pr-gold" : ""}`
+                    : `text-lg leading-snug font-semibold ${hasPRs ? "text-pr-gold" : "text-muted-foreground"}`
+                }`}
+              >
+                {completionMessage.headline}
+              </p>
+            </div>
           )}
         </div>
 
