@@ -6,20 +6,10 @@ import { getExercise, getExerciseLoggingSchema, MUSCLE_GROUPS, type MuscleGroup 
 import { computeWorkoutStats } from "@/lib/workoutStats";
 import { getPrimaryMetric, getPrimaryMetricKind, compareTrend, formatMetricValue, type Trend, type MetricKind } from "@/lib/exerciseProgress";
 import { formatRelativeDate } from "@/lib/format";
+import { selectHomeGreeting } from "@/lib/homeGreetings";
 import { Activity, TrendingUp, CalendarDays, BarChart3, Target, Flame } from "lucide-react";
 import { MuscleMap } from "@/components/MuscleMap";
 import { useDismissOnBack } from "@/lib/backHandler";
-
-const MOTIVATIONAL_MESSAGES = [
-  "Ready to crush today's session?",
-  "Consistency beats talent. Let's work.",
-  "No shortcuts. Just hard work.",
-  "Earn your rest today.",
-  "Make yourself proud.",
-  "Small steps every day add up.",
-  "Sweat now, shine later.",
-  "The only bad workout is the one that didn't happen.",
-] as const;
 
 export const Route = createFileRoute("/_app/profile")({
   head: () => ({
@@ -54,14 +44,7 @@ function ProfilePage() {
   const stats = useMemo(() => computeStats(workouts ?? []), [workouts]);
   const intensity = useMemo(() => computeMuscleIntensity(workouts ?? []), [workouts]);
 
-  const todayKey = Math.floor(Date.now() / 86400000);
-
-  const message = useMemo(() => {
-    if (!workouts) return ""; // still loading — avoid asserting "no workouts" prematurely
-    if (workouts.length === 0) return "Start your first workout today.";
-    if (stats.total >= 50) return "Momentum is building.";
-    return MOTIVATIONAL_MESSAGES[todayKey % MOTIVATIONAL_MESSAGES.length];
-  }, [workouts, stats, todayKey]);
+  const greeting = useLiveQuery(() => selectHomeGreeting(), []);
 
   const lastSummary = useMemo(() => {
     if (!lastWorkout) return null;
@@ -188,9 +171,9 @@ function ProfilePage() {
             Training Overview
           </h1>
 
-          {message && (
+          {greeting && (
             <div className="mt-1 inline-flex items-center rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
-              {message}
+              {greeting.headline}
             </div>
           )}
         </div>
