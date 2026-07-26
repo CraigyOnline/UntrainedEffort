@@ -10,8 +10,8 @@ export const Route = createFileRoute("/_app")({
 function AppLayout() {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md min-w-0 flex-col overflow-x-hidden bg-background pb-24 pt-[env(safe-area-inset-top)]">
-      <ActiveWorkoutCard />
       <Outlet />
+      <ActiveWorkoutCard />
       <BottomTabs />
       <Toaster />
     </div>

@@ -6,6 +6,7 @@ import { getDb, type ActiveWorkoutDraft } from "@/lib/db";
 import { computeWorkoutStats, getCurrentExerciseName } from "@/lib/workoutStats";
 import { WorkoutTimer } from "@/features/workout/WorkoutTimer";
 import { SetProgressBar } from "@/components/SetProgressBar";
+import { BOTTOM_NAV_HEIGHT } from "@/components/BottomTabs";
 
 /** Entrance/exit transition duration. The card stays mounted (rendering
  *  its last known content) for this long after the workout disappears or
@@ -20,6 +21,12 @@ const TRANSITION_MS = 300;
  * content — Profile, History, Settings, Exercise Detail, etc. — without
  * each route needing to know it exists. Hidden on the workout screen
  * itself, which already has the floating WorkoutHUD for this.
+ *
+ * Fixed just above the bottom tab bar (same BOTTOM_NAV_HEIGHT offset
+ * RoutineEditor/ExercisePicker already use for the same purpose) rather
+ * than sitting in normal flow at the top of the page — it stays in the
+ * same physical spot while navigating between tabs instead of being
+ * back at the top of whatever page you land on.
  *
  * Single source of truth, reused end to end:
  * - Reads the same `activeWorkout` Dexie table LiveSession/
@@ -75,43 +82,50 @@ export function ActiveWorkoutCard() {
   const progress = loggedSets > 0 ? Math.min(1, totalSets / loggedSets) : 0;
 
   return (
-    <Link
-      to="/workout"
-      className={`mx-4 mb-3 mt-3 block shrink-0 overflow-hidden rounded-2xl border border-border bg-card shadow-md transition-all ease-out ${
-        entered ? "translate-y-0 opacity-100 duration-300" : "-translate-y-2 opacity-0 duration-300"
-      }`}
+    <div
+      className="fixed inset-x-0 z-40 mx-auto max-w-md px-4"
+      style={{ bottom: BOTTOM_NAV_HEIGHT }}
     >
-      <div className="flex border-l-4 border-primary transition-transform duration-150 active:scale-[0.99]">
-        <div className="min-w-0 flex-1 p-4">
-          <div className="flex items-center gap-2">
-            <Play className="h-4 w-4 shrink-0 text-primary" />
-            <span className="min-w-0 flex-1 truncate font-semibold">
-              {renderedDraft.name || "Workout in progress"}
-            </span>
-            <WorkoutTimer startedAt={renderedDraft.startedAt} />
-          </div>
-
-          <SetProgressBar value={progress} className="mt-2" />
-
-          <div className="mt-2 flex items-end justify-between gap-2">
-            <div className="min-w-0 text-xs text-muted-foreground">
-              <p>
-                {totalSets} / {loggedSets} sets
-              </p>
-              {currentExerciseName && (
-                <p className="mt-0.5 truncate">
-                  <span className="text-muted-foreground/80">Current: </span>
-                  <span className="font-medium text-foreground">{currentExerciseName}</span>
-                </p>
-              )}
+      <Link
+        to="/workout"
+        className={`mb-3 block shrink-0 overflow-hidden rounded-2xl border border-border bg-card shadow-lg transition-all ease-out ${
+          entered
+            ? "translate-y-0 opacity-100 duration-300"
+            : "translate-y-2 opacity-0 duration-300"
+        }`}
+      >
+        <div className="flex border-l-4 border-primary transition-transform duration-150 active:scale-[0.99]">
+          <div className="min-w-0 flex-1 p-4">
+            <div className="flex items-center gap-2">
+              <Play className="h-4 w-4 shrink-0 text-primary" />
+              <span className="min-w-0 flex-1 truncate font-semibold">
+                {renderedDraft.name || "Workout in progress"}
+              </span>
+              <WorkoutTimer startedAt={renderedDraft.startedAt} />
             </div>
 
-            <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-primary">
-              Resume Workout <ArrowRight className="h-3.5 w-3.5" />
-            </span>
+            <SetProgressBar value={progress} className="mt-2" />
+
+            <div className="mt-2 flex items-end justify-between gap-2">
+              <div className="min-w-0 text-xs text-muted-foreground">
+                <p>
+                  {totalSets} / {loggedSets} sets
+                </p>
+                {currentExerciseName && (
+                  <p className="mt-0.5 truncate">
+                    <span className="text-muted-foreground/80">Current: </span>
+                    <span className="font-medium text-foreground">{currentExerciseName}</span>
+                  </p>
+                )}
+              </div>
+
+              <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-primary">
+                Resume Workout <ArrowRight className="h-3.5 w-3.5" />
+              </span>
+            </div>
           </div>
         </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }
