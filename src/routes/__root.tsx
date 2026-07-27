@@ -10,6 +10,7 @@ import {
 import { type ReactNode, useEffect } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
 import { LocalNotifications } from "@capacitor/local-notifications";
+import { SplashScreen } from "@capacitor/splash-screen";
 import { handleGlobalBackPress } from "@/lib/backHandler";
 import { useWorkoutNotificationLifecycle, WORKOUT_NOTIFICATION_EXTRA } from "@/lib/workoutNotification";
 
@@ -116,6 +117,10 @@ function RootComponent() {
   const router = useRouter();
 
   useWorkoutNotificationLifecycle();
+
+  useEffect(() => {
+    SplashScreen.hide();
+  }, []);
 
   useEffect(() => {
     let remove: (() => void) | undefined;
