@@ -2,7 +2,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
-import { getDb, type Routine, type Workout, type WorkoutExerciseLog, type PRRecord } from "@/lib/db";
+import {
+  getDb,
+  type Routine,
+  type Workout,
+  type WorkoutExerciseLog,
+  type PRRecord,
+} from "@/lib/db";
 import { getExercise, formatCompletedSet, seedUnilateralSide } from "@/lib/exercises";
 import { ExercisePicker } from "@/components/forms/ExercisePicker";
 import { EmptyState } from "@/components/EmptyState";
@@ -492,7 +498,10 @@ function WorkoutPage() {
         <AlertDialog
           open={discardDialogOpen}
           onOpenChange={(open) => {
-            if (!open) { setCancelPending(false); setDiscardDialogOpen(false); }
+            if (!open) {
+              setCancelPending(false);
+              setDiscardDialogOpen(false);
+            }
           }}
         >
           <AlertDialogContent>
@@ -508,7 +517,10 @@ function WorkoutPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel
-                onClick={() => { setCancelPending(false); setDiscardDialogOpen(false); }}
+                onClick={() => {
+                  setCancelPending(false);
+                  setDiscardDialogOpen(false);
+                }}
               >
                 Keep going
               </AlertDialogCancel>
@@ -538,7 +550,9 @@ function WorkoutPage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogAction onClick={() => setSaveErrorDialogOpen(false)}>OK</AlertDialogAction>
+              <AlertDialogAction onClick={() => setSaveErrorDialogOpen(false)}>
+                OK
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -655,7 +669,10 @@ function WorkoutPage() {
                       <div className="fixed inset-0 z-40" onClick={() => setMenuOpenId(null)} />
                       <div className="absolute right-2 top-8 z-50 min-w-[160px] rounded-xl border border-border bg-card shadow-xl py-1">
                         <button
-                          onClick={() => { setMenuOpenId(null); setEditingRoutine(r); }}
+                          onClick={() => {
+                            setMenuOpenId(null);
+                            setEditingRoutine(r);
+                          }}
                           className="flex w-full items-center gap-2 px-4 py-2.5 text-sm hover:bg-secondary"
                         >
                           <Pencil className="h-4 w-4" /> Edit
@@ -675,7 +692,10 @@ function WorkoutPage() {
                           <ArrowDown className="h-4 w-4" /> Move Down
                         </button>
                         <button
-                          onClick={() => { setMenuOpenId(null); setDeleteTarget(r); }}
+                          onClick={() => {
+                            setMenuOpenId(null);
+                            setDeleteTarget(r);
+                          }}
                           className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-destructive hover:bg-secondary"
                         >
                           <Trash2 className="h-4 w-4" /> Delete
