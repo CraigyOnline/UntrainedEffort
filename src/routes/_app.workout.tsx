@@ -132,10 +132,12 @@ function WorkoutPage() {
     const raf = requestAnimationFrame(() => setMessageVisible(true));
     // These durations are the actual design decision here, not the motion
     // curves — the brief this responds to explicitly asked for stillness
-    // before analysis, not another speed target. ~1.7s of just sitting
+    // before analysis, not another speed target. ~2.6s of just sitting
     // with the acknowledgment, then a further ~1s with just the numbers,
     // before the PR moment (if any) or the reference material arrives.
-    const toStage1 = setTimeout(() => setStage(1), 1700);
+    // Bumped up from the original ~1.7s per explicit feedback that the
+    // message needed to stay on screen meaningfully longer.
+    const toStage1 = setTimeout(() => setStage(1), 2600);
     // completionMessage.kind is known synchronously from the save itself
     // (see completionMessages.ts) — deliberately not derived from
     // summaryPRs, which is a separate useLiveQuery that may not have
@@ -146,9 +148,9 @@ function WorkoutPage() {
       ? setTimeout(() => {
           setPrRevealed(true);
           haptics.prAchieved();
-        }, 2500)
+        }, 3400)
       : null;
-    const toStage2 = setTimeout(() => setStage(2), hasPRMoment ? 3400 : 2700);
+    const toStage2 = setTimeout(() => setStage(2), hasPRMoment ? 4300 : 3600);
     return () => {
       cancelAnimationFrame(raf);
       clearTimeout(toStage1);

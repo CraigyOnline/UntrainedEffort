@@ -13,7 +13,7 @@ export const Route = createFileRoute("/")({
 // deliberately modeled on — logo/greeting alone, a real pause, then move
 // on — just shorter, since this happens on every single app open rather
 // than once per workout.
-const HOLD_MS = 1400;
+const HOLD_MS = 2400;
 const FADE_MS = 350;
 
 /**

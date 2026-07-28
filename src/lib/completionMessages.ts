@@ -32,11 +32,16 @@ import { computeWorkoutStats } from "@/lib/workoutStats";
  * statistic, not encouragement. Keep that pairing when adding messages.
  *
  * Every signal — including the contextual ones, not just the universal
- * fallback — rotates through a small pool of phrasings (deterministic by
- * workout id, not random). A signal that keeps firing the same way (e.g.
- * a streak sitting at "3 weeks" across several workouts in the same
- * week) would otherwise show the exact same sentence every time, which
- * reads as a canned notification rather than genuine recognition.
+ * fallback — rotates through a small pool of phrasings, randomized on
+ * each call rather than keyed by workout id. The previous id-keyed
+ * approach was deterministic but could still land on the same phrasing
+ * far more often than felt like genuine variety when a signal kept
+ * firing the same way (e.g. a streak sitting at "3 weeks" across
+ * several workouts in the same week) — a signal repeating is correct
+ * (the streak genuinely is 3 that whole week), but the wording repeating
+ * alongside it reads as a canned notification rather than genuine
+ * recognition. pickVaried also guards against the exact same sentence
+ * showing twice in a row.
  */
 
 export type CompletionMessageKind =
@@ -235,13 +240,41 @@ function weekIndex(ms: number): number {
   return Math.floor(ms / WEEK_MS);
 }
 
-/** Deterministic (not random) pool index, cycled by workout id — so
- *  repeated triggers of the same signal (e.g. a multi-week streak that
- *  stays at "3 weeks" across several workouts in the same week) don't
- *  always show verbatim identical text, while staying testable/
- *  reproducible rather than depending on Math.random(). */
-function pickIndex(poolLength: number, id: number | undefined): number {
-  return id ? id % poolLength : 0;
+const LAST_MESSAGE_KEY = "ue:lastCompletionMessage";
+
+function safeGetLast(): string | null {
+  try {
+    return localStorage.getItem(LAST_MESSAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetLast(value: string): void {
+  try {
+    localStorage.setItem(LAST_MESSAGE_KEY, value);
+  } catch {
+    // localStorage unavailable — the message still works, it just can't
+    // guard against an immediate repeat this one time.
+  }
+}
+
+/** Random pick, with a guard against showing the exact same line twice
+ *  in a row (checked across every signal, not per-pool — the point is
+ *  "don't repeat the last sentence you said," regardless of which
+ *  signal produced either one). A single retry excluding the last shown
+ *  string is enough for this; it isn't a full shuffle-bag. Replaces the
+ *  previous workout-id-keyed determinism: that meant a signal which kept
+ *  firing the same way (e.g. a streak sitting at "3 weeks" across
+ *  several workouts in the same week) could still land on the same
+ *  phrasing far more often than felt like genuine variety. */
+function pickVaried(pool: string[]): string {
+  if (pool.length <= 1) return pool[0];
+  const last = safeGetLast();
+  const candidates = last ? pool.filter((m) => m !== last) : pool;
+  const choice = candidates[Math.floor(Math.random() * candidates.length)];
+  safeSetLast(choice);
+  return choice;
 }
 
 /**
@@ -295,15 +328,15 @@ export async function selectCompletionMessage(
       if (tenureDays >= 365) {
         const years = Math.floor(tenureDays / 365);
         const span = years === 1 ? "A year" : `${years} years`;
-        const idx = pickIndex(TENURE_YEARS_MESSAGES.length, justFinished.id);
-        return { headline: TENURE_YEARS_MESSAGES[idx](span), kind: "tenure" };
+        return {
+          headline: pickVaried(TENURE_YEARS_MESSAGES.map((fn) => fn(span))),
+          kind: "tenure",
+        };
       }
       if (tenureDays >= 180) {
-        const idx = pickIndex(TENURE_SIX_MONTHS_MESSAGES.length, justFinished.id);
-        return { headline: TENURE_SIX_MONTHS_MESSAGES[idx], kind: "tenure" };
+        return { headline: pickVaried(TENURE_SIX_MONTHS_MESSAGES), kind: "tenure" };
       }
-      const idx = pickIndex(TENURE_THREE_MONTHS_MESSAGES.length, justFinished.id);
-      return { headline: TENURE_THREE_MONTHS_MESSAGES[idx], kind: "tenure" };
+      return { headline: pickVaried(TENURE_THREE_MONTHS_MESSAGES), kind: "tenure" };
     }
   }
 
@@ -317,22 +350,19 @@ export async function selectCompletionMessage(
     cursor -= 1;
   }
   if (streak >= 3) {
-    const idx = pickIndex(STREAK_MESSAGES.length, justFinished.id);
-    return { headline: STREAK_MESSAGES[idx](streak), kind: "streak" };
+    return { headline: pickVaried(STREAK_MESSAGES.map((fn) => fn(streak))), kind: "streak" };
   }
 
   // ── Workouts in the trailing 7 days, including this one ────────────────
   const workoutsThisWeek =
     history.filter((w) => justFinished.startedAt - w.startedAt < WEEK_MS).length + 1;
   if (workoutsThisWeek >= 3) {
-    const idx = pickIndex(WEEKLY_FREQUENCY_MESSAGES.length, justFinished.id);
-    return { headline: WEEKLY_FREQUENCY_MESSAGES[idx], kind: "weekly-frequency" };
+    return { headline: pickVaried(WEEKLY_FREQUENCY_MESSAGES), kind: "weekly-frequency" };
   }
 
   // ── Welcome back ────────────────────────────────────────────────────────
   if (previous && gapSincePrevious >= WEEK_MS) {
-    const idx = pickIndex(WELCOME_BACK_MESSAGES.length, justFinished.id);
-    return { headline: WELCOME_BACK_MESSAGES[idx], kind: "welcome-back" };
+    return { headline: pickVaried(WELCOME_BACK_MESSAGES), kind: "welcome-back" };
   }
 
   // ── Longest session this calendar month ─────────────────────────────────
@@ -345,8 +375,7 @@ export async function selectCompletionMessage(
     thisMonth.length > 0 &&
     justFinished.durationSec > Math.max(...thisMonth.map((w) => w.durationSec))
   ) {
-    const idx = pickIndex(LONGEST_SESSION_MESSAGES.length, justFinished.id);
-    return { headline: LONGEST_SESSION_MESSAGES[idx], kind: "longest-session" };
+    return { headline: pickVaried(LONGEST_SESSION_MESSAGES), kind: "longest-session" };
   }
 
   // ── More volume than the last comparable session ────────────────────────
@@ -361,12 +390,10 @@ export async function selectCompletionMessage(
     const thisVolume = computeWorkoutStats(justFinished.exercises).totalVolume;
     const lastVolume = computeWorkoutStats(lastComparable.exercises).totalVolume;
     if (lastVolume > 0 && thisVolume > lastVolume) {
-      const idx = pickIndex(MORE_VOLUME_MESSAGES.length, justFinished.id);
-      return { headline: MORE_VOLUME_MESSAGES[idx], kind: "more-volume" };
+      return { headline: pickVaried(MORE_VOLUME_MESSAGES), kind: "more-volume" };
     }
   }
 
   // ── Fallback: universal pool ─────────────────────────────────────────────
-  const index = pickIndex(UNIVERSAL_MESSAGES.length, justFinished.id);
-  return { headline: UNIVERSAL_MESSAGES[index], kind: "universal" };
+  return { headline: pickVaried(UNIVERSAL_MESSAGES), kind: "universal" };
 }

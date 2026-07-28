@@ -15,11 +15,13 @@ import { getDb } from "@/lib/db";
  * duplicating them here outweighs the risk of touching the completion
  * system for a marginal de-duplication win.
  *
- * The rotation key is the day-of-year integer (see ProfilePage's own
- * previous message logic, which already used this exact value) rather
- * than a per-event id like completionMessages.ts uses — a greeting
- * should stay stable for the whole day rather than change every time
- * the app happens to be reopened.
+ * Selection is randomized on every call, not tied to the day or any
+ * other deterministic key — that was the previous design (day-of-year
+ * keyed, so it stayed the same all day), but it meant reopening the app
+ * more than once in a day always showed the identical line, which reads
+ * as repetitive and robotic rather than like a friend genuinely glad to
+ * see you. A lightweight anti-repeat guard (see pickVaried) still avoids
+ * showing the exact same sentence twice in a row.
  *
  * Every contextual message stays positive — there is deliberately no
  * signal anywhere in this file that produces a message referencing a
@@ -51,6 +53,10 @@ const ACTIVE_WORKOUT_MESSAGES = [
   "Right where you left off.",
   "Still mid-session — let's finish strong.",
   "Back to it — you're not done yet.",
+  "Good to see you again — let's pick this back up.",
+  "You're not finished yet. Let's go.",
+  "Straight back to it.",
+  "Let's wrap up what you started.",
 ];
 
 const FIRST_WORKOUT_MESSAGES = [
@@ -60,6 +66,10 @@ const FIRST_WORKOUT_MESSAGES = [
   "Let's begin.",
   "Your first session is waiting whenever you're ready.",
   "Time to get started.",
+  "Glad you're here. Let's start simple.",
+  "This is where it begins.",
+  "No better time than now.",
+  "Let's take the first step.",
 ];
 
 const YESTERDAY_MESSAGES = [
@@ -69,6 +79,10 @@ const YESTERDAY_MESSAGES = [
   "Ready to build on yesterday?",
   "Yesterday's work is in the bank.",
   "Good to have you back so quickly.",
+  "Nice to see you again already.",
+  "Back for more — good on you.",
+  "Onward from yesterday.",
+  "You're keeping the momentum from yesterday alive.",
 ];
 
 const FEW_DAYS_MESSAGES = [
@@ -78,6 +92,10 @@ const FEW_DAYS_MESSAGES = [
   "Ready to pick things back up?",
   "Glad you're here — let's make today count.",
   "Time to get moving again.",
+  "Glad you're back — let's get moving.",
+  "Good to see you back in here.",
+  "Let's pick up the thread again.",
+  "Nice timing — let's get after it.",
 ];
 
 const LONGER_BREAK_MESSAGES = [
@@ -87,6 +105,10 @@ const LONGER_BREAK_MESSAGES = [
   "Welcome back. No pressure, just start where you are.",
   "It's been a while — good to have you back.",
   "Welcome back. Let's begin again.",
+  "However long it's been, glad you're here now.",
+  "Good to see your face again.",
+  "Fresh start, whenever you like.",
+  "You're here — that's what matters.",
 ];
 
 const STREAK_MESSAGES = [
@@ -96,6 +118,10 @@ const STREAK_MESSAGES = [
   "That's a strong run — let's keep it alive.",
   "Steady weeks in a row. Nice work.",
   "You're on a good run — let's continue it.",
+  "You've made this part of your routine. Nice.",
+  "Look at you, showing up again.",
+  "That consistency is really paying off.",
+  "You're proving this to yourself, week after week.",
 ];
 
 const MOMENTUM_MESSAGES = [
@@ -105,6 +131,10 @@ const MOMENTUM_MESSAGES = [
   "Good week so far. Let's add to it.",
   "This week's been a good one for you.",
   "You're building real momentum right now.",
+  "You've been putting in the work lately.",
+  "This week has your fingerprints all over it.",
+  "You're on fire this week — let's keep it up.",
+  "Another strong week in progress.",
 ];
 
 const DEFAULT_MESSAGES = [
@@ -116,6 +146,10 @@ const DEFAULT_MESSAGES = [
   "Glad you're here.",
   "Let's get to work.",
   "Good to have you back.",
+  "Good to see your face.",
+  "Here we go.",
+  "Glad you popped in.",
+  "Let's see what today brings.",
 ];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -133,29 +167,54 @@ function weekIndex(ms: number): number {
   return Math.floor(ms / WEEK_MS);
 }
 
-/** Deterministic (not random) pool index, cycled by the day-of-year —
- *  so the greeting stays the same all day rather than changing on every
- *  app open, while still varying day to day. */
-function pickIndex(poolLength: number, dayKey: number): number {
-  return ((dayKey % poolLength) + poolLength) % poolLength;
+const LAST_GREETING_KEY = "ue:lastHomeGreeting";
+
+function safeGetLast(): string | null {
+  try {
+    return localStorage.getItem(LAST_GREETING_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetLast(value: string): void {
+  try {
+    localStorage.setItem(LAST_GREETING_KEY, value);
+  } catch {
+    // localStorage unavailable (e.g. restricted webview context) — the
+    // greeting still works, it just can't guard against an immediate
+    // repeat this one time.
+  }
+}
+
+/** Random pick, with a guard against showing the exact same line twice
+ *  in a row (checked across the whole greeting system, not per-pool —
+ *  the point is "don't repeat the last sentence you said," regardless
+ *  of which context produced it). A single retry excluding the last
+ *  shown string is enough for this; it isn't a full shuffle-bag. */
+function pickVaried(pool: string[]): string {
+  if (pool.length <= 1) return pool[0];
+  const last = safeGetLast();
+  const candidates = last ? pool.filter((m) => m !== last) : pool;
+  const choice = candidates[Math.floor(Math.random() * candidates.length)];
+  safeSetLast(choice);
+  return choice;
 }
 
 export async function selectHomeGreeting(): Promise<HomeGreeting> {
   const db = getDb();
   const now = Date.now();
-  const dayKey = dayIndex(now);
-  const pick = (pool: string[]) => pool[pickIndex(pool.length, dayKey)];
 
   // Highest priority: a workout is literally waiting to be resumed —
   // more immediately relevant than anything about training history.
   const hasActiveWorkout = (await db.activeWorkout.toCollection().count()) > 0;
   if (hasActiveWorkout) {
-    return { headline: pick(ACTIVE_WORKOUT_MESSAGES), kind: "workout-active" };
+    return { headline: pickVaried(ACTIVE_WORKOUT_MESSAGES), kind: "workout-active" };
   }
 
   const lastWorkout = await db.workouts.orderBy("startedAt").reverse().first();
   if (!lastWorkout) {
-    return { headline: pick(FIRST_WORKOUT_MESSAGES), kind: "first-workout" };
+    return { headline: pickVaried(FIRST_WORKOUT_MESSAGES), kind: "first-workout" };
   }
 
   // Bounded recent window for the streak/weekly-count signals below —
@@ -182,12 +241,12 @@ export async function selectHomeGreeting(): Promise<HomeGreeting> {
     cursor -= 1;
   }
   if (streak >= 3) {
-    return { headline: pick(STREAK_MESSAGES), kind: "streak" };
+    return { headline: pickVaried(STREAK_MESSAGES), kind: "streak" };
   }
 
   const workoutsThisWeek = recent.filter((w) => now - w.startedAt < WEEK_MS).length;
   if (workoutsThisWeek >= 3) {
-    return { headline: pick(MOMENTUM_MESSAGES), kind: "momentum" };
+    return { headline: pickVaried(MOMENTUM_MESSAGES), kind: "momentum" };
   }
 
   const daysSince = dayIndex(now) - dayIndex(lastWorkout.endedAt);
@@ -195,13 +254,13 @@ export async function selectHomeGreeting(): Promise<HomeGreeting> {
     // Already trained today — a "returning" framing would be slightly
     // off, so this falls to the plain default pool rather than its own
     // dedicated one; nothing in the brief asked for a same-day case.
-    return { headline: pick(DEFAULT_MESSAGES), kind: "default" };
+    return { headline: pickVaried(DEFAULT_MESSAGES), kind: "default" };
   }
   if (daysSince === 1) {
-    return { headline: pick(YESTERDAY_MESSAGES), kind: "yesterday" };
+    return { headline: pickVaried(YESTERDAY_MESSAGES), kind: "yesterday" };
   }
   if (daysSince <= 6) {
-    return { headline: pick(FEW_DAYS_MESSAGES), kind: "few-days" };
+    return { headline: pickVaried(FEW_DAYS_MESSAGES), kind: "few-days" };
   }
-  return { headline: pick(LONGER_BREAK_MESSAGES), kind: "longer-break" };
+  return { headline: pickVaried(LONGER_BREAK_MESSAGES), kind: "longer-break" };
 }
