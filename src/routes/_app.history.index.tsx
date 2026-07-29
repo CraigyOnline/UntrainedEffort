@@ -8,6 +8,7 @@ import { computeWorkoutStats } from "@/lib/workoutStats";
 import { computeIntensity } from "@/lib/muscles";
 import { syncWorkoutIntegrity } from "@/lib/workoutIntegrity";
 import { filterWorkouts, hasActiveFilters } from "@/lib/historyFilters";
+import { TrainingConsistencyHeatmap } from "@/features/history/TrainingConsistencyHeatmap";
 import { EmptyState } from "@/components/EmptyState";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
 import { Trash2 } from "lucide-react";
@@ -126,6 +127,8 @@ function HistoryList() {
   return (
     <div className="flex flex-col gap-4 px-4 pt-6 pb-8">
       <h1 className="text-2xl font-bold">Workout History</h1>
+
+      <TrainingConsistencyHeatmap workouts={workouts ?? []} />
 
       <div className="flex flex-col gap-2">
         <input
