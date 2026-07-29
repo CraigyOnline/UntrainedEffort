@@ -250,10 +250,10 @@ function ExerciseCard({
             return (
               <div
                 key={si}
-                className={`rounded-lg bg-secondary/40 p-2 ring-2 transition-shadow duration-500 ease-out ${
+                className={`rounded-lg bg-secondary/40 p-2 transition-shadow duration-500 ease-out ${
                   celebration?.exerciseId === ex.exerciseId && celebration?.setId === s.id
-                    ? "ring-pr-gold shadow-[0_0_16px_2px_var(--color-pr-gold)]"
-                    : "ring-transparent shadow-none"
+                    ? "shadow-[0_0_20px_4px_var(--color-pr-gold)]"
+                    : "shadow-none"
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -316,10 +316,10 @@ function ExerciseCard({
           {ex.sets.map((s, si) => (
             <div
               key={si}
-              className={`mt-2 grid grid-cols-[24px_1fr_1fr_auto_auto] items-center gap-2 rounded-lg ring-2 transition-shadow duration-500 ease-out ${
+              className={`mt-2 grid grid-cols-[24px_1fr_1fr_auto_auto] items-center gap-2 rounded-lg transition-shadow duration-500 ease-out ${
                 celebration?.exerciseId === ex.exerciseId && celebration?.setId === s.id
-                  ? "ring-pr-gold shadow-[0_0_16px_2px_var(--color-pr-gold)]"
-                  : "ring-transparent shadow-none"
+                  ? "shadow-[0_0_20px_4px_var(--color-pr-gold)]"
+                  : "shadow-none"
               }`}
             >
               <span className="text-sm font-semibold">{si + 1}</span>
