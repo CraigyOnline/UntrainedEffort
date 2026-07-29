@@ -8,7 +8,7 @@ export const BOTTOM_NAV_HEIGHT = 62;
 const tabs = [
   { to: "/profile",  label: "Profile",  Icon: User     },
   { to: "/workout",  label: "Workout",  Icon: Play     },
-  { to: "/history",  label: "History",  Icon: History  },
+  { to: "/history",  label: "Progress", Icon: History  },
   { to: "/settings", label: "Settings", Icon: Settings },
 ] as const;
 

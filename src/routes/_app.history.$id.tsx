@@ -127,7 +127,7 @@ function HistoryDetailPage() {
       <div className="flex flex-col gap-4 px-4 pt-6">
         <p className="text-sm text-muted-foreground">Workout not found.</p>
         <Link to="/history" className="text-sm text-primary underline">
-          Back to history
+          Back to Progress
         </Link>
       </div>
     );
