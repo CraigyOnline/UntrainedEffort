@@ -73,27 +73,25 @@ export function sessionHasData(active: ActiveSession): boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// detectRoutineReorder
+// detectRoutineChange
 //
-// Compares the routine a workout was started from against the exercise order
-// it actually finished with. Returns the finished order (as exerciseIds) when
-// it's a pure reorder of the same routine — same exercises, different
-// sequence — or null when there's nothing to offer: no exercises were added
-// or removed (ambiguous whether to fold that into the routine too, and out
-// of scope for a reorder-only feature) or the order never changed.
+// Compares the routine a workout was started from against the exercise list
+// it actually finished with — order, additions, and removals all count.
+// Returns true when they differ at all, false when the workout's exercise
+// list is identical (same exercises, same order) to the routine it started
+// from. Building the actual updated RoutineExercise[] (including seeding
+// target sets for anything newly added) happens where this is resolved —
+// see resolvePendingRoutineUpdate in _app.workout.tsx.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function detectRoutineReorder(
+export function detectRoutineChange(
   routine: Routine,
   finishedExercises: WorkoutExerciseLog[],
-): string[] | null {
+): boolean {
   const originalIds = routine.exercises.map((e) => e.exerciseId);
   const finalIds = finishedExercises.map((e) => e.exerciseId);
-  if (originalIds.length !== finalIds.length) return null;
-  const originalSet = new Set(originalIds);
-  if (finalIds.some((id) => !originalSet.has(id))) return null;
-  const unchanged = originalIds.every((id, i) => id === finalIds[i]);
-  return unchanged ? null : finalIds;
+  if (originalIds.length !== finalIds.length) return true;
+  return !originalIds.every((id, i) => id === finalIds[i]);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

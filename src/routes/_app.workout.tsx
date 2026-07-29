@@ -6,6 +6,7 @@ import {
   getDb,
   type Routine,
   type RoutineExercise,
+  type RoutineSet,
   type Workout,
   type WorkoutExerciseLog,
   type PRRecord,
@@ -29,11 +30,12 @@ import {
 import { ArrowDown, ArrowUp, Dumbbell, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useDismissOnBack } from "@/lib/backHandler";
 import {
-  detectRoutineReorder,
+  detectRoutineChange,
   doSaveWorkout,
   makeSet,
   sessionHasData,
 } from "@/features/workout/workoutHelpers";
+import { getRoutineUpdatePromptEnabled } from "@/lib/routineUpdatePrompt";
 import type { CompletionMessage } from "@/lib/completionMessages";
 import { useActiveWorkoutDraft } from "@/features/workout/useActiveWorkoutDraft";
 import { LiveSession } from "@/features/workout/LiveSession";
@@ -113,7 +115,7 @@ function WorkoutPage() {
   const [startRoutineSnapshot, setStartRoutineSnapshot] = useState<Routine | null>(null);
   const [pendingRoutineUpdate, setPendingRoutineUpdate] = useState<{
     routine: Routine;
-    newOrder: string[];
+    finishedExercises: WorkoutExerciseLog[];
   } | null>(null);
   const [completionMessage, setCompletionMessage] = useState<CompletionMessage | null>(null);
   // Workout Complete staged reveal. This screen's whole point changed from
@@ -186,10 +188,13 @@ function WorkoutPage() {
   function leaveSummary(): boolean {
     if (!summary) return false;
     const routine = startRoutineSnapshot;
-    const newOrder = routine ? detectRoutineReorder(routine, summary.exercises) : null;
+    const changed =
+      routine && getRoutineUpdatePromptEnabled()
+        ? detectRoutineChange(routine, summary.exercises)
+        : false;
     setSummary(null);
-    if (routine && newOrder) {
-      setPendingRoutineUpdate({ routine, newOrder });
+    if (routine && changed) {
+      setPendingRoutineUpdate({ routine, finishedExercises: summary.exercises });
       return true;
     }
     return false;
@@ -312,20 +317,34 @@ function WorkoutPage() {
     setDeleteTarget(null);
   }
 
-  // Resolves the post-workout "Update Routine?" prompt. Only reorders the
-  // routine's existing RoutineExercise entries to match how the workout was
-  // actually performed — every other field (sets, targets, etc.) is passed
-  // through untouched. Keeping the current routine just dismisses the
-  // prompt; nothing is written.
+  // Resolves the post-workout "Update Routine?" prompt. Follows the
+  // workout's final exercise order; an exercise already in the routine
+  // keeps its existing target sets and config untouched, an exercise
+  // added mid-workout gets a fresh RoutineExercise seeded from the sets
+  // actually performed today (completed ones preferred), and anything
+  // removed mid-workout is simply left out. Keeping the current routine
+  // just dismisses the prompt; nothing is written.
   async function resolvePendingRoutineUpdate(shouldUpdate: boolean) {
     const pending = pendingRoutineUpdate;
     setPendingRoutineUpdate(null);
     if (shouldUpdate && pending && pending.routine.id != null) {
       const byId = new Map(pending.routine.exercises.map((e) => [e.exerciseId, e]));
-      const reordered: RoutineExercise[] = pending.newOrder
-        .map((id) => byId.get(id))
-        .filter((e): e is RoutineExercise => !!e);
-      await getDb().routines.update(pending.routine.id, { exercises: reordered });
+      const updated: RoutineExercise[] = pending.finishedExercises.map((fe) => {
+        const existing = byId.get(fe.exerciseId);
+        if (existing) return existing;
+        const completed = fe.sets.filter((s) => s.completed);
+        const source = completed.length > 0 ? completed : fe.sets;
+        const sets: RoutineSet[] =
+          source.length > 0
+            ? source.map((s) => ({
+                targetWeight: s.weight,
+                targetReps: s.reps,
+                targetDuration: s.duration,
+              }))
+            : [{}];
+        return { exerciseId: fe.exerciseId, sets };
+      });
+      await getDb().routines.update(pending.routine.id, { exercises: updated });
     }
     navigate({ to: "/history" });
   }
@@ -825,8 +844,8 @@ function WorkoutPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Update Routine?</AlertDialogTitle>
             <AlertDialogDescription>
-              You changed the exercise order during this workout. Would you like to update "
-              {pendingRoutineUpdate?.routine.name}" so future workouts use this new order?
+              You changed the exercises during this workout. Would you like to update "
+              {pendingRoutineUpdate?.routine.name}" so future workouts use this instead?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

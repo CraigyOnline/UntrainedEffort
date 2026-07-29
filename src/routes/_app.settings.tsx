@@ -26,6 +26,10 @@ import { Switch } from "@/components/ui/switch";
 import { Download, Upload, Info, FileText, Settings as SettingsIcon, Database, Wrench, MonitorSmartphone } from "lucide-react";
 import { getKeepAwakeDefault, setKeepAwakeDefault } from "@/lib/keepAwake";
 import { getHapticsEnabled, setHapticsEnabled } from "@/lib/haptics";
+import {
+  getRoutineUpdatePromptEnabled,
+  setRoutineUpdatePromptEnabled,
+} from "@/lib/routineUpdatePrompt";
 import { useDatabaseStats } from "@/hooks/useDatabaseStats";
 import { exportBackup, isBackupPayload, SCHEMA_VERSION, type BackupPayload } from "@/lib/backup";
 import { formatDate, formatBytes } from "@/lib/format";
@@ -96,6 +100,17 @@ function SettingsPage() {
   function handleHapticsChange(checked: boolean) {
     setHapticsEnabledState(checked);
     setHapticsEnabled(checked);
+  }
+
+  // ── "Update Routine?" prompt ──────────────────────────────────────────
+  const [routineUpdatePromptEnabled, setRoutineUpdatePromptEnabledState] = useState(true);
+  useEffect(() => {
+    setRoutineUpdatePromptEnabledState(getRoutineUpdatePromptEnabled());
+  }, []);
+
+  function handleRoutineUpdatePromptChange(checked: boolean) {
+    setRoutineUpdatePromptEnabledState(checked);
+    setRoutineUpdatePromptEnabled(checked);
   }
 
   // ── Export flow ──────────────────────────────────────────────────────
@@ -274,6 +289,20 @@ function SettingsPage() {
             </p>
           </div>
           <Switch checked={hapticsEnabled} onCheckedChange={handleHapticsChange} />
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-border/50 pt-4">
+          <div className="min-w-0">
+            <p className="text-sm">Prompt to update routine</p>
+            <p className="text-xs text-muted-foreground">
+              After finishing a workout that changed a routine's exercises, ask whether to save
+              those changes back to it.
+            </p>
+          </div>
+          <Switch
+            checked={routineUpdatePromptEnabled}
+            onCheckedChange={handleRoutineUpdatePromptChange}
+          />
         </div>
       </section>
 
