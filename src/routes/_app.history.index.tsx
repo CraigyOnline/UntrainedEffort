@@ -9,6 +9,7 @@ import { computeIntensity } from "@/lib/muscles";
 import { syncWorkoutIntegrity } from "@/lib/workoutIntegrity";
 import { filterWorkouts, hasActiveFilters } from "@/lib/historyFilters";
 import { TrainingConsistencyHeatmap } from "@/features/history/TrainingConsistencyHeatmap";
+import { LifetimeSummary } from "@/features/history/LifetimeSummary";
 import { EmptyState } from "@/components/EmptyState";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
 import { Trash2 } from "lucide-react";
@@ -132,6 +133,8 @@ function HistoryList() {
       </div>
 
       <TrainingConsistencyHeatmap workouts={workouts ?? []} />
+
+      {!!workouts?.length && <LifetimeSummary workouts={workouts} />}
 
       <h2 className="text-base font-semibold">Workout Timeline</h2>
 
