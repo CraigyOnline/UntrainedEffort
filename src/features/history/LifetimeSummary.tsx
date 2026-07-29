@@ -1,7 +1,8 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 import { Dumbbell, TrendingUp, CalendarDays, Clock } from "lucide-react";
 import type { Workout } from "@/lib/db";
 import { computeWorkoutStats } from "@/lib/workoutStats";
+import { SummaryStat } from "@/features/history/SummaryStat";
 
 interface LifetimeSummaryProps {
   workouts: Workout[];
@@ -19,40 +20,28 @@ export function LifetimeSummary({ workouts }: LifetimeSummaryProps) {
     <section>
       <h2 className="mb-3 text-base font-semibold">Lifetime Summary</h2>
       <div className="grid grid-cols-2 gap-3">
-        <LifetimeStat
+        <SummaryStat
           icon={<Dumbbell className="h-4 w-4" />}
           label="Total workouts"
           value={stats.totalSessions.toLocaleString()}
         />
-        <LifetimeStat
+        <SummaryStat
           icon={<TrendingUp className="h-4 w-4" />}
           label="Total volume"
           value={`${Math.round(stats.totalVolume).toLocaleString()} kg`}
         />
-        <LifetimeStat
+        <SummaryStat
           icon={<CalendarDays className="h-4 w-4" />}
           label="Active days"
           value={stats.totalActiveDays.toLocaleString()}
         />
-        <LifetimeStat
+        <SummaryStat
           icon={<Clock className="h-4 w-4" />}
           label="Training for"
           value={stats.trainingDuration}
         />
       </div>
     </section>
-  );
-}
-
-function LifetimeStat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div className="rounded-2xl bg-card p-4">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        {icon}
-        <span className="text-xs">{label}</span>
-      </div>
-      <p className="mt-1 text-xl font-bold">{value}</p>
-    </div>
   );
 }
 
