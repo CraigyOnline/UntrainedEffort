@@ -126,8 +126,8 @@ function HistoryDetailPage() {
     return (
       <div className="flex flex-col gap-4 px-4 pt-6">
         <p className="text-sm text-muted-foreground">Workout not found.</p>
-        <Link to="/history" className="text-sm text-primary underline">
-          Back to Progress
+        <Link to="/history/timeline" className="text-sm text-primary underline">
+          Back to Workout Timeline
         </Link>
       </div>
     );
@@ -264,7 +264,7 @@ function HistoryDetailPage() {
       await db.workouts.delete(workout.id!);
       await syncWorkoutIntegrity();
     });
-    navigate({ to: "/history" });
+    navigate({ to: "/history/timeline" });
   }
 
   return (
