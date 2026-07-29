@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useBlocker } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
@@ -176,6 +176,44 @@ function WorkoutPage() {
   const [deleteTarget, setDeleteTarget] = useState<Routine | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   useDismissOnBack(menuOpenId !== null, () => setMenuOpenId(null));
+
+  // Runs once, however the completion screen is left — Done, the Android
+  // back button, or tapping a bottom-tab link — so the "Update Routine?"
+  // prompt below can never be bypassed by the exit path. Closes the
+  // summary screen; returns true when a prompt is now pending, so the
+  // caller (see the two hooks below) knows whether to hold off on
+  // whatever navigation triggered this.
+  function leaveSummary(): boolean {
+    if (!summary) return false;
+    const routine = startRoutineSnapshot;
+    const newOrder = routine ? detectRoutineReorder(routine, summary.exercises) : null;
+    setSummary(null);
+    if (routine && newOrder) {
+      setPendingRoutineUpdate({ routine, newOrder });
+      return true;
+    }
+    return false;
+  }
+
+  // Hardware back button: Capacitor's listener calls router.history.back()
+  // directly, which bypasses useBlocker entirely (it only guards PUSH/
+  // REPLACE navigations, not history POP) — so back needs its own hook
+  // into the same app-wide "topmost overlay consumes back" stack every
+  // other overlay in this app already uses. Consuming the press here
+  // just closes the completion screen; it deliberately doesn't also
+  // trigger a route change, matching how other overlays dismiss on back.
+  useDismissOnBack(!!summary, () => {
+    leaveSummary();
+  });
+
+  // Any other way of leaving — Done's navigate() below, or tapping a
+  // bottom-tab link — goes through the router, so a blocker can hold it
+  // until leaveSummary() has had a chance to raise the prompt.
+  useBlocker({
+    shouldBlockFn: () => leaveSummary(),
+    disabled: !summary,
+  });
+
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
   const [saveErrorDialogOpen, setSaveErrorDialogOpen] = useState(false);
   const [cancelPending, setCancelPending] = useState(false);
@@ -484,16 +522,7 @@ function WorkoutPage() {
 
         {stage >= 2 && (
           <Button
-            onClick={() => {
-              const routine = startRoutineSnapshot;
-              const newOrder = routine ? detectRoutineReorder(routine, summary.exercises) : null;
-              setSummary(null);
-              if (routine && newOrder) {
-                setPendingRoutineUpdate({ routine, newOrder });
-              } else {
-                navigate({ to: "/history" });
-              }
-            }}
+            onClick={() => navigate({ to: "/history" })}
             className="animate-[fade-in-soft_320ms_ease-out_forwards]"
             style={{ animationDelay: "180ms" }}
           >
