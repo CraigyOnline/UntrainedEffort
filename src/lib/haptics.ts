@@ -60,4 +60,8 @@ export const haptics = {
    *  notification pattern, so it reads as its own kind of moment rather
    *  than a stronger "tap" or an early finish signal. */
   prAchieved: () => fire(() => Haptics.impact({ style: ImpactStyle.Heavy })),
+  /** Picking up an exercise card to drag-reorder it. */
+  dragStart: () => fire(() => Haptics.impact({ style: ImpactStyle.Light })),
+  /** Dropping an exercise card after a drag-reorder. */
+  dragDrop: () => fire(() => Haptics.impact({ style: ImpactStyle.Light })),
 };

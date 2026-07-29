@@ -1,4 +1,10 @@
-import { getDb, type Workout, type WorkoutExerciseLog, type LiveWorkoutSet } from "@/lib/db";
+import {
+  getDb,
+  type Workout,
+  type WorkoutExerciseLog,
+  type LiveWorkoutSet,
+  type Routine,
+} from "@/lib/db";
 import { recordNewWorkoutPRs } from "@/lib/workoutIntegrity";
 import { haptics } from "@/lib/haptics";
 import { selectCompletionMessage, type CompletionMessage } from "@/lib/completionMessages";
@@ -64,6 +70,30 @@ export function sessionHasData(active: ActiveSession): boolean {
         (Number(s.duration) || 0) > 0,
     ),
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// detectRoutineReorder
+//
+// Compares the routine a workout was started from against the exercise order
+// it actually finished with. Returns the finished order (as exerciseIds) when
+// it's a pure reorder of the same routine — same exercises, different
+// sequence — or null when there's nothing to offer: no exercises were added
+// or removed (ambiguous whether to fold that into the routine too, and out
+// of scope for a reorder-only feature) or the order never changed.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function detectRoutineReorder(
+  routine: Routine,
+  finishedExercises: WorkoutExerciseLog[],
+): string[] | null {
+  const originalIds = routine.exercises.map((e) => e.exerciseId);
+  const finalIds = finishedExercises.map((e) => e.exerciseId);
+  if (originalIds.length !== finalIds.length) return null;
+  const originalSet = new Set(originalIds);
+  if (finalIds.some((id) => !originalSet.has(id))) return null;
+  const unchanged = originalIds.every((id, i) => id === finalIds[i]);
+  return unchanged ? null : finalIds;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   getDb,
   type Routine,
+  type RoutineExercise,
   type Workout,
   type WorkoutExerciseLog,
   type PRRecord,
@@ -27,7 +28,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ArrowDown, ArrowUp, Dumbbell, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useDismissOnBack } from "@/lib/backHandler";
-import { doSaveWorkout, makeSet, sessionHasData } from "@/features/workout/workoutHelpers";
+import {
+  detectRoutineReorder,
+  doSaveWorkout,
+  makeSet,
+  sessionHasData,
+} from "@/features/workout/workoutHelpers";
 import type { CompletionMessage } from "@/lib/completionMessages";
 import { useActiveWorkoutDraft } from "@/features/workout/useActiveWorkoutDraft";
 import { LiveSession } from "@/features/workout/LiveSession";
@@ -101,6 +107,14 @@ function WorkoutPage() {
   const [active, setActive] = useActiveWorkoutDraft();
   const [picking, setPicking] = useState(false);
   const [summary, setSummary] = useState<Workout | null>(null);
+  // The routine snapshot the finishing workout was started from, captured
+  // just before `active` is cleared — used only to offer the post-workout
+  // "Update Routine?" prompt below, never to alter the routine itself.
+  const [startRoutineSnapshot, setStartRoutineSnapshot] = useState<Routine | null>(null);
+  const [pendingRoutineUpdate, setPendingRoutineUpdate] = useState<{
+    routine: Routine;
+    newOrder: string[];
+  } | null>(null);
   const [completionMessage, setCompletionMessage] = useState<CompletionMessage | null>(null);
   // Workout Complete staged reveal. This screen's whole point changed from
   // "reveal information faster/nicer" to "let the achievement be felt
@@ -233,6 +247,7 @@ function WorkoutPage() {
         setDiscardDialogOpen(true);
         return;
       }
+      setStartRoutineSnapshot(active.routine);
       await doSaveWorkout(
         exercises,
         active,
@@ -257,6 +272,24 @@ function WorkoutPage() {
     if (!r.id) return;
     await getDb().routines.delete(r.id);
     setDeleteTarget(null);
+  }
+
+  // Resolves the post-workout "Update Routine?" prompt. Only reorders the
+  // routine's existing RoutineExercise entries to match how the workout was
+  // actually performed — every other field (sets, targets, etc.) is passed
+  // through untouched. Keeping the current routine just dismisses the
+  // prompt; nothing is written.
+  async function resolvePendingRoutineUpdate(shouldUpdate: boolean) {
+    const pending = pendingRoutineUpdate;
+    setPendingRoutineUpdate(null);
+    if (shouldUpdate && pending && pending.routine.id != null) {
+      const byId = new Map(pending.routine.exercises.map((e) => [e.exerciseId, e]));
+      const reordered: RoutineExercise[] = pending.newOrder
+        .map((id) => byId.get(id))
+        .filter((e): e is RoutineExercise => !!e);
+      await getDb().routines.update(pending.routine.id, { exercises: reordered });
+    }
+    navigate({ to: "/history" });
   }
 
   // Swaps sortOrder with the adjacent routine in the given direction — only
@@ -452,8 +485,14 @@ function WorkoutPage() {
         {stage >= 2 && (
           <Button
             onClick={() => {
+              const routine = startRoutineSnapshot;
+              const newOrder = routine ? detectRoutineReorder(routine, summary.exercises) : null;
               setSummary(null);
-              navigate({ to: "/history" });
+              if (routine && newOrder) {
+                setPendingRoutineUpdate({ routine, newOrder });
+              } else {
+                navigate({ to: "/history" });
+              }
             }}
             className="animate-[fade-in-soft_320ms_ease-out_forwards]"
             style={{ animationDelay: "180ms" }}
@@ -744,6 +783,29 @@ function WorkoutPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!pendingRoutineUpdate}
+        onOpenChange={(open) => !open && resolvePendingRoutineUpdate(false)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Update Routine?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You changed the exercise order during this workout. Would you like to update "
+              {pendingRoutineUpdate?.routine.name}" so future workouts use this new order?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => resolvePendingRoutineUpdate(false)}>
+              Keep Current Routine
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => resolvePendingRoutineUpdate(true)}>
+              Update Routine
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

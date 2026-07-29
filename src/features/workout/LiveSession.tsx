@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Check, Plus, Trash2, X } from "lucide-react";
+import { Reorder, useDragControls } from "framer-motion";
+import { Check, GripVertical, Plus, Trash2, X } from "lucide-react";
 import { getDb, type WorkoutSet, type LiveWorkoutSet } from "@/lib/db";
 import {
   getExercise,
@@ -19,7 +20,13 @@ import { Button } from "@/components/ui/button";
 import { SetTimer, TimerToggleButton } from "./WorkoutTimer";
 import { IntervalTimer } from "./IntervalTimer";
 import { WorkoutHUD, WORKOUT_HUD_HEIGHT, type WorkoutHUDCelebration } from "./WorkoutHUD";
-import { type ActiveSession, PR_CELEBRATION_VISIBLE_MS, makeSet } from "./workoutHelpers";
+import {
+  type ActiveSession,
+  type ActiveSessionExercise,
+  type IntervalTimerState,
+  PR_CELEBRATION_VISIBLE_MS,
+  makeSet,
+} from "./workoutHelpers";
 import { haptics } from "@/lib/haptics";
 import { checkLivePRs, type LivePRHit, type PRType } from "@/lib/workoutIntegrity";
 
@@ -101,6 +108,288 @@ function SetActionButtons({
         <Trash2 className="h-4 w-4" />
       </button>
     </>
+  );
+}
+
+// One exercise's card during a live workout — pulled out of LiveSession's
+// render so each card can own its own useDragControls() (a hook, and so
+// can't be called once per iteration inside a .map callback). Behaviour is
+// unchanged from before the extraction; only ei-indexed handlers moved to
+// props, plus the Reorder.Item/drag-handle wrapper needed for reordering.
+function ExerciseCard({
+  ex,
+  ei,
+  celebration,
+  previousSets,
+  removeExercise,
+  updateIntervalConfig,
+  setIntervalState,
+  completeIntervalExercise,
+  toggleSetCompletion,
+  removeSet,
+  updateSet,
+  toggleTimer,
+  addSet,
+}: {
+  ex: ActiveSessionExercise;
+  ei: number;
+  celebration: { exerciseId: string; setId: string | undefined } | null;
+  previousSets: WorkoutSet[] | undefined;
+  removeExercise: (ei: number) => void;
+  updateIntervalConfig: (ei: number, patch: Partial<IntervalConfig>) => void;
+  setIntervalState: (ei: number, next: IntervalTimerState | undefined) => void;
+  completeIntervalExercise: (ei: number) => void;
+  toggleSetCompletion: (ei: number, si: number) => void;
+  removeSet: (ei: number, si: number) => void;
+  updateSet: (ei: number, si: number, patch: Partial<LiveWorkoutSet>) => void;
+  toggleTimer: (ei: number, si: number, side?: "primary" | "secondary") => void;
+  addSet: (ei: number) => void;
+}) {
+  const def = getExercise(ex.exerciseId);
+  const schema = getExerciseLoggingSchema(def);
+  const defaultIntervalConfig = getIntervalConfig(def);
+  const intervalConfig = ex.intervalConfig ?? defaultIntervalConfig;
+  const dragControls = useDragControls();
+
+  return (
+    <Reorder.Item
+      value={ex.exerciseId}
+      dragListener={false}
+      dragControls={dragControls}
+      onDragStart={() => haptics.dragStart()}
+      onDragEnd={() => haptics.dragDrop()}
+      whileDrag={{ scale: 1.02, boxShadow: "0 10px 30px -8px rgba(0,0,0,0.5)", zIndex: 20 }}
+      className="rounded-xl bg-card p-3"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <button
+          onPointerDown={(e) => dragControls.start(e)}
+          aria-label="Drag to reorder exercise"
+          className="relative flex h-11 w-8 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground/70 active:cursor-grabbing after:absolute after:-inset-1 after:content-['']"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold">{def?.name ?? ex.exerciseId}</p>
+          <p className="text-xs text-muted-foreground">{def?.muscle}</p>
+        </div>
+        <button
+          onClick={() => removeExercise(ei)}
+          aria-label="Remove exercise"
+          className="flex h-11 w-11 shrink-0 items-center justify-center text-muted-foreground transition-colors active:text-destructive"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {previousSets && previousSets.length > 0 && (
+        <div className="mt-2 rounded-lg bg-muted px-2 py-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Previous Workout
+          </p>
+          <ul className="mt-0.5 text-xs tabular-nums text-foreground/80">
+            {previousSets.map((s, i) => (
+              <li key={i}>{formatCompletedSet(def, s)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {intervalConfig && !ex.intervalState && (
+        <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-secondary/50 px-3 py-2">
+          <label className="flex flex-col items-center gap-1">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Rounds
+            </span>
+            <NumberInput
+              value={intervalConfig.rounds}
+              onCommit={(v) => updateIntervalConfig(ei, { rounds: v })}
+              min={1}
+              className="w-12 text-center"
+            />
+          </label>
+          <label className="flex flex-col items-center gap-1">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Work</span>
+            <MmSsInput
+              seconds={intervalConfig.workSeconds}
+              onCommit={(v) => updateIntervalConfig(ei, { workSeconds: v })}
+            />
+          </label>
+          <label className="flex flex-col items-center gap-1">
+            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Rest</span>
+            <MmSsInput
+              seconds={intervalConfig.restSeconds}
+              onCommit={(v) => updateIntervalConfig(ei, { restSeconds: v })}
+            />
+          </label>
+        </div>
+      )}
+
+      {intervalConfig && (
+        <IntervalTimer
+          config={intervalConfig}
+          state={ex.intervalState}
+          onChange={(next) => setIntervalState(ei, next)}
+          onComplete={() => completeIntervalExercise(ei)}
+        />
+      )}
+
+      {!intervalConfig && schema.unilateral && (
+        <div className="mt-3 flex flex-col gap-2">
+          {ex.sets.map((s, si) => {
+            const primary: SetSide = {
+              weight: s.weight ?? 0,
+              reps: s.reps ?? 0,
+              duration: s.duration,
+            };
+            const secondary: SetSide = s.additionalPerformances?.[0] ?? {
+              weight: 0,
+              reps: 0,
+              duration: 0,
+            };
+            return (
+              <div
+                key={si}
+                className={`rounded-lg bg-secondary/40 p-2 ring-2 transition-shadow duration-500 ease-out ${
+                  celebration?.exerciseId === ex.exerciseId && celebration?.setId === s.id
+                    ? "ring-pr-gold shadow-[0_0_16px_2px_var(--color-pr-gold)]"
+                    : "ring-transparent shadow-none"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold">Set {si + 1}</span>
+                  <div className="flex items-center gap-2">
+                    <SetActionButtons
+                      completed={s.completed}
+                      onToggleComplete={() => toggleSetCompletion(ei, si)}
+                      onDelete={() => removeSet(ei, si)}
+                    />
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <UnilateralSetInputs
+                    schema={schema}
+                    primary={primary}
+                    secondary={secondary}
+                    size="large"
+                    mode={{
+                      kind: "live",
+                      timerStart: {
+                        primary: s.timerStart,
+                        secondary: s.additionalPerformances?.[0]?.timerStart,
+                      },
+                      onToggleTimer: (side) => toggleTimer(ei, si, side),
+                    }}
+                    onChange={({ primary: p, secondary: sec }) =>
+                      updateSet(ei, si, {
+                        weight: p.weight,
+                        reps: p.reps,
+                        duration: p.duration,
+                        additionalPerformances: [sec],
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            );
+          })}
+
+          <button
+            onClick={() => addSet(ei)}
+            className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary/10 py-2 text-sm font-medium text-primary active:bg-primary/15"
+          >
+            <Plus className="h-4 w-4" /> Add set
+          </button>
+        </div>
+      )}
+
+      {!intervalConfig && !schema.unilateral && (
+        <>
+          <div className="mt-3 grid grid-cols-[24px_1fr_1fr_auto_auto] items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span>{schema.distance ? "Set" : "#"}</span>
+            <span>{schema.distance ? "Km" : schema.duration ? "Sec" : "Kg"}</span>
+            <span>{schema.distance ? "Time" : schema.duration ? "" : "Reps"}</span>
+            <span />
+            <span />
+          </div>
+
+          {ex.sets.map((s, si) => (
+            <div
+              key={si}
+              className={`mt-2 grid grid-cols-[24px_1fr_1fr_auto_auto] items-center gap-2 rounded-lg ring-2 transition-shadow duration-500 ease-out ${
+                celebration?.exerciseId === ex.exerciseId && celebration?.setId === s.id
+                  ? "ring-pr-gold shadow-[0_0_16px_2px_var(--color-pr-gold)]"
+                  : "ring-transparent shadow-none"
+              }`}
+            >
+              <span className="text-sm font-semibold">{si + 1}</span>
+
+              {schema.distance ? (
+                <>
+                  <StepperInput
+                    value={s.weight ?? 0}
+                    onCommit={(v) => updateSet(ei, si, { weight: v })}
+                    step={0.1}
+                    decimal
+                    min={0}
+                    size="normal"
+                  />
+                  <div className="flex items-center gap-2">
+                    <SetTimer duration={s.duration ?? 0} timerStart={s.timerStart} />
+                    <TimerToggleButton
+                      running={!!s.timerStart}
+                      onClick={() => toggleTimer(ei, si)}
+                    />
+                  </div>
+                </>
+              ) : schema.duration ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <SetTimer duration={s.duration ?? 0} timerStart={s.timerStart} />
+                    <TimerToggleButton
+                      running={!!s.timerStart}
+                      onClick={() => toggleTimer(ei, si)}
+                    />
+                  </div>
+                  <span />
+                </>
+              ) : (
+                <>
+                  <StepperInput
+                    value={s.weight ?? 0}
+                    onCommit={(v) => updateSet(ei, si, { weight: v })}
+                    step={2.5}
+                    decimal
+                    min={0}
+                    size="normal"
+                  />
+                  <StepperInput
+                    value={s.reps ?? 0}
+                    onCommit={(v) => updateSet(ei, si, { reps: v })}
+                    step={1}
+                    min={0}
+                    size="normal"
+                  />
+                </>
+              )}
+
+              <SetActionButtons
+                completed={s.completed}
+                onToggleComplete={() => toggleSetCompletion(ei, si)}
+                onDelete={() => removeSet(ei, si)}
+              />
+            </div>
+          ))}
+
+          <button
+            onClick={() => addSet(ei)}
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary/10 py-2 text-sm font-medium text-primary active:bg-primary/15"
+          >
+            <Plus className="h-4 w-4" /> Add set
+          </button>
+        </>
+      )}
+    </Reorder.Item>
   );
 }
 
@@ -328,6 +617,30 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
     setSession((s) => (s ? { ...s, exercises: s.exercises.filter((_, i) => i !== ei) } : s));
   }
 
+  // Drag-reorder. session.exercises has no reference identity that survives
+  // a re-render (it's rebuilt via spreads on every update), so Reorder.Item
+  // is keyed on exerciseId — stable, and unique within a single workout: the
+  // exercise picker already excludes exercises already added to the session.
+  // Reordering never touches any exercise's own data, only array position.
+  function reorderExercises(newOrder: string[]) {
+    setSession((s) => {
+      if (!s) return s;
+      const byId = new Map(s.exercises.map((e) => [e.exerciseId, e]));
+      return { ...s, exercises: newOrder.map((id) => byId.get(id)!) };
+    });
+  }
+
+  function setIntervalState(ei: number, next: IntervalTimerState | undefined) {
+    setSession((s) =>
+      s
+        ? {
+            ...s,
+            exercises: s.exercises.map((e, i) => (i !== ei ? e : { ...e, intervalState: next })),
+          }
+        : s,
+    );
+  }
+
   // An interval exercise (e.g. Rowing Intervals) has no per-set editing UI —
   // its "set" is the whole timed session. On completion this replaces
   // whatever placeholder set(s) existed with exactly one real completed
@@ -397,256 +710,32 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
         }
       />
 
-      {session.exercises.map((ex, ei) => {
-        const def = getExercise(ex.exerciseId);
-        const schema = getExerciseLoggingSchema(def);
-        const defaultIntervalConfig = getIntervalConfig(def);
-        const intervalConfig = ex.intervalConfig ?? defaultIntervalConfig;
-        return (
-          <div key={ei} className="rounded-xl bg-card p-3">
-            <div className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="truncate font-semibold">{def?.name ?? ex.exerciseId}</p>
-                <p className="text-xs text-muted-foreground">{def?.muscle}</p>
-              </div>
-              <button
-                onClick={() => removeExercise(ei)}
-                aria-label="Remove exercise"
-                className="flex h-11 w-11 shrink-0 items-center justify-center text-muted-foreground transition-colors active:text-destructive"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {(() => {
-              const prev = previousByExercise.get(ex.exerciseId);
-              if (!prev || prev.length === 0) return null;
-              return (
-                <div className="mt-2 rounded-lg bg-muted px-2 py-1.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Previous Workout
-                  </p>
-                  <ul className="mt-0.5 text-xs tabular-nums text-foreground/80">
-                    {prev.map((s, i) => (
-                      <li key={i}>{formatCompletedSet(def, s)}</li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })()}
-
-            {intervalConfig && !ex.intervalState && (
-              <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-secondary/50 px-3 py-2">
-                <label className="flex flex-col items-center gap-1">
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Rounds
-                  </span>
-                  <NumberInput
-                    value={intervalConfig.rounds}
-                    onCommit={(v) => updateIntervalConfig(ei, { rounds: v })}
-                    min={1}
-                    className="w-12 text-center"
-                  />
-                </label>
-                <label className="flex flex-col items-center gap-1">
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Work
-                  </span>
-                  <MmSsInput
-                    seconds={intervalConfig.workSeconds}
-                    onCommit={(v) => updateIntervalConfig(ei, { workSeconds: v })}
-                  />
-                </label>
-                <label className="flex flex-col items-center gap-1">
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Rest
-                  </span>
-                  <MmSsInput
-                    seconds={intervalConfig.restSeconds}
-                    onCommit={(v) => updateIntervalConfig(ei, { restSeconds: v })}
-                  />
-                </label>
-              </div>
-            )}
-
-            {intervalConfig && (
-              <IntervalTimer
-                config={intervalConfig}
-                state={ex.intervalState}
-                onChange={(next) =>
-                  setSession((s) =>
-                    s
-                      ? {
-                          ...s,
-                          exercises: s.exercises.map((e, i) =>
-                            i !== ei ? e : { ...e, intervalState: next },
-                          ),
-                        }
-                      : s,
-                  )
-                }
-                onComplete={() => completeIntervalExercise(ei)}
-              />
-            )}
-
-            {!intervalConfig && schema.unilateral && (
-              <div className="mt-3 flex flex-col gap-2">
-                {ex.sets.map((s, si) => {
-                  const primary: SetSide = {
-                    weight: s.weight ?? 0,
-                    reps: s.reps ?? 0,
-                    duration: s.duration,
-                  };
-                  const secondary: SetSide = s.additionalPerformances?.[0] ?? {
-                    weight: 0,
-                    reps: 0,
-                    duration: 0,
-                  };
-                  return (
-                    <div
-                      key={si}
-                      className={`rounded-lg bg-secondary/40 p-2 ring-2 transition-shadow duration-500 ease-out ${
-                        celebration?.exerciseId === ex.exerciseId && celebration?.setId === s.id
-                          ? "ring-pr-gold shadow-[0_0_16px_2px_var(--color-pr-gold)]"
-                          : "ring-transparent shadow-none"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold">Set {si + 1}</span>
-                        <div className="flex items-center gap-2">
-                          <SetActionButtons
-                            completed={s.completed}
-                            onToggleComplete={() => toggleSetCompletion(ei, si)}
-                            onDelete={() => removeSet(ei, si)}
-                          />
-                        </div>
-                      </div>
-                      <div className="mt-2">
-                        <UnilateralSetInputs
-                          schema={schema}
-                          primary={primary}
-                          secondary={secondary}
-                          size="large"
-                          mode={{
-                            kind: "live",
-                            timerStart: {
-                              primary: s.timerStart,
-                              secondary: s.additionalPerformances?.[0]?.timerStart,
-                            },
-                            onToggleTimer: (side) => toggleTimer(ei, si, side),
-                          }}
-                          onChange={({ primary: p, secondary: sec }) =>
-                            updateSet(ei, si, {
-                              weight: p.weight,
-                              reps: p.reps,
-                              duration: p.duration,
-                              additionalPerformances: [sec],
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-
-                <button
-                  onClick={() => addSet(ei)}
-                  className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary/10 py-2 text-sm font-medium text-primary active:bg-primary/15"
-                >
-                  <Plus className="h-4 w-4" /> Add set
-                </button>
-              </div>
-            )}
-
-            {!intervalConfig && !schema.unilateral && (
-              <>
-                <div className="mt-3 grid grid-cols-[24px_1fr_1fr_auto_auto] items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  <span>{schema.distance ? "Set" : "#"}</span>
-                  <span>{schema.distance ? "Km" : schema.duration ? "Sec" : "Kg"}</span>
-                  <span>{schema.distance ? "Time" : schema.duration ? "" : "Reps"}</span>
-                  <span />
-                  <span />
-                </div>
-
-                {ex.sets.map((s, si) => (
-                  <div
-                    key={si}
-                    className={`mt-2 grid grid-cols-[24px_1fr_1fr_auto_auto] items-center gap-2 rounded-lg ring-2 transition-shadow duration-500 ease-out ${
-                      celebration?.exerciseId === ex.exerciseId && celebration?.setId === s.id
-                        ? "ring-pr-gold shadow-[0_0_16px_2px_var(--color-pr-gold)]"
-                        : "ring-transparent shadow-none"
-                    }`}
-                  >
-                    <span className="text-sm font-semibold">{si + 1}</span>
-
-                    {schema.distance ? (
-                      <>
-                        <StepperInput
-                          value={s.weight ?? 0}
-                          onCommit={(v) => updateSet(ei, si, { weight: v })}
-                          step={0.1}
-                          decimal
-                          min={0}
-                          size="normal"
-                        />
-                        <div className="flex items-center gap-2">
-                          <SetTimer duration={s.duration ?? 0} timerStart={s.timerStart} />
-                          <TimerToggleButton
-                            running={!!s.timerStart}
-                            onClick={() => toggleTimer(ei, si)}
-                          />
-                        </div>
-                      </>
-                    ) : schema.duration ? (
-                      <>
-                        <div className="flex items-center gap-2">
-                          <SetTimer duration={s.duration ?? 0} timerStart={s.timerStart} />
-                          <TimerToggleButton
-                            running={!!s.timerStart}
-                            onClick={() => toggleTimer(ei, si)}
-                          />
-                        </div>
-                        <span />
-                      </>
-                    ) : (
-                      <>
-                        <StepperInput
-                          value={s.weight ?? 0}
-                          onCommit={(v) => updateSet(ei, si, { weight: v })}
-                          step={2.5}
-                          decimal
-                          min={0}
-                          size="normal"
-                        />
-                        <StepperInput
-                          value={s.reps ?? 0}
-                          onCommit={(v) => updateSet(ei, si, { reps: v })}
-                          step={1}
-                          min={0}
-                          size="normal"
-                        />
-                      </>
-                    )}
-
-                    <SetActionButtons
-                      completed={s.completed}
-                      onToggleComplete={() => toggleSetCompletion(ei, si)}
-                      onDelete={() => removeSet(ei, si)}
-                    />
-                  </div>
-                ))}
-
-                <button
-                  onClick={() => addSet(ei)}
-                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary/10 py-2 text-sm font-medium text-primary active:bg-primary/15"
-                >
-                  <Plus className="h-4 w-4" /> Add set
-                </button>
-              </>
-            )}
-          </div>
-        );
-      })}
+      <Reorder.Group
+        as="div"
+        axis="y"
+        values={session.exercises.map((e) => e.exerciseId)}
+        onReorder={reorderExercises}
+        className="flex flex-col gap-4"
+      >
+        {session.exercises.map((ex, ei) => (
+          <ExerciseCard
+            key={ex.exerciseId}
+            ex={ex}
+            ei={ei}
+            celebration={celebration}
+            previousSets={previousByExercise.get(ex.exerciseId)}
+            removeExercise={removeExercise}
+            updateIntervalConfig={updateIntervalConfig}
+            setIntervalState={setIntervalState}
+            completeIntervalExercise={completeIntervalExercise}
+            toggleSetCompletion={toggleSetCompletion}
+            removeSet={removeSet}
+            updateSet={updateSet}
+            toggleTimer={toggleTimer}
+            addSet={addSet}
+          />
+        ))}
+      </Reorder.Group>
 
       <Button onClick={onAddExercise}>
         <Plus className="mr-2 h-4 w-4" /> Add exercise
