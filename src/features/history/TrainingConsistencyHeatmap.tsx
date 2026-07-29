@@ -5,10 +5,44 @@ import type { Workout } from "@/lib/db";
 // full week-columns (see below), so the actual span is 12-13 weeks.
 const WEEKS = 12;
 
+// Narrow fixed column for weekday labels. Kept small so it doesn't eat
+// into the space available for the day squares on narrow phones.
+const DAY_LABEL_WIDTH = 20;
+
+const MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+// GitHub-style: only label a subset of weekday rows to avoid clutter.
+const DAY_LABEL_ROWS: Record<number, string> = {
+  1: "Mon",
+  3: "Wed",
+  5: "Fri",
+};
+
 function toDayKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
     d.getDate(),
   ).padStart(2, "0")}`;
+}
+
+interface DayCell {
+  key: string;
+  trained: boolean;
+  isFuture: boolean;
+  isFirstOfMonth: boolean;
+  monthLabel: string;
 }
 
 interface TrainingConsistencyHeatmapProps {
@@ -33,7 +67,7 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
     return set;
   }, [workouts]);
 
-  const days = useMemo(() => {
+  const days = useMemo<DayCell[]>(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -43,7 +77,7 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
     start.setDate(start.getDate() - (WEEKS * 7 - 1));
     start.setDate(start.getDate() - start.getDay());
 
-    const list: { key: string; trained: boolean; isFuture: boolean }[] = [];
+    const list: DayCell[] = [];
     const cursor = new Date(start);
     while (cursor <= today || list.length % 7 !== 0) {
       const key = toDayKey(cursor);
@@ -51,6 +85,8 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
         key,
         trained: trainedDays.has(key),
         isFuture: cursor > today,
+        isFirstOfMonth: cursor.getDate() === 1,
+        monthLabel: MONTH_LABELS[cursor.getMonth()],
       });
       cursor.setDate(cursor.getDate() + 1);
     }
@@ -59,6 +95,24 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
 
   const weekCount = Math.ceil(days.length / 7);
 
+  // One month label per column: the column gets a label if any of its
+  // days is the 1st of a month. A week only ever contains one "1st".
+  const monthColumnLabels = useMemo(() => {
+    const labels: string[] = new Array(weekCount).fill("");
+    for (let col = 0; col < weekCount; col++) {
+      for (let row = 0; row < 7; row++) {
+        const day = days[col * 7 + row];
+        if (day?.isFirstOfMonth) {
+          labels[col] = day.monthLabel;
+          break;
+        }
+      }
+    }
+    return labels;
+  }, [days, weekCount]);
+
+  const gridColumnStyle = { gridTemplateColumns: `repeat(${weekCount}, 1fr)` };
+
   return (
     <div className="flex flex-col gap-2">
       <div>
@@ -66,22 +120,50 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
         <p className="text-xs text-muted-foreground">Every workout counts.</p>
       </div>
 
-      <div
-        className="grid gap-1"
-        style={{
-          gridTemplateColumns: `repeat(${weekCount}, 1fr)`,
-          gridTemplateRows: "repeat(7, 1fr)",
-          gridAutoFlow: "column",
-        }}
-      >
-        {days.map((day) => (
+      <div className="flex flex-col gap-1">
+        {/* Month labels, aligned to the week columns below */}
+        <div className="flex">
+          <div style={{ width: DAY_LABEL_WIDTH }} />
+          <div className="grid flex-1 gap-1" style={gridColumnStyle}>
+            {monthColumnLabels.map((label, i) => (
+              <span
+                key={i}
+                className="overflow-visible whitespace-nowrap text-[9px] leading-none text-muted-foreground"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-stretch gap-1">
+          {/* Weekday labels, matching the 7 rows of the day grid */}
+          <div className="grid grid-rows-7 gap-1" style={{ width: DAY_LABEL_WIDTH }}>
+            {Array.from({ length: 7 }, (_, row) => (
+              <span key={row} className="text-[9px] leading-none text-muted-foreground">
+                {DAY_LABEL_ROWS[row] ?? ""}
+              </span>
+            ))}
+          </div>
+
           <div
-            key={day.key}
-            className={`aspect-square rounded-sm ${
-              day.isFuture ? "invisible" : day.trained ? "bg-primary" : "bg-secondary"
-            }`}
-          />
-        ))}
+            className="grid flex-1 gap-1"
+            style={{
+              ...gridColumnStyle,
+              gridTemplateRows: "repeat(7, 1fr)",
+              gridAutoFlow: "column",
+            }}
+          >
+            {days.map((day) => (
+              <div
+                key={day.key}
+                className={`aspect-square rounded-sm ${
+                  day.isFuture ? "invisible" : day.trained ? "bg-primary" : "bg-secondary"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
