@@ -126,9 +126,14 @@ function HistoryList() {
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-6 pb-8">
-      <h1 className="text-2xl font-bold">Progress</h1>
+      <div>
+        <h1 className="text-2xl font-bold">Progress</h1>
+        <p className="text-sm text-muted-foreground">Every workout counts.</p>
+      </div>
 
       <TrainingConsistencyHeatmap workouts={workouts ?? []} />
+
+      <h2 className="text-base font-semibold">Workout Timeline</h2>
 
       <div className="flex flex-col gap-2">
         <input
