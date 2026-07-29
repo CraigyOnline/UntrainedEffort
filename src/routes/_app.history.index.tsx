@@ -12,6 +12,7 @@ import { TrainingConsistencyHeatmap } from "@/features/history/TrainingConsisten
 import { LifetimeSummary } from "@/features/history/LifetimeSummary";
 import { CurrentYearSummary } from "@/features/history/CurrentYearSummary";
 import { MonthlySummaries } from "@/features/history/MonthlySummaries";
+import { Milestones } from "@/features/history/Milestones";
 import { EmptyState } from "@/components/EmptyState";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
 import { Trash2 } from "lucide-react";
@@ -141,6 +142,8 @@ function HistoryList() {
       <CurrentYearSummary workouts={workouts ?? []} />
 
       <MonthlySummaries workouts={workouts ?? []} />
+
+      <Milestones workouts={workouts ?? []} totalPRs={allPRs?.length ?? 0} />
 
       <h2 className="text-base font-semibold">Workout Timeline</h2>
 
