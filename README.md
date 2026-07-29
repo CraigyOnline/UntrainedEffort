@@ -1,106 +1,89 @@
 # Untrained Effort
 
-An open-source Android workout tracker built for personal use.
+An open-source, local-first Android workout tracker built for people who want to focus on training—not subscriptions, social feeds, or paywalls.
 
-Inspired by apps like **Hevy** and **wger**, but focused on being fast, local-first and free of unnecessary features.
-
-## Philosophy
-
-* 🏋️ Local-first (your data belongs to you)
-* 📈 Track long-term progress
-* 🚫 No social feed
-* 🚫 No subscriptions
-* 🚫 No feature paywalls
-* 🚫 No history limits
-* 📂 Backup and restore your own data
-* ❤️ Built with maintainability in mind
-
-## Current Features
-
-* Workout routines
-* Manual routine ordering
-* Quick workouts
-* Active workout recovery (resume after leaving the app)
-* Workout history
-* History search & filtering
-* Personal records (PRs)
-* Exercise detail pages
-* Exercise progress charts
-* Profile dashboard with training insights
-* Muscle activity map with drill-down
-* Cardio and interval workout support
-* Configurable interval workouts
-* Unilateral exercise support
-* Expandable muscle maps
-* Native Android back-button support
-* Backup and restore
-* Database maintenance
-* Automatic derived-data synchronisation
+Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownership of your data, and a polished workout experience.
 
 ---
 
-# Roadmap
+## Philosophy
 
-## Workout Experience
+- 🏋️ **Local-first** — your data stays on your device.
+- 📈 **Progress over perfection** — celebrate consistency and long-term improvement.
+- 🚫 **No subscriptions**
+- 🚫 **No feature paywalls**
+- 🚫 **No social feed**
+- 📂 **Backup and restore whenever you want**
+- ❤️ **Built with maintainability in mind**
 
-* [ ] Live Workout HUD
-  * [ ] Pinned workout header
-  * [ ] Live workout timer
-  * [ ] Live volume & completed sets
-  * [ ] Workout progress indicator
-  * [ ] Live mini muscle map
-  * [ ] Always-visible Finish button
-  * [ ] Live PR celebrations
-  * [ ] Improved workout summary
+---
 
-* [ ] Active workout card
-  * [ ] Visible throughout the app while a workout is active
-  * [ ] One-tap return to the active workout
-  * [ ] Live timer
-  * [ ] Live volume & completed sets
-  * [ ] Mini live muscle map
+## Features
 
-* [ ] Rich Android workout notifications
-  * [ ] Live workout notification
-  * [ ] Rest timer countdown
-  * [ ] Complete Set action
-  * [ ] Skip Rest action
-  * [ ] Resume workout action
-  * [ ] Live PR notifications
+### Workouts
 
-## Analytics
+- Workout routines
+- Manual routine ordering
+- Quick workouts
+- Live Workout HUD
+- Active workout recovery
+- Active workout card
+- Exercise reordering during workouts
+- Optional routine synchronisation
+- Rich Android workout notifications
+- Cardio & interval workouts
+- Unilateral exercise support
 
-* [ ] Weekly/monthly volume charts
-* [ ] Better cardio analytics
-* [ ] Exercise statistics
-* [ ] Richer exercise analytics
-* [ ] Muscle activity trends
+### Progress
 
-## Muscle Insights
+- Workout history
+- Search & filtering
+- Personal records (PRs)
+- Exercise progress charts
+- Exercise detail pages
+- Profile dashboard
+- Muscle activity maps
+- Workout completion celebrations
+- Motivational welcome & completion messages
 
-* [ ] Last trained by muscle
-* [ ] Muscle recovery indicators
-* [ ] Muscle training frequency
+### Data
 
-## History
+- Local-first database
+- Backup & restore
+- Database maintenance
+- Automatic derived-data synchronisation
 
-* [ ] Richer history pages
+---
 
-## UI / UX
+## Roadmap
 
-* [ ] Mobile polish pass
-* [ ] Improve animations and transitions
-* [ ] Better empty states
-* [ ] Rest timer improvements
+### Analytics
 
-## Future Features
+- Weekly & monthly volume charts
+- Richer exercise statistics
+- Better cardio analytics
+- Muscle activity trends
 
-* [ ] Goal tracking
-* [ ] Cloud sync (optional)
-* [ ] Wear OS support (optional)
+### Insights
 
-## Maintenance
+- Muscle recovery indicators
+- Training frequency
+- Last trained by muscle
 
-* [ ] Continue removing dead code
-* [ ] Continue reducing duplicated logic
-* [ ] Dependency clean-up
+### Future
+
+- Goal tracking
+- Optional cloud sync
+- Wear OS support
+
+---
+
+## Contributing
+
+This project is developed primarily for personal use, but ideas, bug reports and pull requests are always welcome.
+
+---
+
+## License
+
+MIT
