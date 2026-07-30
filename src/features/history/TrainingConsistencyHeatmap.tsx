@@ -1,5 +1,15 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import type { Workout } from "@/lib/db";
+import { computeWorkoutStats } from "@/lib/workoutStats";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 // Roughly how many weeks of history to show. The grid is padded out to
 // full week-columns (see below), so the actual span is 12-13 weeks.
@@ -55,16 +65,23 @@ interface TrainingConsistencyHeatmapProps {
  * a performance comparison, so there are no intensity shades and no
  * negative/red coloring for missed days.
  *
- * No interactivity yet (no tap, no animation, no filtering) — those are
- * planned as later, separate iterations.
+ * Tapping a trained day opens a quick preview of that day's workout(s),
+ * with the option to open the full workout or go back. Untrained and
+ * future days are inert — there's nothing to show for them.
  */
 export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeatmapProps) {
-  const trainedDays = useMemo(() => {
-    const set = new Set<string>();
+  const navigate = useNavigate();
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+
+  const workoutsByDay = useMemo(() => {
+    const map = new Map<string, Workout[]>();
     for (const w of workouts) {
-      set.add(toDayKey(new Date(w.startedAt)));
+      const key = toDayKey(new Date(w.startedAt));
+      const bucket = map.get(key);
+      if (bucket) bucket.push(w);
+      else map.set(key, [w]);
     }
-    return set;
+    return map;
   }, [workouts]);
 
   const days = useMemo<DayCell[]>(() => {
@@ -83,7 +100,7 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
       const key = toDayKey(cursor);
       list.push({
         key,
-        trained: trainedDays.has(key),
+        trained: workoutsByDay.has(key),
         isFuture: cursor > today,
         isFirstOfMonth: cursor.getDate() === 1,
         monthLabel: MONTH_LABELS[cursor.getMonth()],
@@ -91,7 +108,7 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
       cursor.setDate(cursor.getDate() + 1);
     }
     return list;
-  }, [trainedDays]);
+  }, [workoutsByDay]);
 
   const weekCount = Math.ceil(days.length / 7);
 
@@ -154,16 +171,76 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
             }}
           >
             {days.map((day) => (
-              <div
+              <button
                 key={day.key}
+                type="button"
+                disabled={day.isFuture || !day.trained}
+                onClick={() => setSelectedDayKey(day.key)}
+                aria-label={day.trained ? `View workouts from ${day.key}` : undefined}
                 className={`aspect-square rounded-sm ${
-                  day.isFuture ? "invisible" : day.trained ? "bg-primary" : "bg-secondary"
+                  day.isFuture
+                    ? "invisible"
+                    : day.trained
+                      ? "bg-primary active:scale-90"
+                      : "bg-secondary"
                 }`}
               />
             ))}
           </div>
         </div>
       </div>
+
+      <Dialog open={!!selectedDayKey} onOpenChange={(open) => !open && setSelectedDayKey(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedDayKey && formatDialogDate(selectedDayKey)}</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3">
+            {selectedDayKey &&
+              workoutsByDay.get(selectedDayKey)?.map((w) => {
+                const { totalSets, totalVolume } = computeWorkoutStats(w.exercises);
+                return (
+                  <div key={w.id ?? w.startedAt} className="rounded-2xl bg-card p-4">
+                    <p className="font-semibold">{w.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {Math.max(1, Math.round((w.durationSec ?? 0) / 60))} min ·{" "}
+                      {w.exercises.length} ex · {totalSets} sets
+                      {totalVolume > 0 && ` · ${totalVolume.toLocaleString()} kg`}
+                    </p>
+                    <Button
+                      size="sm"
+                      className="mt-3 w-full"
+                      onClick={() => {
+                        if (!w.id) return;
+                        setSelectedDayKey(null);
+                        navigate({ to: "/history/$id", params: { id: String(w.id) } });
+                      }}
+                    >
+                      View Workout
+                    </Button>
+                  </div>
+                );
+              })}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedDayKey(null)}>
+              Back
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+/** e.g. "2026-07-15" -> "Wednesday, July 15" */
+function formatDialogDate(dayKey: string): string {
+  const [year, month, day] = dayKey.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
 }
