@@ -25,21 +25,25 @@ export function LifetimeSummary({ workouts }: LifetimeSummaryProps) {
           icon={<Dumbbell className="h-4 w-4" />}
           label="Total workouts"
           value={stats.totalSessions.toLocaleString()}
+          footnote="Every workout counts."
         />
         <SummaryStat
           icon={<TrendingUp className="h-4 w-4" />}
           label="Total volume"
           value={`${Math.round(stats.totalVolume).toLocaleString()} kg`}
+          footnote="Weight moved, workout after workout."
         />
         <SummaryStat
           icon={<Timer className="h-4 w-4" />}
           label="Time trained"
           value={stats.timeTrained}
+          footnote="Time invested in yourself."
         />
         <SummaryStat
           icon={<Clock className="h-4 w-4" />}
           label="Training for"
           value={stats.trainingDuration}
+          footnote="However long it's been, you showed up."
         />
       </div>
     </section>

@@ -35,16 +35,19 @@ export function Milestones({ workouts, totalPRs }: MilestonesProps) {
           icon={<Flame className="h-4 w-4" />}
           label="Longest streak"
           value={`${stats.longestStreak} ${stats.longestStreak === 1 ? "day" : "days"}`}
+          footnote="Keep the habit alive."
         />
         <SummaryStat
           icon={<CalendarRange className="h-4 w-4" />}
           label="Months trained"
           value={stats.monthsTrained.toLocaleString()}
+          footnote="Every month adds up."
         />
         <SummaryStat
           icon={<Trophy className="h-4 w-4" />}
           label="PRs celebrated"
           value={totalPRs.toLocaleString()}
+          footnote="Celebrate the wins."
         />
       </div>
 

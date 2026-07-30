@@ -41,16 +41,19 @@ export function CurrentYearSummary({ workouts }: CurrentYearSummaryProps) {
           icon={<Dumbbell className="h-4 w-4" />}
           label="Workouts"
           value={stats.sessions.toLocaleString()}
+          footnote="Every session counts."
         />
         <SummaryStat
           icon={<TrendingUp className="h-4 w-4" />}
           label="Volume"
           value={`${Math.round(stats.volume).toLocaleString()} kg`}
+          footnote="Building up all year."
         />
         <SummaryStat
           icon={<Timer className="h-4 w-4" />}
           label="Time trained"
           value={stats.timeTrained}
+          footnote="Time invested this year."
         />
       </div>
     </section>
