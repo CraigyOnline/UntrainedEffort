@@ -1,6 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Workout } from "@/lib/db";
 import { computeWorkoutStats } from "@/lib/workoutStats";
+
+const DEFAULT_VISIBLE_MONTHS = 3;
 
 interface MonthlySummariesProps {
   workouts: Workout[];
@@ -21,17 +23,26 @@ interface MonthGroup {
  * workout, or just a quiet gap) never gets a bucket at all, so there's
  * no "0 workouts this month" card to word carefully around. Silence is
  * the correct treatment for a rest month, not a muted card.
+ *
+ * Collapsed to the most recent few months by default — the full list
+ * grows unbounded with tenure, and was the single biggest contributor
+ * to how far the Workout Timeline button ended up buried on longer
+ * training histories.
  */
 export function MonthlySummaries({ workouts }: MonthlySummariesProps) {
   const months = useMemo(() => groupByMonth(workouts), [workouts]);
+  const [expanded, setExpanded] = useState(false);
 
   if (months.length === 0) return null;
+
+  const visibleMonths = expanded ? months : months.slice(0, DEFAULT_VISIBLE_MONTHS);
+  const hiddenCount = months.length - visibleMonths.length;
 
   return (
     <section>
       <h2 className="mb-3 text-base font-semibold">Monthly Summaries</h2>
       <div className="flex flex-col gap-2">
-        {months.map((m) => (
+        {visibleMonths.map((m) => (
           <div key={m.key} className="rounded-2xl bg-card p-4">
             <p className="font-semibold">{m.label}</p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -42,6 +53,15 @@ export function MonthlySummaries({ workouts }: MonthlySummariesProps) {
           </div>
         ))}
       </div>
+
+      {hiddenCount > 0 && (
+        <button
+          onClick={() => setExpanded(true)}
+          className="mt-2 text-xs text-muted-foreground underline underline-offset-2"
+        >
+          Show {hiddenCount} more {hiddenCount === 1 ? "month" : "months"}
+        </button>
+      )}
     </section>
   );
 }

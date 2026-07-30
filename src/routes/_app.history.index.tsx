@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
 import { z } from "zod";
+import { List } from "lucide-react";
 import { getDb, type Workout, type PRRecord } from "@/lib/db";
 import { TrainingConsistencyHeatmap } from "@/features/history/TrainingConsistencyHeatmap";
 import { LifetimeSummary } from "@/features/history/LifetimeSummary";
@@ -8,7 +9,6 @@ import { CurrentYearSummary } from "@/features/history/CurrentYearSummary";
 import { MonthlySummaries } from "@/features/history/MonthlySummaries";
 import { Milestones } from "@/features/history/Milestones";
 import { EmptyState } from "@/components/EmptyState";
-import { Button } from "@/components/ui/button";
 
 // Kept for symmetry with the old combined route — no search UI lives here
 // any more (that moved to /history/timeline), but an empty schema avoids
@@ -44,9 +44,20 @@ function ProgressPage() {
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-6 pb-8">
-      <div>
-        <h1 className="text-2xl font-bold">Progress</h1>
-        <p className="text-sm text-muted-foreground">Every workout counts.</p>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-bold">Progress</h1>
+          <p className="text-sm text-muted-foreground">Every workout counts.</p>
+        </div>
+        {!!workouts?.length && (
+          <button
+            onClick={() => navigate({ to: "/history/timeline" })}
+            className="flex shrink-0 items-center gap-1 pt-1 text-xs text-muted-foreground underline underline-offset-2"
+          >
+            <List className="h-3.5 w-3.5" />
+            Timeline
+          </button>
+        )}
       </div>
 
       <TrainingConsistencyHeatmap workouts={workouts ?? []} />
@@ -64,12 +75,6 @@ function ProgressPage() {
           message="No workouts yet."
           action={{ label: "Start a workout", onClick: () => navigate({ to: "/workout" }) }}
         />
-      )}
-
-      {!!workouts?.length && (
-        <Button variant="outline" onClick={() => navigate({ to: "/history/timeline" })}>
-          View Workout Timeline
-        </Button>
       )}
     </div>
   );

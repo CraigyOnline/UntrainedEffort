@@ -117,7 +117,6 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
     <div className="flex flex-col gap-2">
       <div>
         <h2 className="text-base font-semibold">Training Consistency</h2>
-        <p className="text-xs text-muted-foreground">Every workout counts.</p>
       </div>
 
       <div className="flex flex-col gap-1">

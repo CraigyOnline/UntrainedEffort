@@ -80,18 +80,28 @@ function computeLifetimeStats(workouts: Workout[]): LifetimeStats {
   };
 }
 
-/** Whole-months-and-years elapsed since the first workout, phrased as a
- *  duration ("8 months", "1 year, 2 months") rather than a date — this is
- *  about how long the user has been showing up, not when they started. */
+/** Elapsed time since the first workout, phrased as a duration ("2
+ *  weeks", "8 months", "1 year, 2 months") rather than a date — this is
+ *  about how long the user has been showing up, not when they started.
+ *  Below a month gets week-level granularity so a real fortnight of
+ *  training doesn't collapse into "Just started" alongside day one. */
 function formatTrainingDuration(startMs: number, nowMs: number): string {
   const start = new Date(startMs);
   const now = new Date(nowMs);
+
+  const dayMs = 86400000;
+  const days = Math.floor((nowMs - startMs) / dayMs);
+
+  if (days < 7) return "Just started";
 
   let months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
   if (now.getDate() < start.getDate()) months -= 1;
   months = Math.max(0, months);
 
-  if (months < 1) return "Just started";
+  if (months < 1) {
+    const weeks = Math.floor(days / 7);
+    return `${weeks} ${weeks === 1 ? "week" : "weeks"}`;
+  }
 
   if (months < 12) {
     return `${months} ${months === 1 ? "month" : "months"}`;
