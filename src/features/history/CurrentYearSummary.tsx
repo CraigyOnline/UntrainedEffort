@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { Dumbbell, TrendingUp, CalendarDays } from "lucide-react";
+import { Dumbbell, TrendingUp, Timer } from "lucide-react";
 import type { Workout } from "@/lib/db";
 import { computeWorkoutStats } from "@/lib/workoutStats";
+import { formatTimeTrained } from "@/features/history/duration";
 import { SummaryStat } from "@/features/history/SummaryStat";
 
 interface CurrentYearSummaryProps {
@@ -47,9 +48,9 @@ export function CurrentYearSummary({ workouts }: CurrentYearSummaryProps) {
           value={`${Math.round(stats.volume).toLocaleString()} kg`}
         />
         <SummaryStat
-          icon={<CalendarDays className="h-4 w-4" />}
-          label="Active days"
-          value={stats.activeDays.toLocaleString()}
+          icon={<Timer className="h-4 w-4" />}
+          label="Time trained"
+          value={stats.timeTrained}
         />
       </div>
     </section>
@@ -59,7 +60,7 @@ export function CurrentYearSummary({ workouts }: CurrentYearSummaryProps) {
 interface YearStats {
   sessions: number;
   volume: number;
-  activeDays: number;
+  timeTrained: string;
 }
 
 function computeYearStats(workouts: Workout[], year: number): YearStats {
@@ -72,13 +73,7 @@ function computeYearStats(workouts: Workout[], year: number): YearStats {
     0,
   );
 
-  const activeDays = new Set(
-    thisYear.map((w) => {
-      const d = new Date(w.startedAt);
-      d.setHours(0, 0, 0, 0);
-      return d.getTime();
-    }),
-  ).size;
+  const totalSeconds = thisYear.reduce((acc, w) => acc + (w.durationSec ?? 0), 0);
 
-  return { sessions, volume, activeDays };
+  return { sessions, volume, timeTrained: formatTimeTrained(totalSeconds) };
 }

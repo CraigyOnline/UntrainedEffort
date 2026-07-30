@@ -52,7 +52,7 @@ function ProgressPage() {
         {!!workouts?.length && (
           <button
             onClick={() => navigate({ to: "/history/timeline" })}
-            className="flex shrink-0 items-center gap-1 pt-1 text-xs text-muted-foreground underline underline-offset-2"
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1.5 text-xs font-medium text-primary active:scale-[0.98]"
           >
             <List className="h-3.5 w-3.5" />
             Timeline

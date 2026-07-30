@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { Dumbbell, TrendingUp, CalendarDays, Clock } from "lucide-react";
+import { Dumbbell, TrendingUp, Timer, Clock } from "lucide-react";
 import type { Workout } from "@/lib/db";
 import { computeWorkoutStats } from "@/lib/workoutStats";
+import { formatTimeTrained } from "@/features/history/duration";
 import { SummaryStat } from "@/features/history/SummaryStat";
 
 interface LifetimeSummaryProps {
@@ -31,9 +32,9 @@ export function LifetimeSummary({ workouts }: LifetimeSummaryProps) {
           value={`${Math.round(stats.totalVolume).toLocaleString()} kg`}
         />
         <SummaryStat
-          icon={<CalendarDays className="h-4 w-4" />}
-          label="Active days"
-          value={stats.totalActiveDays.toLocaleString()}
+          icon={<Timer className="h-4 w-4" />}
+          label="Time trained"
+          value={stats.timeTrained}
         />
         <SummaryStat
           icon={<Clock className="h-4 w-4" />}
@@ -48,7 +49,7 @@ export function LifetimeSummary({ workouts }: LifetimeSummaryProps) {
 interface LifetimeStats {
   totalSessions: number;
   totalVolume: number;
-  totalActiveDays: number;
+  timeTrained: string;
   trainingDuration: string;
 }
 
@@ -60,13 +61,7 @@ function computeLifetimeStats(workouts: Workout[]): LifetimeStats {
     0,
   );
 
-  const totalActiveDays = new Set(
-    workouts.map((w) => {
-      const d = new Date(w.startedAt);
-      d.setHours(0, 0, 0, 0);
-      return d.getTime();
-    }),
-  ).size;
+  const totalSeconds = workouts.reduce((acc, w) => acc + (w.durationSec ?? 0), 0);
 
   const firstWorkoutAt = workouts.length
     ? Math.min(...workouts.map((w) => w.startedAt))
@@ -75,7 +70,7 @@ function computeLifetimeStats(workouts: Workout[]): LifetimeStats {
   return {
     totalSessions,
     totalVolume,
-    totalActiveDays,
+    timeTrained: formatTimeTrained(totalSeconds),
     trainingDuration: formatTrainingDuration(firstWorkoutAt, Date.now()),
   };
 }
