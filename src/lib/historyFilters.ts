@@ -1,8 +1,8 @@
-import { EXERCISES } from "@/lib/exercises";
+import { EXERCISES, matchesExerciseQuery, type ExerciseDef } from "@/lib/exercises";
 import type { Workout } from "@/lib/db";
 
 /**
- * History search & filtering (workout name, exercise name, date range).
+ * History search & filtering (workout name, exercise name/alias, date range).
  *
  * All filtering happens in memory over the array `useLiveQuery` already
  * loads for the history list. Exercise names aren't stored on `Workout` —
@@ -12,13 +12,13 @@ import type { Workout } from "@/lib/db";
  * real benefit at this data scale.
  */
 
-/** exerciseId → name, built once from the static catalog rather than
+/** exerciseId → def, built once from the static catalog rather than
  *  re-running EXERCISES.find() for every exercise of every workout on
  *  every keystroke. */
-const EXERCISE_NAME_BY_ID: Map<string, string> = new Map(EXERCISES.map((e) => [e.id, e.name]));
+const EXERCISE_BY_ID: Map<string, ExerciseDef> = new Map(EXERCISES.map((e) => [e.id, e]));
 
 export interface HistoryFilters {
-  /** Free-text query matched against workout name and exercise names. */
+  /** Free-text query matched against workout name and exercise names/aliases. */
   query: string;
   /** Inclusive lower bound, as a `YYYY-MM-DD` date-input value. */
   dateFrom?: string;
@@ -39,8 +39,8 @@ function matchesQuery(workout: Workout, query: string): boolean {
   if (workout.name.toLowerCase().includes(q)) return true;
 
   return workout.exercises.some((e) => {
-    const name = EXERCISE_NAME_BY_ID.get(e.exerciseId);
-    return name != null && name.toLowerCase().includes(q);
+    const def = EXERCISE_BY_ID.get(e.exerciseId);
+    return def != null && matchesExerciseQuery(def, query);
   });
 }
 

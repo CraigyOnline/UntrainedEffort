@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X, Check } from "lucide-react";
-import { EXERCISES, type MuscleGroup } from "@/lib/exercises";
+import { EXERCISES, matchesExerciseQuery, type MuscleGroup } from "@/lib/exercises";
 import { BOTTOM_NAV_HEIGHT } from "@/components/BottomTabs";
 import { useDismissOnBack } from "@/lib/backHandler";
 
@@ -40,7 +40,7 @@ export function ExercisePicker({
   useDismissOnBack(true, onClose);
 
   const filtered = EXERCISES.filter((e) => {
-    const matchesQ = q === "" || e.name.toLowerCase().includes(q.toLowerCase());
+    const matchesQ = matchesExerciseQuery(e, q);
     const matchesMuscle = muscle === null || e.muscle === muscle;
     return matchesQ && matchesMuscle;
   });
