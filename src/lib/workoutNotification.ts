@@ -58,6 +58,24 @@ async function ensureWorkoutNotificationPermission(): Promise<void> {
  * big-text style shown once expanded, so the collapsed line stays short
  * while the expanded view gets the full breakdown.
  */
+/**
+ * "Resting Xm Ys" / "Ready ✓", or undefined when no rest timer has ever
+ * started this workout. Computed fresh from `endsAt` each time the
+ * notification is (re)built, the same live-derived approach the HUD's
+ * RestTimer component uses — no separate "is resting" flag to go stale.
+ *
+ * First-iteration limitation, deliberately accepted to keep this small:
+ * this only updates when the notification is rebuilt (a draft change, or
+ * the existing ELAPSED_REFRESH_MS tick below), not every second, so the
+ * "Ready ✓" transition can lag behind the HUD's by up to that tick while
+ * the app is backgrounded.
+ */
+function restStatusLine(draft: ActiveWorkoutDraft): string | undefined {
+  if (!draft.restTimer) return undefined;
+  const remaining = Math.max(0, Math.round((draft.restTimer.endsAt - Date.now()) / 1000));
+  return remaining > 0 ? `Resting: ${formatDuration(remaining)}` : "Ready ✓";
+}
+
 function buildWorkoutNotificationContent(draft: ActiveWorkoutDraft): {
   title: string;
   body: string;
@@ -67,12 +85,15 @@ function buildWorkoutNotificationContent(draft: ActiveWorkoutDraft): {
   const { totalSets, totalVolume, loggedSets } = computeWorkoutStats(draft.exercises);
   const currentExerciseName = getCurrentExerciseName(draft.exercises);
   const roundedVolume = Math.round(totalVolume);
+  const restLine = restStatusLine(draft);
 
   const title = draft.name || "Workout in progress";
-  const body = currentExerciseName
+  const bodyBase = currentExerciseName
     ? `${currentExerciseName} · ${totalSets}/${loggedSets} sets · ${roundedVolume} kg`
     : `${totalSets}/${loggedSets} sets · ${roundedVolume} kg`;
+  const body = restLine ? `${restLine} · ${bodyBase}` : bodyBase;
   const largeBody = [
+    restLine,
     `Elapsed: ${formatDuration(elapsedSec)}`,
     currentExerciseName ? `Current exercise: ${currentExerciseName}` : undefined,
     `Sets: ${totalSets} / ${loggedSets}`,

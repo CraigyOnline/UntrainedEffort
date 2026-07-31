@@ -9,23 +9,29 @@ import { computeIntensity } from "@/lib/muscles";
 import { getKeepAwakeDefault, enableKeepAwake, disableKeepAwake } from "@/lib/keepAwake";
 import { useDismissOnBack } from "@/lib/backHandler";
 import { WorkoutTimer } from "./WorkoutTimer";
-import { PR_CELEBRATION_VISIBLE_MS, sessionHasData, type ActiveSession } from "./workoutHelpers";
+import { RestTimer } from "./RestTimer";
+import {
+  PR_CELEBRATION_VISIBLE_MS,
+  REST_EXTEND_SEC,
+  sessionHasData,
+  type ActiveSession,
+} from "./workoutHelpers";
 
 /**
- * Content height of the HUD below the safe-area inset — i.e. the number
- * LiveSession needs to add as extra top padding so its scrolling content
- * starts below this fixed bar. Same role as BottomTabs' BOTTOM_NAV_HEIGHT,
- * kept as a plain constant for the same reason: everything rendered here
- * today has a fixed height (name/timer/options row + stats/map/finish
- * row). Breakdown, top to bottom: 44 (options button, h-11) + 8 (row gap)
- * + 64 (muscle-map thumbnail, the tallest element in the second row) + 12
- * (pt-3) + 8 (pb-2) + 1 (border) = 137.
+ * Initial/fallback content height of the HUD below the safe-area inset —
+ * used as LiveSession's top padding for exactly one frame before the
+ * ResizeObserver below reports the real, measured height via
+ * onHeightChange. Kept close to the bar's actual height without a
+ * rest-timer row (see the WORKOUT_HUD_HEIGHT history below) purely to
+ * avoid a visible content jump on that first frame.
  *
- * If a future addition (rest-timer row, PR-celebration banner) makes this
- * bar grow or shrink dynamically, this static-constant approach stops
- * being correct — that's the point to switch to a measured height
- * (e.g. a ResizeObserver on the HUD, feeding LiveSession's padding),
- * not before. No such thing exists yet, so that machinery isn't here.
+ * This *was* a static constant the HUD's height was assumed to always
+ * equal — correct back when everything rendered here had a fixed height
+ * (name/timer/options row + stats/map/finish row: 44 + 8 + 64 + 12 + 8 + 1
+ * = 137). The rest-timer row below only renders while a rest is in
+ * progress, so the bar now genuinely grows and shrinks — the exact case
+ * that comment anticipated as the point to switch to a measured height
+ * instead. This is that switch.
  */
 export const WORKOUT_HUD_HEIGHT = 137;
 
@@ -49,6 +55,11 @@ export interface WorkoutHUDProps {
    *  opinion on what counts as a PR, it only animates when told one just
    *  happened. */
   celebration?: WorkoutHUDCelebration | null;
+  /** Reports the HUD's real rendered height whenever it changes (e.g. the
+   *  rest-timer row appearing/disappearing), so LiveSession can keep its
+   *  scrolling content padded below this fixed bar without either
+   *  overlapping it or guessing at a size in advance. */
+  onHeightChange?: (height: number) => void;
 }
 
 /**
@@ -74,7 +85,30 @@ export interface WorkoutHUDProps {
  * exercises are structurally compatible with that (a superset of fields),
  * so both are reused here completely unmodified.
  */
-export function WorkoutHUD({ session, setSession, onFinish, celebration }: WorkoutHUDProps) {
+export function WorkoutHUD({
+  session,
+  setSession,
+  onFinish,
+  celebration,
+  onHeightChange,
+}: WorkoutHUDProps) {
+  // ── Measured height ──────────────────────────────────────────────────
+  // Replaces the old fixed WORKOUT_HUD_HEIGHT constant now that the
+  // rest-timer row makes this bar's height genuinely variable. Measures
+  // the actual bordered content box (getBoundingClientRect, not
+  // ResizeObserver's own contentRect, so the 1px border is included the
+  // same way the original hand-computed constant counted it).
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el || !onHeightChange) return;
+    const report = () => onHeightChange(el.getBoundingClientRect().height);
+    report();
+    const ro = new ResizeObserver(report);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [onHeightChange]);
+
   // ── Keep screen awake (temporary, per-workout override) ────────────────
   // Moved here from LiveSession along with the options menu that controls
   // it — nothing else in LiveSession reads this state.
@@ -130,6 +164,21 @@ export function WorkoutHUD({ session, setSession, onFinish, celebration }: Worko
       disableKeepAwake();
     };
   }, [keepAwake]);
+
+  // ── Rest timer controls ─────────────────────────────────────────────
+  // Starting/restarting on a completed set lives in LiveSession (the one
+  // place that already owns set-completion) — this HUD only needs to
+  // handle the two person-initiated actions on an already-running timer.
+  function handleSkipRest() {
+    setSession((s) => (s ? { ...s, restTimer: undefined } : s));
+  }
+  function handleExtendRest() {
+    setSession((s) =>
+      s?.restTimer
+        ? { ...s, restTimer: { endsAt: s.restTimer.endsAt + REST_EXTEND_SEC * 1000 } }
+        : s,
+    );
+  }
 
   // ── Live PR celebration ──────────────────────────────────────────────
   // Everything below is driven by real state transitions with CSS
@@ -195,6 +244,7 @@ export function WorkoutHUD({ session, setSession, onFinish, celebration }: Worko
   return (
     <div className="fixed inset-x-0 top-0 z-30 flex justify-center bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div
+        ref={contentRef}
         className={`relative flex w-full max-w-md min-w-0 flex-col gap-2 border-b border-border px-4 pt-3 pb-2 transition-transform ease-out ${
           pulsing ? "scale-[1.02] duration-200" : "scale-100 duration-200"
         } ${
@@ -234,6 +284,14 @@ export function WorkoutHUD({ session, setSession, onFinish, celebration }: Worko
             )}
           </div>
         </div>
+
+        {session.restTimer && (
+          <RestTimer
+            restTimer={session.restTimer}
+            onSkip={handleSkipRest}
+            onExtend={handleExtendRest}
+          />
+        )}
 
         <div className="flex items-center gap-3">
           {/* Muscle map thumbnail — same size/styling as the Workout/Routine/History cards */}

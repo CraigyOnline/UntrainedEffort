@@ -4,6 +4,7 @@ import {
   type WorkoutExerciseLog,
   type LiveWorkoutSet,
   type Routine,
+  type RestTimerState,
 } from "@/lib/db";
 import { recordNewWorkoutPRs } from "@/lib/workoutIntegrity";
 import { haptics } from "@/lib/haptics";
@@ -49,6 +50,23 @@ export const PR_CELEBRATION_VISIBLE_MS = 2400;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const FINISH_ANTICIPATION_MS = 350;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rest timer
+//
+// A single configurable default for this first iteration — see
+// RestTimerState in db.ts for how it's represented on the session draft.
+// Per-exercise durations and a user-facing preference are future work
+// (deliberately not built yet), so this is the one place both would plug
+// in later without touching the timer's start/restart/display logic.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const DEFAULT_REST_DURATION_SEC = 90;
+export const REST_EXTEND_SEC = 30;
+
+export function startRestTimer(durationSec: number = DEFAULT_REST_DURATION_SEC): RestTimerState {
+  return { endsAt: Date.now() + durationSec * 1000 };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // sessionHasData

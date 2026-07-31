@@ -147,6 +147,23 @@ export interface ActiveSessionExercise {
   intervalState?: IntervalTimerState;
 }
 
+/**
+ * A single, workout-wide rest timer — started/restarted whenever a set is
+ * completed (see LiveSession's toggleSetCompletion). Deliberately just an
+ * end deadline, the same "absolute epoch ms" shape IntervalTimerState's
+ * `running` status uses above, for the same reason: a live countdown only
+ * needs `Date.now()` compared against one fixed point, with no separate
+ * "remaining seconds" value that could drift out of sync with it.
+ *
+ * Stays set past `endsAt` — the HUD reads that as "Ready ✓" — until either
+ * a new set completes (replaces it) or the workout ends (the whole draft,
+ * this field included, goes away). Absent means no rest is in progress or
+ * has finished yet this workout.
+ */
+export interface RestTimerState {
+  endsAt: number;
+}
+
 export interface ActiveWorkoutDraft {
   /** Assigned by Dexie's auto-increment; nothing outside the persistence
    *  hook ever reads or relies on it. The table is kept at zero or one
@@ -157,6 +174,9 @@ export interface ActiveWorkoutDraft {
   name: string;
   startedAt: number;
   exercises: ActiveSessionExercise[];
+  /** Absent until the first set of the workout is completed. See
+   *  RestTimerState for lifecycle. */
+  restTimer?: RestTimerState;
   /** Keys (see prKey() in workoutIntegrity.ts) of live PRs already
    *  celebrated during this workout session. This is what makes a live
    *  celebration fire once per workout rather than once per LiveSession

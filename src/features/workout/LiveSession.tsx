@@ -26,6 +26,7 @@ import {
   type IntervalTimerState,
   PR_CELEBRATION_VISIBLE_MS,
   makeSet,
+  startRestTimer,
 } from "./workoutHelpers";
 import { haptics } from "@/lib/haptics";
 import { checkLivePRs, type LivePRHit, type PRType } from "@/lib/workoutIntegrity";
@@ -394,6 +395,12 @@ function ExerciseCard({
 }
 
 export function LiveSession({ session, setSession, onAddExercise, onFinish }: LiveSessionProps) {
+  // Kept in sync with WorkoutHUD's real rendered height via onHeightChange
+  // below — starts at the pre-rest-timer fallback so there's no layout
+  // jump before the first measurement lands (effectively immediate, since
+  // WorkoutHUD reports once on mount).
+  const [hudHeight, setHudHeight] = useState(WORKOUT_HUD_HEIGHT);
+
   const exerciseIds = session.exercises.map((e) => e.exerciseId);
 
   const previousByExerciseResult = useLiveQuery(async (): Promise<Map<string, WorkoutSet[]>> => {
@@ -496,6 +503,11 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
     updateSet(ei, si, { completed: willComplete });
     if (willComplete) {
       void celebrateIfPR(ex.exerciseId, set.id, set);
+      // Restart rather than merely start — a rest already in progress (or
+      // already showing "Ready ✓") from a previous set gets replaced
+      // outright, per the spec's "if another set is completed while a
+      // timer is already running, restart the timer".
+      setSession((s) => (s ? { ...s, restTimer: startRestTimer() } : s));
     }
   }
 
@@ -698,11 +710,12 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
   }
 
   return (
-    <div className="flex flex-col gap-4 px-4 pb-8" style={{ paddingTop: WORKOUT_HUD_HEIGHT + 16 }}>
+    <div className="flex flex-col gap-4 px-4 pb-8" style={{ paddingTop: hudHeight + 16 }}>
       <WorkoutHUD
         session={session}
         setSession={setSession}
         onFinish={onFinish}
+        onHeightChange={setHudHeight}
         celebration={
           celebration
             ? ({ key: celebration.key, label: celebration.label } satisfies WorkoutHUDCelebration)
