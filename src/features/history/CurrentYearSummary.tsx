@@ -26,10 +26,7 @@ export function CurrentYearSummary({ workouts }: CurrentYearSummaryProps) {
     [workouts, currentYear],
   );
 
-  const stats = useMemo(
-    () => computeYearStats(workouts, currentYear),
-    [workouts, currentYear],
-  );
+  const stats = useMemo(() => computeYearStats(workouts, currentYear), [workouts, currentYear]);
 
   if (!spansMultipleYears) return null;
 
@@ -71,10 +68,7 @@ function computeYearStats(workouts: Workout[], year: number): YearStats {
 
   const sessions = thisYear.length;
 
-  const volume = thisYear.reduce(
-    (acc, w) => acc + computeWorkoutStats(w.exercises).totalVolume,
-    0,
-  );
+  const volume = thisYear.reduce((acc, w) => acc + computeWorkoutStats(w.exercises).totalVolume, 0);
 
   const totalSeconds = thisYear.reduce((acc, w) => acc + (w.durationSec ?? 0), 0);
 

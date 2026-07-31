@@ -164,8 +164,8 @@ function DatabaseMaintenancePage() {
           <h2 className="text-base font-semibold">Data Retention</h2>
         </div>
         <p className="mb-4 text-xs text-muted-foreground">
-          Permanently delete workout history older than a chosen age. Your routines and
-          exercise library are never affected by this.
+          Permanently delete workout history older than a chosen age. Your routines and exercise
+          library are never affected by this.
         </p>
 
         <RadioGroup value={option} onValueChange={handleOptionChange} className="gap-3">
@@ -226,7 +226,10 @@ function DatabaseMaintenancePage() {
               <div className="space-y-2 text-left">
                 <p>
                   {pending?.allWorkouts ? (
-                    <>This will permanently delete <strong className="text-foreground">all of your workout history</strong>.</>
+                    <>
+                      This will permanently delete{" "}
+                      <strong className="text-foreground">all of your workout history</strong>.
+                    </>
                   ) : (
                     <>
                       This will permanently delete{" "}
@@ -243,8 +246,8 @@ function DatabaseMaintenancePage() {
                 </p>
                 <p>Your routines and exercise library will not be affected.</p>
                 <p>
-                  Personal Records will be automatically recalculated from your remaining
-                  workout history, so they stay accurate.
+                  Personal Records will be automatically recalculated from your remaining workout
+                  history, so they stay accurate.
                 </p>
                 <p className="font-medium text-foreground">This action cannot be undone.</p>
               </div>

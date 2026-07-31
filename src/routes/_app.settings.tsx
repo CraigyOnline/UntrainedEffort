@@ -23,7 +23,16 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Download, Upload, Info, FileText, Settings as SettingsIcon, Database, Wrench, MonitorSmartphone } from "lucide-react";
+import {
+  Download,
+  Upload,
+  Info,
+  FileText,
+  Settings as SettingsIcon,
+  Database,
+  Wrench,
+  MonitorSmartphone,
+} from "lucide-react";
 import { getKeepAwakeDefault, setKeepAwakeDefault } from "@/lib/keepAwake";
 import { getHapticsEnabled, setHapticsEnabled } from "@/lib/haptics";
 import {
@@ -242,11 +251,13 @@ function SettingsPage() {
       if (selected.workouts) parts.push(`${payload.workouts.length} workouts`);
       toast.success(
         `${mode === "replace" ? "Replaced" : "Imported"} ${parts.join(", ")}. Personal Records recalculated.`,
-        { duration: 4000 }
+        { duration: 4000 },
       );
     } catch (err) {
       console.error(err);
-      toast.error(mode === "replace" ? "Replace import failed" : "Import failed", { duration: 4000 });
+      toast.error(mode === "replace" ? "Replace import failed" : "Import failed", {
+        duration: 4000,
+      });
     } finally {
       setImportPayload(null);
       setReplaceConfirmOpen(false);
@@ -412,8 +423,8 @@ function SettingsPage() {
             Licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0+).
           </p>
           <p>
-            <span className="font-medium text-foreground">Exercise Data and Media:</span>{" "}
-            Licensed under Creative Commons Attribution-ShareAlike (CC-BY-SA).
+            <span className="font-medium text-foreground">Exercise Data and Media:</span> Licensed
+            under Creative Commons Attribution-ShareAlike (CC-BY-SA).
           </p>
           <p>Copyright © wger Team and contributors.</p>
           <p>
@@ -436,9 +447,7 @@ function SettingsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>What do you want to export?</DialogTitle>
-            <DialogDescription>
-              Choose which data to include in the backup file.
-            </DialogDescription>
+            <DialogDescription>Choose which data to include in the backup file.</DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-3 py-2">
@@ -447,9 +456,7 @@ function SettingsPage() {
                 <span className="flex items-center gap-2 text-sm">
                   <Checkbox
                     checked={exportSelected[c]}
-                    onCheckedChange={(v) =>
-                      setExportSelected((s) => ({ ...s, [c]: v === true }))
-                    }
+                    onCheckedChange={(v) => setExportSelected((s) => ({ ...s, [c]: v === true }))}
                   />
                   {categoryLabel(c)}
                 </span>
@@ -474,10 +481,7 @@ function SettingsPage() {
       </Dialog>
 
       {/* Import selection dialog */}
-      <Dialog
-        open={!!importPayload}
-        onOpenChange={(open) => !open && setImportPayload(null)}
-      >
+      <Dialog open={!!importPayload} onOpenChange={(open) => !open && setImportPayload(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>What do you want to import?</DialogTitle>
@@ -572,8 +576,8 @@ function SettingsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Replace selected data?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes your current data in the selected categories
-              and replaces it with the contents of the backup. This cannot be undone.
+              This permanently deletes your current data in the selected categories and replaces it
+              with the contents of the backup. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

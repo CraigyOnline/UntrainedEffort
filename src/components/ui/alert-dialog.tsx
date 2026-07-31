@@ -11,7 +11,10 @@ function AlertDialog({
   onOpenChange,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  useDismissOnBack(!!open, React.useCallback(() => onOpenChange?.(false), [onOpenChange]));
+  useDismissOnBack(
+    !!open,
+    React.useCallback(() => onOpenChange?.(false), [onOpenChange]),
+  );
   return <AlertDialogPrimitive.Root open={open} onOpenChange={onOpenChange} {...props} />;
 }
 

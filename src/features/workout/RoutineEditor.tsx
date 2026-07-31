@@ -28,9 +28,7 @@ export function RoutineEditor({
   onClose: () => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [exercises, setExercises] = useState<Routine["exercises"]>(
-    initial?.exercises ?? [],
-  );
+  const [exercises, setExercises] = useState<Routine["exercises"]>(initial?.exercises ?? []);
   const [picking, setPicking] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -125,9 +123,7 @@ export function RoutineEditor({
           <button onClick={handleClose} className="p-2">
             <X className="h-5 w-5" />
           </button>
-          <h2 className="text-base font-semibold">
-            {initial ? "Edit routine" : "New routine"}
-          </h2>
+          <h2 className="text-base font-semibold">{initial ? "Edit routine" : "New routine"}</h2>
           <button
             onClick={save}
             disabled={!name.trim() || exercises.length === 0}
@@ -146,9 +142,7 @@ export function RoutineEditor({
             className="w-full rounded-xl bg-card px-4 py-3 text-lg font-semibold outline-none focus:ring-2 focus:ring-ring"
           />
 
-          <p className="mt-4 text-xs text-muted-foreground">
-            Add exercises to build your session
-          </p>
+          <p className="mt-4 text-xs text-muted-foreground">Add exercises to build your session</p>
 
           <ul className="mt-3 flex flex-col gap-2">
             {exercises.map((e, i) => {
@@ -173,11 +167,20 @@ export function RoutineEditor({
                           <div className="grid grid-cols-[20px_auto_auto_20px] gap-3 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                             <span>#</span>
                             {schema.distance ? (
-                              <><span>Km</span><span>Time</span></>
+                              <>
+                                <span>Km</span>
+                                <span>Time</span>
+                              </>
                             ) : schema.duration ? (
-                              <><span>Time</span><span /></>
+                              <>
+                                <span>Time</span>
+                                <span />
+                              </>
                             ) : (
-                              <><span>Kg</span><span>Reps</span></>
+                              <>
+                                <span>Kg</span>
+                                <span>Reps</span>
+                              </>
                             )}
                             <span />
                           </div>
@@ -195,19 +198,61 @@ export function RoutineEditor({
                                 <>
                                   <StepperInput
                                     value={s.targetWeight ?? 0}
-                                    onCommit={(v) => setExercises((xs) => xs.map((x, idx) => idx !== i ? x : { ...x, sets: x.sets.map((rs, ri) => ri === si ? { ...rs, targetWeight: v } : rs) }))}
-                                    step={0.1} decimal min={0} size="compact"
+                                    onCommit={(v) =>
+                                      setExercises((xs) =>
+                                        xs.map((x, idx) =>
+                                          idx !== i
+                                            ? x
+                                            : {
+                                                ...x,
+                                                sets: x.sets.map((rs, ri) =>
+                                                  ri === si ? { ...rs, targetWeight: v } : rs,
+                                                ),
+                                              },
+                                        ),
+                                      )
+                                    }
+                                    step={0.1}
+                                    decimal
+                                    min={0}
+                                    size="compact"
                                   />
                                   <MmSsInput
                                     seconds={s.targetDuration ?? 0}
-                                    onCommit={(secs) => setExercises((xs) => xs.map((x, idx) => idx !== i ? x : { ...x, sets: x.sets.map((rs, ri) => ri === si ? { ...rs, targetDuration: secs } : rs) }))}
+                                    onCommit={(secs) =>
+                                      setExercises((xs) =>
+                                        xs.map((x, idx) =>
+                                          idx !== i
+                                            ? x
+                                            : {
+                                                ...x,
+                                                sets: x.sets.map((rs, ri) =>
+                                                  ri === si ? { ...rs, targetDuration: secs } : rs,
+                                                ),
+                                              },
+                                        ),
+                                      )
+                                    }
                                   />
                                 </>
                               ) : schema.duration ? (
                                 <>
                                   <MmSsInput
                                     seconds={s.targetDuration ?? 0}
-                                    onCommit={(secs) => setExercises((xs) => xs.map((x, idx) => idx !== i ? x : { ...x, sets: x.sets.map((rs, ri) => ri === si ? { ...rs, targetDuration: secs } : rs) }))}
+                                    onCommit={(secs) =>
+                                      setExercises((xs) =>
+                                        xs.map((x, idx) =>
+                                          idx !== i
+                                            ? x
+                                            : {
+                                                ...x,
+                                                sets: x.sets.map((rs, ri) =>
+                                                  ri === si ? { ...rs, targetDuration: secs } : rs,
+                                                ),
+                                              },
+                                        ),
+                                      )
+                                    }
                                   />
                                   <span />
                                 </>
@@ -215,13 +260,44 @@ export function RoutineEditor({
                                 <>
                                   <StepperInput
                                     value={s.targetWeight ?? 0}
-                                    onCommit={(v) => setExercises((xs) => xs.map((x, idx) => idx !== i ? x : { ...x, sets: x.sets.map((rs, ri) => ri === si ? { ...rs, targetWeight: v } : rs) }))}
-                                    step={2.5} decimal min={0} size="compact"
+                                    onCommit={(v) =>
+                                      setExercises((xs) =>
+                                        xs.map((x, idx) =>
+                                          idx !== i
+                                            ? x
+                                            : {
+                                                ...x,
+                                                sets: x.sets.map((rs, ri) =>
+                                                  ri === si ? { ...rs, targetWeight: v } : rs,
+                                                ),
+                                              },
+                                        ),
+                                      )
+                                    }
+                                    step={2.5}
+                                    decimal
+                                    min={0}
+                                    size="compact"
                                   />
                                   <StepperInput
                                     value={s.targetReps ?? 0}
-                                    onCommit={(v) => setExercises((xs) => xs.map((x, idx) => idx !== i ? x : { ...x, sets: x.sets.map((rs, ri) => ri === si ? { ...rs, targetReps: v } : rs) }))}
-                                    step={1} min={0} size="compact"
+                                    onCommit={(v) =>
+                                      setExercises((xs) =>
+                                        xs.map((x, idx) =>
+                                          idx !== i
+                                            ? x
+                                            : {
+                                                ...x,
+                                                sets: x.sets.map((rs, ri) =>
+                                                  ri === si ? { ...rs, targetReps: v } : rs,
+                                                ),
+                                              },
+                                        ),
+                                      )
+                                    }
+                                    step={1}
+                                    min={0}
+                                    size="compact"
                                   />
                                 </>
                               )}
@@ -229,7 +305,15 @@ export function RoutineEditor({
                               <button
                                 type="button"
                                 disabled={e.sets.length <= 1}
-                                onClick={() => setExercises((xs) => xs.map((x, idx) => idx !== i ? x : { ...x, sets: x.sets.filter((_, ri) => ri !== si) }))}
+                                onClick={() =>
+                                  setExercises((xs) =>
+                                    xs.map((x, idx) =>
+                                      idx !== i
+                                        ? x
+                                        : { ...x, sets: x.sets.filter((_, ri) => ri !== si) },
+                                    ),
+                                  )
+                                }
                                 className="text-muted-foreground disabled:opacity-20"
                                 aria-label="Remove set"
                               >
@@ -240,11 +324,15 @@ export function RoutineEditor({
 
                           <button
                             type="button"
-                            onClick={() => setExercises((xs) => xs.map((x, idx) => {
-                              if (idx !== i) return x;
-                              const last = x.sets[x.sets.length - 1] ?? {};
-                              return { ...x, sets: [...x.sets, { ...last }] };
-                            }))}
+                            onClick={() =>
+                              setExercises((xs) =>
+                                xs.map((x, idx) => {
+                                  if (idx !== i) return x;
+                                  const last = x.sets[x.sets.length - 1] ?? {};
+                                  return { ...x, sets: [...x.sets, { ...last }] };
+                                }),
+                              )
+                            }
                             className="mt-1 flex w-full items-center justify-center gap-1 rounded-lg border border-primary/20 bg-primary/10 py-1.5 text-xs font-medium text-primary active:bg-primary/15"
                           >
                             <Plus className="h-3 w-3" /> Add set

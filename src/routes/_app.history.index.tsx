@@ -36,9 +36,7 @@ function ProgressPage() {
   // independently for its per-workout PR badges.
   const allPRs = useLiveQuery(
     () =>
-      typeof window === "undefined"
-        ? Promise.resolve<PRRecord[]>([])
-        : getDb().prHistory.toArray(),
+      typeof window === "undefined" ? Promise.resolve<PRRecord[]>([]) : getDb().prHistory.toArray(),
     [],
   ) as PRRecord[] | undefined;
 

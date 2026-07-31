@@ -52,12 +52,40 @@ interface MuscleMapProps {
 }
 
 const mainSvgs: Record<number, string> = {
-  1: main1, 2: main2, 3: main3, 4: main4, 5: main5, 6: main6, 7: main7, 8: main8,
-  9: main9, 10: main10, 11: main11, 12: main12, 13: main13, 14: main14, 15: main15, 16: main16,
+  1: main1,
+  2: main2,
+  3: main3,
+  4: main4,
+  5: main5,
+  6: main6,
+  7: main7,
+  8: main8,
+  9: main9,
+  10: main10,
+  11: main11,
+  12: main12,
+  13: main13,
+  14: main14,
+  15: main15,
+  16: main16,
 };
 const secSvgs: Record<number, string> = {
-  1: sec1, 2: sec2, 3: sec3, 4: sec4, 5: sec5, 6: sec6, 7: sec7, 8: sec8,
-  9: sec9, 10: sec10, 11: sec11, 12: sec12, 13: sec13, 14: sec14, 15: sec15, 16: sec16,
+  1: sec1,
+  2: sec2,
+  3: sec3,
+  4: sec4,
+  5: sec5,
+  6: sec6,
+  7: sec7,
+  8: sec8,
+  9: sec9,
+  10: sec10,
+  11: sec11,
+  12: sec12,
+  13: sec13,
+  14: sec14,
+  15: sec15,
+  16: sec16,
 };
 
 // Muscle IDs from the wger project SVG set.
@@ -65,7 +93,7 @@ const secSvgs: Record<number, string> = {
 // Rendering a front-only layer on the back panel (or vice versa) causes the
 // duplicate-highlight bug. Panels only render the IDs belonging to their view.
 const FRONT_IDS = new Set([1, 2, 3, 4, 6, 10, 13, 14]);
-const BACK_IDS  = new Set([5, 7, 8, 9, 11, 12, 15, 16]);
+const BACK_IDS = new Set([5, 7, 8, 9, 11, 12, 15, 16]);
 
 const ASPECT = "200 / 369";
 
@@ -129,20 +157,15 @@ function Panel({
         const raw = intensity[muscle as MuscleGroup];
         const hasIntensity = typeof raw === "number" && raw > 0;
         const v = Math.max(0, Math.min(1, raw ?? 0));
-        const dim =
-          activeMuscle && activeMuscle !== muscle ? 0.4 : 1;
+        const dim = activeMuscle && activeMuscle !== muscle ? 0.4 : 1;
 
-        const secOpacity = hasIntensity
-          ? (0.05 + v * 0.5) * dim
-          : 0.05;
+        const secOpacity = hasIntensity ? (0.05 + v * 0.5) * dim : 0.05;
         const mainOpacity = hasIntensity ? (0.15 + v * 0.85) * dim : 0;
 
         return (
           <div key={muscle}>
             {secSvgs[id] && <Layer src={secSvgs[id]} opacity={secOpacity} />}
-            {mainOpacity > 0 && mainSvgs[id] && (
-              <Layer src={mainSvgs[id]} opacity={mainOpacity} />
-            )}
+            {mainOpacity > 0 && mainSvgs[id] && <Layer src={mainSvgs[id]} opacity={mainOpacity} />}
           </div>
         );
       })}
@@ -150,12 +173,7 @@ function Panel({
   );
 }
 
-export function MuscleMap({
-  intensity,
-  activeMuscle,
-  className,
-  compact = false,
-}: MuscleMapProps) {
+export function MuscleMap({ intensity, activeMuscle, className, compact = false }: MuscleMapProps) {
   return (
     <div
       className={className}
@@ -167,7 +185,7 @@ export function MuscleMap({
       }}
     >
       <Panel base={frontBase} view="front" intensity={intensity} activeMuscle={activeMuscle} />
-      <Panel base={backBase}  view="back"  intensity={intensity} activeMuscle={activeMuscle} />
+      <Panel base={backBase} view="back" intensity={intensity} activeMuscle={activeMuscle} />
     </div>
   );
 }

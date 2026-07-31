@@ -4,7 +4,16 @@ import { useUndo } from "@/hooks/useUndo";
 import { useLiveQuery } from "dexie-react-hooks";
 import { ArrowLeft, Check, Trash2, X, Pencil, Save } from "lucide-react";
 import { getDb, type Workout, type WorkoutExerciseLog, type PRRecord } from "@/lib/db";
-import { getExercise, isCardio, isTimeBased, getExerciseLoggingSchema, getIntervalConfig, formatCompletedSet, seedUnilateralSide, type SetSide } from "@/lib/exercises";
+import {
+  getExercise,
+  isCardio,
+  isTimeBased,
+  getExerciseLoggingSchema,
+  getIntervalConfig,
+  formatCompletedSet,
+  seedUnilateralSide,
+  type SetSide,
+} from "@/lib/exercises";
 import { syncWorkoutIntegrity } from "@/lib/workoutIntegrity";
 import { ExercisePicker } from "@/components/forms/ExercisePicker";
 import { MmSsInput } from "@/components/forms/MmSsInput";
@@ -158,8 +167,6 @@ function HistoryDetailPage() {
     setEditing(false);
   }
 
-
-
   function removeSet(ei: number, si: number) {
     if (!draft) return;
     const setToDelete = draft.exercises[ei].sets[si];
@@ -227,9 +234,7 @@ function HistoryDetailPage() {
   }
 
   function removeExercise(ei: number) {
-    setDraft((d) =>
-      d ? { ...d, exercises: d.exercises.filter((_, i) => i !== ei) } : d,
-    );
+    setDraft((d) => (d ? { ...d, exercises: d.exercises.filter((_, i) => i !== ei) } : d));
   }
 
   function addExercise(id: string) {
@@ -276,9 +281,7 @@ function HistoryDetailPage() {
         {editing ? (
           <input
             value={draft?.name ?? ""}
-            onChange={(e) =>
-              setDraft((d) => (d ? { ...d, name: e.target.value } : d))
-            }
+            onChange={(e) => setDraft((d) => (d ? { ...d, name: e.target.value } : d))}
             className="rounded bg-card px-2 py-1 font-semibold"
           />
         ) : (
@@ -303,10 +306,16 @@ function HistoryDetailPage() {
           {workoutPRs.map((pr, i) => {
             const def = getExercise(pr.exerciseId);
             const name = def?.name ?? pr.exerciseId;
-            const typeLabel = pr.type === "weight" ? "Weight" : pr.type === "reps" ? "Reps" : "Duration";
-            const fmt = (v: number) => pr.type === "time"
-              ? (v >= 60 ? `${Math.floor(v / 60)}:${String(v % 60).padStart(2, "0")}` : `${v}s`)
-              : pr.type === "weight" ? `${v}kg` : `${v}`;
+            const typeLabel =
+              pr.type === "weight" ? "Weight" : pr.type === "reps" ? "Reps" : "Duration";
+            const fmt = (v: number) =>
+              pr.type === "time"
+                ? v >= 60
+                  ? `${Math.floor(v / 60)}:${String(v % 60).padStart(2, "0")}`
+                  : `${v}s`
+                : pr.type === "weight"
+                  ? `${v}kg`
+                  : `${v}`;
             const isFirst = (pr.previousBest ?? 0) === 0;
             return (
               <div key={i} className="flex items-center justify-between gap-2">
@@ -314,15 +323,19 @@ function HistoryDetailPage() {
                   <p className="text-sm font-medium truncate">{name}</p>
                   <p className="text-xs text-muted-foreground">
                     {typeLabel} •{" "}
-                    {isFirst
-                      ? <span className="text-primary">First PR ({fmt(pr.value)})</span>
-                      : <span>{fmt(pr.previousBest ?? 0)} → <span className="text-primary font-semibold">{fmt(pr.value)}</span></span>
-                    }
+                    {isFirst ? (
+                      <span className="text-primary">First PR ({fmt(pr.value)})</span>
+                    ) : (
+                      <span>
+                        {fmt(pr.previousBest ?? 0)} →{" "}
+                        <span className="text-primary font-semibold">{fmt(pr.value)}</span>
+                      </span>
+                    )}
                   </p>
                 </div>
                 {!isFirst && (
                   <span className="shrink-0 text-xs font-semibold text-primary">
-                    +{fmt(pr.delta ?? (pr.value - (pr.previousBest ?? 0)))}
+                    +{fmt(pr.delta ?? pr.value - (pr.previousBest ?? 0))}
                   </span>
                 )}
               </div>
@@ -355,8 +368,8 @@ function HistoryDetailPage() {
                 <p className="text-xs text-muted-foreground">{def?.muscle}</p>
                 {intervalConfig && (
                   <p className="text-xs text-muted-foreground">
-                    {intervalConfig.rounds} rounds · {formatDuration(intervalConfig.workSeconds)} work
-                    / {formatDuration(intervalConfig.restSeconds)} rest
+                    {intervalConfig.rounds} rounds · {formatDuration(intervalConfig.workSeconds)}{" "}
+                    work / {formatDuration(intervalConfig.restSeconds)} rest
                   </p>
                 )}
               </div>
@@ -381,7 +394,11 @@ function HistoryDetailPage() {
                       schema.unilateral ? (
                         <UnilateralSetInputs
                           schema={schema}
-                          primary={{ weight: s.weight ?? 0, reps: s.reps ?? 0, duration: s.duration }}
+                          primary={{
+                            weight: s.weight ?? 0,
+                            reps: s.reps ?? 0,
+                            duration: s.duration,
+                          }}
                           secondary={
                             s.additionalPerformances?.[0] ?? { weight: 0, reps: 0, duration: 0 }
                           }
@@ -486,7 +503,10 @@ function HistoryDetailPage() {
             variant="ghost"
             onClick={() => {
               if (hasChanges) setDiscardOpen(true);
-              else { setEditing(false); setDraft(null); }
+              else {
+                setEditing(false);
+                setDraft(null);
+              }
             }}
           >
             Cancel
@@ -522,7 +542,12 @@ function HistoryDetailPage() {
         </div>
       )}
 
-      <AlertDialog open={discardOpen} onOpenChange={(open) => { if (!open) handleKeepEditing(); }}>
+      <AlertDialog
+        open={discardOpen}
+        onOpenChange={(open) => {
+          if (!open) handleKeepEditing();
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Discard changes?</AlertDialogTitle>

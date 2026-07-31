@@ -208,7 +208,7 @@ export function getDb(): AppDB {
       _db = new AppDB();
     } catch (err) {
       throw new Error(
-        `Failed to initialise database. IndexedDB may be unavailable (e.g. private browsing mode). Original error: ${err instanceof Error ? err.message : String(err)}`
+        `Failed to initialise database. IndexedDB may be unavailable (e.g. private browsing mode). Original error: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }

@@ -12,7 +12,10 @@ import { App as CapacitorApp } from "@capacitor/app";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { handleGlobalBackPress } from "@/lib/backHandler";
-import { useWorkoutNotificationLifecycle, WORKOUT_NOTIFICATION_EXTRA } from "@/lib/workoutNotification";
+import {
+  useWorkoutNotificationLifecycle,
+  WORKOUT_NOTIFICATION_EXTRA,
+} from "@/lib/workoutNotification";
 
 import appCss from "../styles.css?url";
 
@@ -76,12 +79,23 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" },
+      {
+        name: "viewport",
+        content:
+          "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover",
+      },
       { name: "theme-color", content: "#0f1419" },
       { title: "UntrainedEffort — Workout Tracker" },
-      { name: "description", content: "Offline-first workout tracker. Build routines, log sets and follow your progress." },
+      {
+        name: "description",
+        content:
+          "Offline-first workout tracker. Build routines, log sets and follow your progress.",
+      },
       { property: "og:title", content: "Untrained Effort — Workout Tracker" },
-      { property: "og:description", content: "Offline-first workout tracker with routines, live logging and stats." },
+      {
+        property: "og:description",
+        content: "Offline-first workout tracker with routines, live logging and stats.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

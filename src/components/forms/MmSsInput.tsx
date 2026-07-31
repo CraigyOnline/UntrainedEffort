@@ -47,14 +47,17 @@ export function MmSsInput({ seconds, onCommit, className }: MmSsInputProps) {
     onCommit(m * 60 + s);
   }
 
-  const inputClass =
-    "w-10 rounded bg-secondary px-2 py-1 text-center text-sm outline-none";
+  const inputClass = "w-10 rounded bg-secondary px-2 py-1 text-center text-sm outline-none";
 
   return (
     <div
       className={cn("flex items-center gap-1", className)}
-      onFocus={() => { focused.current = true; }}
-      onBlur={() => { focused.current = false; }}
+      onFocus={() => {
+        focused.current = true;
+      }}
+      onBlur={() => {
+        focused.current = false;
+      }}
     >
       <input
         type="text"
@@ -74,9 +77,7 @@ export function MmSsInput({ seconds, onCommit, className }: MmSsInputProps) {
         value={sStr}
         placeholder="00"
         aria-label="Seconds"
-        onChange={(e) =>
-          setSStr(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))
-        }
+        onChange={(e) => setSStr(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
         onFocus={(e) => e.target.select()}
         onBlur={() => {
           const padded = sStr === "" ? "00" : sStr.padStart(2, "0");

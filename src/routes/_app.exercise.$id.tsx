@@ -4,7 +4,12 @@ import { ArrowLeft } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { getDb, type PRRecord, type Workout, type WorkoutSet } from "@/lib/db";
 import { getExercise, getExerciseLoggingSchema, formatCompletedSet } from "@/lib/exercises";
-import { getPrimaryMetricKind, getPrimaryMetric, metricLabel, formatMetricValue } from "@/lib/exerciseProgress";
+import {
+  getPrimaryMetricKind,
+  getPrimaryMetric,
+  metricLabel,
+  formatMetricValue,
+} from "@/lib/exerciseProgress";
 import { formatDate } from "@/lib/format";
 import { EmptyState } from "@/components/EmptyState";
 
@@ -70,10 +75,7 @@ function ExerciseProgressPage() {
   // All PR records for this exercise, sorted by date ascending
   const prs = useLiveQuery(async () => {
     if (typeof window === "undefined") return [];
-    return getDb()
-      .prHistory.where("exerciseId")
-      .equals(id)
-      .sortBy("createdAt");
+    return getDb().prHistory.where("exerciseId").equals(id).sortBy("createdAt");
   }, [id]) as PRRecord[] | undefined;
 
   // Most recent completed sessions containing this exercise — shared
@@ -110,8 +112,8 @@ function ExerciseProgressPage() {
         ? `${Math.floor(v / 60)}:${String(v % 60).padStart(2, "0")}`
         : `${v}s`
       : pr.type === "weight"
-      ? `${v}kg`
-      : `${v}`;
+        ? `${v}kg`
+        : `${v}`;
 
   // Group PRs by type for the progression list
   const byType: Record<string, PRRecord[]> = {};
@@ -137,9 +139,7 @@ function ExerciseProgressPage() {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-bold">
-            {def?.name ?? id}
-          </h1>
+          <h1 className="truncate text-lg font-bold">{def?.name ?? id}</h1>
           <p className="text-xs text-muted-foreground">{def?.muscle}</p>
         </div>
       </header>
@@ -168,7 +168,8 @@ function ExerciseProgressPage() {
         <EmptyState message="No personal records yet for this exercise." />
       )}
 
-      {prs && prs.length > 0 &&
+      {prs &&
+        prs.length > 0 &&
         typeOrder.map((type) => {
           const records = byType[type];
           if (!records?.length) return null;
@@ -206,7 +207,7 @@ function ExerciseProgressPage() {
                       </div>
                       {!isFirst && (
                         <span className="shrink-0 text-xs font-semibold text-primary">
-                          +{fmt(pr, pr.delta ?? (pr.value - (pr.previousBest ?? 0)))}
+                          +{fmt(pr, pr.delta ?? pr.value - (pr.previousBest ?? 0))}
                         </span>
                       )}
                     </div>
@@ -220,9 +221,7 @@ function ExerciseProgressPage() {
       {/* Progress chart */}
       {chartData.length >= 2 && (
         <div className="rounded-xl bg-card p-4">
-          <h2 className="mb-3 text-sm font-semibold">
-            {metricLabel(metricKind)} Over Time
-          </h2>
+          <h2 className="mb-3 text-sm font-semibold">{metricLabel(metricKind)} Over Time</h2>
           <div className="h-44 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
@@ -243,7 +242,10 @@ function ExerciseProgressPage() {
                 />
                 <Tooltip
                   labelFormatter={(ts) => formatDate(ts as number)}
-                  formatter={(value: number) => [formatMetricValue(metricKind, value), metricLabel(metricKind)]}
+                  formatter={(value: number) => [
+                    formatMetricValue(metricKind, value),
+                    metricLabel(metricKind),
+                  ]}
                   contentStyle={{
                     background: "var(--card)",
                     border: "1px solid var(--border)",
@@ -279,15 +281,10 @@ function ExerciseProgressPage() {
                 key={session.workoutId}
                 className="border-b border-muted/20 pb-3 last:border-0 last:pb-0"
               >
-                <p className="text-xs text-muted-foreground">
-                  {formatDate(session.startedAt)}
-                </p>
+                <p className="text-xs text-muted-foreground">{formatDate(session.startedAt)}</p>
                 <div className="mt-1 flex flex-col gap-1">
                   {session.sets.map((s, si) => (
-                    <div
-                      key={s.id ?? si}
-                      className="flex items-center gap-2 text-sm"
-                    >
+                    <div key={s.id ?? si} className="flex items-center gap-2 text-sm">
                       <span className="w-4 text-xs text-muted-foreground">{si + 1}</span>
                       <span>{formatCompletedSet(def, s)}</span>
                     </div>

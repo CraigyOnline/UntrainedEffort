@@ -18,9 +18,21 @@ import { useDismissOnBack } from "@/lib/backHandler";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
-  "Chest", "Shoulders", "Biceps", "Triceps", "Forearms",
-  "Abs", "Obliques", "Lats", "UpperBack", "LowerBack",
-  "Glutes", "Quads", "Hamstrings", "Calves", "Cardio",
+  "Chest",
+  "Shoulders",
+  "Biceps",
+  "Triceps",
+  "Forearms",
+  "Abs",
+  "Obliques",
+  "Lats",
+  "UpperBack",
+  "LowerBack",
+  "Glutes",
+  "Quads",
+  "Hamstrings",
+  "Calves",
+  "Cardio",
 ];
 
 export function ExercisePicker({
@@ -66,7 +78,6 @@ export function ExercisePicker({
       style={{ bottom: `${BOTTOM_NAV_HEIGHT}px` }}
     >
       <div className="flex w-full max-w-md flex-col h-full">
-
         <header className="flex items-center gap-2 border-b border-border px-4 py-3">
           <button onClick={onClose} className="p-2 -ml-2">
             <X className="h-5 w-5" />
@@ -74,7 +85,10 @@ export function ExercisePicker({
           <input
             autoFocus
             value={q}
-            onChange={(e) => { setQ(e.target.value); setMuscle(null); }}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setMuscle(null);
+            }}
             placeholder="Search exercises…"
             className="flex-1 rounded-lg bg-card px-3 py-2 text-sm outline-none"
           />
@@ -94,7 +108,10 @@ export function ExercisePicker({
           {MUSCLE_GROUPS.map((mg) => (
             <button
               key={mg}
-              onClick={() => { setMuscle(mg === muscle ? null : mg); setQ(""); }}
+              onClick={() => {
+                setMuscle(mg === muscle ? null : mg);
+                setQ("");
+              }}
               className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                 muscle === mg
                   ? "bg-primary text-primary-foreground"
@@ -136,10 +153,8 @@ export function ExercisePicker({
                   added={addedIds?.has(e.id) ?? false}
                   onPick={onPick}
                 />
-              ))
-          }
+              ))}
         </div>
-
       </div>
     </div>
   );

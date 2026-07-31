@@ -2,9 +2,21 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo, useState, type ReactNode } from "react";
 import { getDb, type Workout, type WorkoutSet } from "@/lib/db";
-import { getExercise, getExerciseLoggingSchema, MUSCLE_GROUPS, type MuscleGroup } from "@/lib/exercises";
+import {
+  getExercise,
+  getExerciseLoggingSchema,
+  MUSCLE_GROUPS,
+  type MuscleGroup,
+} from "@/lib/exercises";
 import { computeWorkoutStats } from "@/lib/workoutStats";
-import { getPrimaryMetric, getPrimaryMetricKind, compareTrend, formatMetricValue, type Trend, type MetricKind } from "@/lib/exerciseProgress";
+import {
+  getPrimaryMetric,
+  getPrimaryMetricKind,
+  compareTrend,
+  formatMetricValue,
+  type Trend,
+  type MetricKind,
+} from "@/lib/exerciseProgress";
 import { formatRelativeDate } from "@/lib/format";
 import { selectHomeGreeting } from "@/lib/homeGreetings";
 import { Activity, TrendingUp, CalendarDays, BarChart3, Target, Flame } from "lucide-react";
@@ -52,7 +64,7 @@ function ProfilePage() {
     const { totalSets: sets } = computeWorkoutStats(lastWorkout.exercises);
 
     const muscles = new Set(
-      lastWorkout.exercises.map((e) => getExercise(e.exerciseId)?.muscle).filter(Boolean)
+      lastWorkout.exercises.map((e) => getExercise(e.exerciseId)?.muscle).filter(Boolean),
     );
 
     return {
@@ -83,7 +95,10 @@ function ProfilePage() {
     return { exerciseId, name: def?.name ?? exerciseId, status, best, metricKind };
   }, [recentExerciseIds, workouts]);
 
-  const consistency = useMemo(() => computeConsistency(workouts ?? [], streaks), [workouts, streaks]);
+  const consistency = useMemo(
+    () => computeConsistency(workouts ?? [], streaks),
+    [workouts, streaks],
+  );
 
   const volumeTrend = useMemo(() => computeVolumeTrend(workouts ?? []), [workouts]);
 
@@ -106,12 +121,10 @@ function ProfilePage() {
       return { hasData: undefined, most: null, leastTrained: null, untrained: [] };
     }
 
-    const entries = MUSCLE_GROUPS
-      .filter((m) => m !== "Cardio")
-      .map((m) => ({
-        muscle: m,
-        value: intensity[m] ?? 0,
-      }));
+    const entries = MUSCLE_GROUPS.filter((m) => m !== "Cardio").map((m) => ({
+      muscle: m,
+      value: intensity[m] ?? 0,
+    }));
 
     const anyTrainingData = entries.some((e) => e.value > 0);
 
@@ -129,13 +142,9 @@ function ProfilePage() {
 
     const most = sorted[0];
 
-    const leastTrained = trained.reduce((min, cur) =>
-      cur.value < min.value ? cur : min
-    );
+    const leastTrained = trained.reduce((min, cur) => (cur.value < min.value ? cur : min));
 
-    const untrained = entries
-      .filter((e) => e.value === 0)
-      .map((e) => e.muscle);
+    const untrained = entries.filter((e) => e.value === 0).map((e) => e.muscle);
 
     return {
       hasData: true,
@@ -159,7 +168,6 @@ function ProfilePage() {
 
   return (
     <div className="flex flex-col gap-6 px-4 pt-6">
-
       {/* HEADER */}
       <header className="flex items-center gap-4">
         <div className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary">
@@ -167,9 +175,7 @@ function ProfilePage() {
         </div>
 
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-bold tracking-tight">
-            Training Overview
-          </h1>
+          <h1 className="truncate text-xl font-bold tracking-tight">Training Overview</h1>
 
           {greeting && (
             <div className="mt-1 inline-flex items-center rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
@@ -198,9 +204,7 @@ function ProfilePage() {
           <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
             <span>{Math.round(lastSummary.duration / 60)} min</span>
             <span>{lastSummary.sets} sets</span>
-            {lastSummary.muscles.length > 0 && (
-              <span>{lastSummary.muscles.join(", ")}</span>
-            )}
+            {lastSummary.muscles.length > 0 && <span>{lastSummary.muscles.join(", ")}</span>}
           </div>
         </div>
       )}
@@ -294,7 +298,12 @@ function ProfilePage() {
                   <BarChart3 className="h-3.5 w-3.5" />
                   <span className="text-xs">Volume trend (last 4 weeks vs. prior 4)</span>
                 </div>
-                <TrendLine trend={volumeTrend} upLabel="Increasing" downLabel="Decreasing" flatLabel="Stable" />
+                <TrendLine
+                  trend={volumeTrend}
+                  upLabel="Increasing"
+                  downLabel="Decreasing"
+                  flatLabel="Stable"
+                />
               </div>
             )}
           </div>
@@ -305,15 +314,11 @@ function ProfilePage() {
       <section className="rounded-2xl border border-border/50 bg-card p-5">
         <div className="mb-4">
           <h2 className="text-base font-semibold">Muscle Activity</h2>
-          <p className="text-xs text-muted-foreground">
-            Based on completed sets • Tap to explore
-          </p>
+          <p className="text-xs text-muted-foreground">Based on completed sets • Tap to explore</p>
         </div>
 
         <div
-          className={`mb-5 rounded-xl p-3 ${
-            selectedMuscle ? "bg-primary/10" : "bg-secondary/20"
-          }`}
+          className={`mb-5 rounded-xl p-3 ${selectedMuscle ? "bg-primary/10" : "bg-secondary/20"}`}
         >
           <MuscleMap
             intensity={intensity}
@@ -327,9 +332,7 @@ function ProfilePage() {
         {/* ===================== */}
 
         <div className="mb-5 rounded-xl border border-border/50 bg-secondary/10 p-4">
-          <h3 className="mb-2 text-sm font-semibold">
-            Training Balance Snapshot
-          </h3>
+          <h3 className="mb-2 text-sm font-semibold">Training Balance Snapshot</h3>
 
           {balance.hasData === undefined ? null : !balance.hasData ? (
             <p className="py-2 text-center text-xs text-muted-foreground">
@@ -340,18 +343,14 @@ function ProfilePage() {
               {balance.most && (
                 <p>
                   Most trained:{" "}
-                  <span className="font-medium text-foreground">
-                    {balance.most.muscle}
-                  </span>
+                  <span className="font-medium text-foreground">{balance.most.muscle}</span>
                 </p>
               )}
 
               {balance.leastTrained && (
                 <p>
                   Least trained:{" "}
-                  <span className="font-medium text-foreground">
-                    {balance.leastTrained.muscle}
-                  </span>
+                  <span className="font-medium text-foreground">{balance.leastTrained.muscle}</span>
                 </p>
               )}
 
@@ -370,9 +369,7 @@ function ProfilePage() {
 
         {/* MUSCLE LIST */}
         <div className="space-y-3">
-          {MUSCLE_GROUPS.filter(
-            (m) => m !== "Cardio" && (intensity[m] ?? 0) > 0
-          )
+          {MUSCLE_GROUPS.filter((m) => m !== "Cardio" && (intensity[m] ?? 0) > 0)
             .sort((a, b) => (intensity[b] ?? 0) - (intensity[a] ?? 0))
             .slice(0, 7)
             .map((m) => {
@@ -438,10 +435,7 @@ function ProfilePage() {
           <div className="w-full rounded-t-2xl bg-card p-5">
             <div className="mb-3 flex justify-between">
               <h3 className="font-semibold">{drilldownMuscle}</h3>
-              <button
-                onClick={closeDrilldown}
-                className="text-sm text-muted-foreground"
-              >
+              <button onClick={closeDrilldown} className="text-sm text-muted-foreground">
                 Close
               </button>
             </div>
@@ -491,15 +485,7 @@ function ProfilePage() {
 
 /* ===================== */
 
-function StatCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
+function StatCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-card p-4">
       <div className="flex items-center gap-2 text-muted-foreground">
@@ -640,9 +626,7 @@ function computeStreaks(workouts: Workout[]): { current: number; best: number } 
     return d.getTime();
   };
 
-  const days = Array.from(new Set(workouts.map((w) => dayOf(w.startedAt)))).sort(
-    (a, b) => b - a,
-  );
+  const days = Array.from(new Set(workouts.map((w) => dayOf(w.startedAt)))).sort((a, b) => b - a);
 
   const today = dayOf(Date.now());
   let current = 0;
@@ -789,7 +773,12 @@ function computeMuscleContributions(
       }
     }
     if (names.length > 0 && w.id != null) {
-      out.push({ workoutId: w.id, workoutName: w.name, startedAt: w.startedAt, exerciseNames: names });
+      out.push({
+        workoutId: w.id,
+        workoutName: w.name,
+        startedAt: w.startedAt,
+        exerciseNames: names,
+      });
     }
     if (out.length >= limit) break;
   }

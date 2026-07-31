@@ -18,7 +18,10 @@ function Dialog({
   onOpenChange,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  useDismissOnBack(!!open, React.useCallback(() => onOpenChange?.(false), [onOpenChange]));
+  useDismissOnBack(
+    !!open,
+    React.useCallback(() => onOpenChange?.(false), [onOpenChange]),
+  );
   return <DialogPrimitive.Root open={open} onOpenChange={onOpenChange} {...props} />;
 }
 

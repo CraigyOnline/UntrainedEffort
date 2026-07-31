@@ -6,9 +6,9 @@ import { User, Play, History, Settings } from "lucide-react";
 export const BOTTOM_NAV_HEIGHT = 62;
 
 const tabs = [
-  { to: "/profile",  label: "Profile",  Icon: User     },
-  { to: "/workout",  label: "Workout",  Icon: Play     },
-  { to: "/history",  label: "Progress", Icon: History  },
+  { to: "/profile", label: "Profile", Icon: User },
+  { to: "/workout", label: "Workout", Icon: Play },
+  { to: "/history", label: "Progress", Icon: History },
   { to: "/settings", label: "Settings", Icon: Settings },
 ] as const;
 

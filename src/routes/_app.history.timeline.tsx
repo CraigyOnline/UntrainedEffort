@@ -96,9 +96,7 @@ function WorkoutTimeline() {
   // Single query for all PR records — grouped in memory, avoids N queries per card
   const allPRs = useLiveQuery(
     () =>
-      typeof window === "undefined"
-        ? Promise.resolve<PRRecord[]>([])
-        : getDb().prHistory.toArray(),
+      typeof window === "undefined" ? Promise.resolve<PRRecord[]>([]) : getDb().prHistory.toArray(),
     [],
   ) as PRRecord[] | undefined;
 
@@ -196,17 +194,15 @@ function WorkoutTimeline() {
             <li
               key={w.id}
               className="cursor-pointer rounded-2xl bg-card p-4 active:scale-[0.99] transition"
-              onClick={() =>
-                w.id && navigate({ to: "/history/$id", params: { id: String(w.id) } })
-              }
+              onClick={() => w.id && navigate({ to: "/history/$id", params: { id: String(w.id) } })}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate font-semibold">{w.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {new Date(w.startedAt).toLocaleDateString()} ·{" "}
-                    {Math.max(1, Math.round((w.durationSec ?? 0) / 60))} min ·{" "}
-                    {w.exercises.length} ex · {totalSets} sets
+                    {Math.max(1, Math.round((w.durationSec ?? 0) / 60))} min · {w.exercises.length}{" "}
+                    ex · {totalSets} sets
                   </p>
 
                   {totalVolume > 0 && (
@@ -273,10 +269,7 @@ function WorkoutTimeline() {
         </Button>
       )}
 
-      <AlertDialog
-        open={!!pendingDelete}
-        onOpenChange={(open) => !open && setPendingDelete(null)}
-      >
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete workout?</AlertDialogTitle>

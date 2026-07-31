@@ -91,9 +91,7 @@ function computeMilestoneStats(workouts: Workout[]): MilestoneStats {
     return d.getTime();
   };
 
-  const days = Array.from(new Set(workouts.map((w) => dayOf(w.startedAt)))).sort(
-    (a, b) => a - b,
-  );
+  const days = Array.from(new Set(workouts.map((w) => dayOf(w.startedAt)))).sort((a, b) => a - b);
 
   let longestStreak = days.length ? 1 : 0;
   let run = 1;

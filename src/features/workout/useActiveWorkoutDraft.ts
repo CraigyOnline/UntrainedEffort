@@ -5,9 +5,7 @@ import { getDb, type ActiveWorkoutDraft } from "@/lib/db";
 const DEBOUNCE_MS = 400;
 
 type Updater =
-  | ActiveWorkoutDraft
-  | null
-  | ((prev: ActiveWorkoutDraft | null) => ActiveWorkoutDraft | null);
+  ActiveWorkoutDraft | null | ((prev: ActiveWorkoutDraft | null) => ActiveWorkoutDraft | null);
 
 function persist(value: ActiveWorkoutDraft | null): void {
   const db = getDb();

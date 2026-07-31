@@ -46,8 +46,8 @@ export function MonthlySummaries({ workouts }: MonthlySummariesProps) {
           <div key={m.key} className="rounded-2xl bg-card p-4">
             <p className="font-semibold">{m.label}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {m.sessionCount} {m.sessionCount === 1 ? "workout" : "workouts"} ·{" "}
-              {m.activeDays} active {m.activeDays === 1 ? "day" : "days"}
+              {m.sessionCount} {m.sessionCount === 1 ? "workout" : "workouts"} · {m.activeDays}{" "}
+              active {m.activeDays === 1 ? "day" : "days"}
               {m.volume > 0 && ` · ${Math.round(m.volume).toLocaleString()} kg`}
             </p>
           </div>

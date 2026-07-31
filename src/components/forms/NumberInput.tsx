@@ -94,10 +94,7 @@ export function NumberInput({
       onChange={handleChange}
       onBlur={handleBlur}
       onFocus={handleFocus}
-      className={cn(
-        "bg-transparent text-center text-sm outline-none",
-        className,
-      )}
+      className={cn("bg-transparent text-center text-sm outline-none", className)}
     />
   );
 }

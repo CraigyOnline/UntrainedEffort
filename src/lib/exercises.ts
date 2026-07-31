@@ -104,99 +104,346 @@ const E = (
 
 export const EXERCISES: ExerciseDef[] = [
   // Chest
-  E("bench-press", "Bench Press (Barbell)", "Chest", "Barbell", ["Triceps", "Shoulders"], { aliases: ["Bench Press", "Barbell Bench Press", "Flat Barbell Bench Press", "Flat Bench Press", "BB Bench"] }),
-  E("incline-bench", "Incline Bench Press (Barbell)", "Chest", "Barbell", ["Shoulders", "Triceps"], { aliases: ["Incline Bench Press", "Incline Barbell Bench Press", "BB Incline Bench"] }),
-  E("db-bench-press", "Dumbbell Bench Press", "Chest", "Dumbbell", ["Triceps", "Shoulders"], { aliases: ["DB Bench", "DB Bench Press", "Flat Dumbbell Bench Press", "Flat DB Bench"] }),
-  E("incline-db-bench-press", "Incline Dumbbell Bench Press", "Chest", "Dumbbell", ["Shoulders", "Triceps"], { aliases: ["Incline DB Bench", "Incline DB Bench Press"] }),
-  E("floor-press", "Floor Press", "Chest", "Barbell", ["Triceps"], { aliases: ["Barbell Floor Press", "BB Floor Press"] }),
-  E("db-floor-press", "Dumbbell Floor Press", "Chest", "Dumbbell", ["Triceps"], { aliases: ["DB Floor Press"] }),
-  E("chest-fly", "Chest Fly (Dumbbell)", "Chest", "Dumbbell", [], { aliases: ["Dumbbell Fly", "DB Fly", "Chest Flye", "Pec Fly"] }),
-  E("db-pullover", "Dumbbell Pullover", "Chest", "Dumbbell", ["Lats", "Triceps"], { aliases: ["DB Pullover"] }),
-  E("cable-crossover", "Cable Crossover", "Chest", "Cable", [], { aliases: ["Cable Fly", "Cable Crossovers"] }),
-  E("push-up", "Push Up", "Chest", "Bodyweight", ["Triceps", "Shoulders"], { aliases: ["Pushup", "Push-up", "Press Up"] }),
-  E("dip", "Chest Dip", "Chest", "Bodyweight", ["Triceps", "Shoulders"], { aliases: ["Dips", "Chest Dips", "Parallel Bar Dip"] }),
+  E("bench-press", "Bench Press (Barbell)", "Chest", "Barbell", ["Triceps", "Shoulders"], {
+    aliases: [
+      "Bench Press",
+      "Barbell Bench Press",
+      "Flat Barbell Bench Press",
+      "Flat Bench Press",
+      "BB Bench",
+    ],
+  }),
+  E(
+    "incline-bench",
+    "Incline Bench Press (Barbell)",
+    "Chest",
+    "Barbell",
+    ["Shoulders", "Triceps"],
+    { aliases: ["Incline Bench Press", "Incline Barbell Bench Press", "BB Incline Bench"] },
+  ),
+  E("db-bench-press", "Dumbbell Bench Press", "Chest", "Dumbbell", ["Triceps", "Shoulders"], {
+    aliases: ["DB Bench", "DB Bench Press", "Flat Dumbbell Bench Press", "Flat DB Bench"],
+  }),
+  E(
+    "incline-db-bench-press",
+    "Incline Dumbbell Bench Press",
+    "Chest",
+    "Dumbbell",
+    ["Shoulders", "Triceps"],
+    { aliases: ["Incline DB Bench", "Incline DB Bench Press"] },
+  ),
+  E("floor-press", "Floor Press", "Chest", "Barbell", ["Triceps"], {
+    aliases: ["Barbell Floor Press", "BB Floor Press"],
+  }),
+  E("db-floor-press", "Dumbbell Floor Press", "Chest", "Dumbbell", ["Triceps"], {
+    aliases: ["DB Floor Press"],
+  }),
+  E("chest-fly", "Chest Fly (Dumbbell)", "Chest", "Dumbbell", [], {
+    aliases: ["Dumbbell Fly", "DB Fly", "Chest Flye", "Pec Fly"],
+  }),
+  E("db-pullover", "Dumbbell Pullover", "Chest", "Dumbbell", ["Lats", "Triceps"], {
+    aliases: ["DB Pullover"],
+  }),
+  E("cable-crossover", "Cable Crossover", "Chest", "Cable", [], {
+    aliases: ["Cable Fly", "Cable Crossovers"],
+  }),
+  E("push-up", "Push Up", "Chest", "Bodyweight", ["Triceps", "Shoulders"], {
+    aliases: ["Pushup", "Push-up", "Press Up"],
+  }),
+  E("dip", "Chest Dip", "Chest", "Bodyweight", ["Triceps", "Shoulders"], {
+    aliases: ["Dips", "Chest Dips", "Parallel Bar Dip"],
+  }),
 
   // Back
-  E("deadlift", "Deadlift (Barbell)", "LowerBack", "Barbell", ["Glutes", "Hamstrings", "Quads", "UpperBack", "Forearms"], { aliases: ["Deadlift", "Barbell Deadlift", "DL", "Conventional Deadlift"] }),
-  E("romanian-deadlift", "Romanian Deadlift", "Hamstrings", "Barbell", ["Glutes", "LowerBack"], { aliases: ["RDL", "Romanian Deadlifts", "Stiff Leg Deadlift"] }),
-  E("single-leg-romanian-deadlift", "Single-leg Romanian Deadlift", "Hamstrings", "Dumbbell", ["Glutes", "LowerBack"], { unilateral: true, aliases: ["Single-leg RDL", "Single Leg RDL", "SL RDL", "Unilateral RDL"] }),
-  E("pull-up", "Pull Up", "Lats", "Bodyweight", ["UpperBack", "Biceps"], { aliases: ["Pullup", "Pull-up", "Wide Grip Pull Up"] }),
-  E("chin-up", "Chin Up", "Lats", "Bodyweight", ["UpperBack", "Biceps"], { aliases: ["Chinup", "Chin-up", "Underhand Pull Up"] }),
-  E("lat-pulldown", "Lat Pulldown", "Lats", "Cable", ["UpperBack", "Biceps"], { aliases: ["Lat Pull Down", "Lat Pulldowns", "Cable Pulldown"] }),
-  E("seated-row", "Seated Cable Row", "UpperBack", "Cable", ["Lats", "Biceps"], { aliases: ["Cable Row", "Seated Row"] }),
-  E("single-arm-cable-row", "Single-arm Cable Row", "UpperBack", "Cable", ["Lats", "Biceps"], { unilateral: true, aliases: ["Single Arm Cable Row", "Unilateral Cable Row"] }),
-  E("db-row", "Dumbbell Row", "Lats", "Dumbbell", ["UpperBack", "Biceps"], { unilateral: true, aliases: ["DB Row", "One Arm Dumbbell Row", "Single Arm Dumbbell Row"] }),
-  E("chest-supported-db-row", "Chest Supported Dumbbell Row", "UpperBack", "Dumbbell", ["Lats", "Shoulders", "Biceps"], { aliases: ["Incline Dumbbell Row", "Chest Supported Incline Row", "Incline Bench Dumbbell Row", "Chest Supported Row"] }),
-  E("barbell-row", "Barbell Row", "UpperBack", "Barbell", ["Lats", "Biceps"], { aliases: ["BB Row", "Bent Over Row", "Bent-over Barbell Row"] }),
-  E("t-bar-row", "T-Bar Row", "UpperBack", "Barbell", ["Lats", "Biceps"], { aliases: ["T Bar Row", "TBar Row"] }),
-  E("face-pull", "Face Pull", "UpperBack", "Cable", ["Shoulders", "Biceps"], { aliases: ["Face Pulls", "Cable Face Pull"] }),
-  E("back-extension", "Back Extension", "LowerBack", "Bodyweight", ["Glutes", "Hamstrings"], { aliases: ["Hyperextension", "Hyperextensions", "Roman Chair Back Extension"] }),
+  E(
+    "deadlift",
+    "Deadlift (Barbell)",
+    "LowerBack",
+    "Barbell",
+    ["Glutes", "Hamstrings", "Quads", "UpperBack", "Forearms"],
+    { aliases: ["Deadlift", "Barbell Deadlift", "DL", "Conventional Deadlift"] },
+  ),
+  E("romanian-deadlift", "Romanian Deadlift", "Hamstrings", "Barbell", ["Glutes", "LowerBack"], {
+    aliases: ["RDL", "Romanian Deadlifts", "Stiff Leg Deadlift"],
+  }),
+  E(
+    "single-leg-romanian-deadlift",
+    "Single-leg Romanian Deadlift",
+    "Hamstrings",
+    "Dumbbell",
+    ["Glutes", "LowerBack"],
+    { unilateral: true, aliases: ["Single-leg RDL", "Single Leg RDL", "SL RDL", "Unilateral RDL"] },
+  ),
+  E("pull-up", "Pull Up", "Lats", "Bodyweight", ["UpperBack", "Biceps"], {
+    aliases: ["Pullup", "Pull-up", "Wide Grip Pull Up"],
+  }),
+  E("chin-up", "Chin Up", "Lats", "Bodyweight", ["UpperBack", "Biceps"], {
+    aliases: ["Chinup", "Chin-up", "Underhand Pull Up"],
+  }),
+  E("lat-pulldown", "Lat Pulldown", "Lats", "Cable", ["UpperBack", "Biceps"], {
+    aliases: ["Lat Pull Down", "Lat Pulldowns", "Cable Pulldown"],
+  }),
+  E("seated-row", "Seated Cable Row", "UpperBack", "Cable", ["Lats", "Biceps"], {
+    aliases: ["Cable Row", "Seated Row"],
+  }),
+  E("single-arm-cable-row", "Single-arm Cable Row", "UpperBack", "Cable", ["Lats", "Biceps"], {
+    unilateral: true,
+    aliases: ["Single Arm Cable Row", "Unilateral Cable Row"],
+  }),
+  E("db-row", "Dumbbell Row", "Lats", "Dumbbell", ["UpperBack", "Biceps"], {
+    unilateral: true,
+    aliases: ["DB Row", "One Arm Dumbbell Row", "Single Arm Dumbbell Row"],
+  }),
+  E(
+    "chest-supported-db-row",
+    "Chest Supported Dumbbell Row",
+    "UpperBack",
+    "Dumbbell",
+    ["Lats", "Shoulders", "Biceps"],
+    {
+      aliases: [
+        "Incline Dumbbell Row",
+        "Chest Supported Incline Row",
+        "Incline Bench Dumbbell Row",
+        "Chest Supported Row",
+      ],
+    },
+  ),
+  E("barbell-row", "Barbell Row", "UpperBack", "Barbell", ["Lats", "Biceps"], {
+    aliases: ["BB Row", "Bent Over Row", "Bent-over Barbell Row"],
+  }),
+  E("t-bar-row", "T-Bar Row", "UpperBack", "Barbell", ["Lats", "Biceps"], {
+    aliases: ["T Bar Row", "TBar Row"],
+  }),
+  E("face-pull", "Face Pull", "UpperBack", "Cable", ["Shoulders", "Biceps"], {
+    aliases: ["Face Pulls", "Cable Face Pull"],
+  }),
+  E("back-extension", "Back Extension", "LowerBack", "Bodyweight", ["Glutes", "Hamstrings"], {
+    aliases: ["Hyperextension", "Hyperextensions", "Roman Chair Back Extension"],
+  }),
 
   // Shoulders
-  E("ohp", "Overhead Press (Barbell)", "Shoulders", "Barbell", ["Triceps", "UpperBack"], { aliases: ["OHP", "Military Press", "Overhead Press", "Standing Barbell Press", "Barbell Overhead Press"] }),
-  E("db-shoulder-press", "Dumbbell Shoulder Press", "Shoulders", "Dumbbell", ["Triceps", "UpperBack"], { aliases: ["DB Shoulder Press", "Dumbbell Overhead Press", "DB OHP"] }),
-  E("single-arm-shoulder-press", "Single-arm Shoulder Press", "Shoulders", "Dumbbell", ["Triceps", "UpperBack"], { unilateral: true, aliases: ["Single Arm Shoulder Press", "Single Arm DB Press"] }),
-  E("arnold-press", "Arnold Press", "Shoulders", "Dumbbell", ["Triceps", "UpperBack"], { aliases: ["Arnold Shoulder Press"] }),
-  E("lateral-raise", "Lateral Raise", "Shoulders", "Dumbbell", [], { aliases: ["Side Lateral Raise", "DB Lateral Raise", "Dumbbell Lateral Raise"] }),
-  E("front-raise", "Front Raise", "Shoulders", "Dumbbell", [], { aliases: ["DB Front Raise", "Dumbbell Front Raise"] }),
-  E("rear-delt-fly", "Rear Delt Reverse Fly", "Shoulders", "Dumbbell", ["UpperBack"], { aliases: ["Reverse Fly", "Rear Delt Fly", "Bent Over Rear Delt Fly"] }),
-  E("incline-rear-delt-fly", "Incline Rear Delt Fly", "Shoulders", "Dumbbell", ["UpperBack"], { aliases: ["Incline Reverse Fly"] }),
-  E("reverse-pec-deck", "Reverse Pec Deck", "Shoulders", "Machine", ["UpperBack"], { aliases: ["Rear Delt Machine Fly", "Reverse Fly Machine"] }),
-  E("shrug", "Shrug (Dumbbell)", "UpperBack", "Dumbbell", [], { aliases: ["Dumbbell Shrug", "DB Shrug", "Shrugs"] }),
+  E("ohp", "Overhead Press (Barbell)", "Shoulders", "Barbell", ["Triceps", "UpperBack"], {
+    aliases: [
+      "OHP",
+      "Military Press",
+      "Overhead Press",
+      "Standing Barbell Press",
+      "Barbell Overhead Press",
+    ],
+  }),
+  E(
+    "db-shoulder-press",
+    "Dumbbell Shoulder Press",
+    "Shoulders",
+    "Dumbbell",
+    ["Triceps", "UpperBack"],
+    { aliases: ["DB Shoulder Press", "Dumbbell Overhead Press", "DB OHP"] },
+  ),
+  E(
+    "single-arm-shoulder-press",
+    "Single-arm Shoulder Press",
+    "Shoulders",
+    "Dumbbell",
+    ["Triceps", "UpperBack"],
+    { unilateral: true, aliases: ["Single Arm Shoulder Press", "Single Arm DB Press"] },
+  ),
+  E("arnold-press", "Arnold Press", "Shoulders", "Dumbbell", ["Triceps", "UpperBack"], {
+    aliases: ["Arnold Shoulder Press"],
+  }),
+  E("lateral-raise", "Lateral Raise", "Shoulders", "Dumbbell", [], {
+    aliases: ["Side Lateral Raise", "DB Lateral Raise", "Dumbbell Lateral Raise"],
+  }),
+  E("front-raise", "Front Raise", "Shoulders", "Dumbbell", [], {
+    aliases: ["DB Front Raise", "Dumbbell Front Raise"],
+  }),
+  E("rear-delt-fly", "Rear Delt Reverse Fly", "Shoulders", "Dumbbell", ["UpperBack"], {
+    aliases: ["Reverse Fly", "Rear Delt Fly", "Bent Over Rear Delt Fly"],
+  }),
+  E("incline-rear-delt-fly", "Incline Rear Delt Fly", "Shoulders", "Dumbbell", ["UpperBack"], {
+    aliases: ["Incline Reverse Fly"],
+  }),
+  E("reverse-pec-deck", "Reverse Pec Deck", "Shoulders", "Machine", ["UpperBack"], {
+    aliases: ["Rear Delt Machine Fly", "Reverse Fly Machine"],
+  }),
+  E("shrug", "Shrug (Dumbbell)", "UpperBack", "Dumbbell", [], {
+    aliases: ["Dumbbell Shrug", "DB Shrug", "Shrugs"],
+  }),
 
   // Arms
-  E("bicep-curl-db", "Dumbbell Curl", "Biceps", "Dumbbell", [], { aliases: ["DB Curl", "Dumbbell Bicep Curl", "Standing Dumbbell Curl"] }),
-  E("incline-db-curl", "Incline Dumbbell Curl", "Biceps", "Dumbbell", ["Forearms"], { aliases: ["Incline DB Curl", "Incline Bicep Curl"] }),
-  E("bicep-curl-bb", "Barbell Curl", "Biceps", "Barbell", [], { aliases: ["BB Curl", "Barbell Bicep Curl", "Standing Barbell Curl"] }),
-  E("hammer-curl", "Hammer Curl", "Biceps", "Dumbbell", ["Forearms"], { aliases: ["Dumbbell Hammer Curl", "Neutral Grip Curl"] }),
-  E("preacher-curl", "Preacher Curl", "Biceps", "Barbell", [], { aliases: ["Preacher Bicep Curl", "Barbell Preacher Curl"] }),
-  E("tricep-pushdown", "Tricep Pushdown", "Triceps", "Cable", [], { aliases: ["Triceps Pushdown", "Cable Pushdown", "Rope Pushdown"] }),
-  E("overhead-tri-ext", "Overhead Tricep Extension", "Triceps", "Dumbbell", [], { aliases: ["Overhead Triceps Extension", "DB Overhead Extension", "French Press"] }),
-  E("skullcrusher", "Skullcrusher", "Triceps", "Barbell", [], { aliases: ["Skull Crusher", "Lying Triceps Extension", "Barbell Skullcrusher"] }),
-  E("close-grip-bench", "Close-Grip Bench Press", "Triceps", "Barbell", ["Chest"], { aliases: ["Close Grip Bench Press", "CGBP"] }),
-  E("wrist-curl", "Wrist Curl", "Forearms", "Dumbbell", [], { aliases: ["Dumbbell Wrist Curl", "Forearm Curl"] }),
+  E("bicep-curl-db", "Dumbbell Curl", "Biceps", "Dumbbell", [], {
+    aliases: ["DB Curl", "Dumbbell Bicep Curl", "Standing Dumbbell Curl"],
+  }),
+  E("incline-db-curl", "Incline Dumbbell Curl", "Biceps", "Dumbbell", ["Forearms"], {
+    aliases: ["Incline DB Curl", "Incline Bicep Curl"],
+  }),
+  E("bicep-curl-bb", "Barbell Curl", "Biceps", "Barbell", [], {
+    aliases: ["BB Curl", "Barbell Bicep Curl", "Standing Barbell Curl"],
+  }),
+  E("hammer-curl", "Hammer Curl", "Biceps", "Dumbbell", ["Forearms"], {
+    aliases: ["Dumbbell Hammer Curl", "Neutral Grip Curl"],
+  }),
+  E("preacher-curl", "Preacher Curl", "Biceps", "Barbell", [], {
+    aliases: ["Preacher Bicep Curl", "Barbell Preacher Curl"],
+  }),
+  E("tricep-pushdown", "Tricep Pushdown", "Triceps", "Cable", [], {
+    aliases: ["Triceps Pushdown", "Cable Pushdown", "Rope Pushdown"],
+  }),
+  E("overhead-tri-ext", "Overhead Tricep Extension", "Triceps", "Dumbbell", [], {
+    aliases: ["Overhead Triceps Extension", "DB Overhead Extension", "French Press"],
+  }),
+  E("skullcrusher", "Skullcrusher", "Triceps", "Barbell", [], {
+    aliases: ["Skull Crusher", "Lying Triceps Extension", "Barbell Skullcrusher"],
+  }),
+  E("close-grip-bench", "Close-Grip Bench Press", "Triceps", "Barbell", ["Chest"], {
+    aliases: ["Close Grip Bench Press", "CGBP"],
+  }),
+  E("wrist-curl", "Wrist Curl", "Forearms", "Dumbbell", [], {
+    aliases: ["Dumbbell Wrist Curl", "Forearm Curl"],
+  }),
 
   // Legs
-  E("back-squat", "Back Squat", "Quads", "Barbell", ["Glutes", "Hamstrings", "LowerBack", "Calves"], { aliases: ["Squat", "Barbell Squat", "Barbell Back Squat", "High Bar Squat"] }),
-  E("front-squat", "Front Squat", "Quads", "Barbell", ["Glutes", "Hamstrings", "LowerBack"], { aliases: ["Barbell Front Squat"] }),
-  E("goblet-squat", "Goblet Squat", "Quads", "Dumbbell", ["Glutes", "Hamstrings"], { aliases: ["DB Goblet Squat", "Dumbbell Goblet Squat"] }),
-  E("leg-press", "Leg Press", "Quads", "Machine", ["Glutes", "Hamstrings"], { aliases: ["Machine Leg Press", "45 Degree Leg Press"] }),
-  E("leg-extension", "Leg Extension", "Quads", "Machine", [], { aliases: ["Quad Extension", "Machine Leg Extension"] }),
-  E("leg-curl", "Leg Curl", "Hamstrings", "Machine", ["Calves"], { aliases: ["Hamstring Curl", "Machine Leg Curl"] }),
-  E("lunge", "Walking Lunge", "Quads", "Dumbbell", ["Glutes", "Hamstrings", "Calves"], { aliases: ["Lunges", "Dumbbell Walking Lunge", "DB Lunge"] }),
-  E("bulgarian-split-squat", "Bulgarian Split Squat", "Quads", "Dumbbell", ["Glutes", "Hamstrings"], { unilateral: true, aliases: ["BSS", "Rear Foot Elevated Split Squat", "Split Squat"] }),
-  E("hip-thrust", "Hip Thrust", "Glutes", "Barbell", ["Hamstrings"], { aliases: ["Barbell Hip Thrust", "BB Hip Thrust"] }),
-  E("db-hip-thrust", "Dumbbell Hip Thrust", "Glutes", "Dumbbell", ["Hamstrings"], { aliases: ["DB Hip Thrust"] }),
-  E("glute-bridge", "Glute Bridge", "Glutes", "Bodyweight", ["Hamstrings"], { aliases: ["Bodyweight Hip Thrust", "Bridge"] }),
-  E("calf-raise", "Standing Calf Raise", "Calves", "Machine", [], { aliases: ["Calf Raise", "Calf Raises"] }),
-  E("seated-calf-raise", "Seated Calf Raise", "Calves", "Machine", [], { aliases: ["Seated Calf Raises"] }),
+  E(
+    "back-squat",
+    "Back Squat",
+    "Quads",
+    "Barbell",
+    ["Glutes", "Hamstrings", "LowerBack", "Calves"],
+    { aliases: ["Squat", "Barbell Squat", "Barbell Back Squat", "High Bar Squat"] },
+  ),
+  E("front-squat", "Front Squat", "Quads", "Barbell", ["Glutes", "Hamstrings", "LowerBack"], {
+    aliases: ["Barbell Front Squat"],
+  }),
+  E("goblet-squat", "Goblet Squat", "Quads", "Dumbbell", ["Glutes", "Hamstrings"], {
+    aliases: ["DB Goblet Squat", "Dumbbell Goblet Squat"],
+  }),
+  E("leg-press", "Leg Press", "Quads", "Machine", ["Glutes", "Hamstrings"], {
+    aliases: ["Machine Leg Press", "45 Degree Leg Press"],
+  }),
+  E("leg-extension", "Leg Extension", "Quads", "Machine", [], {
+    aliases: ["Quad Extension", "Machine Leg Extension"],
+  }),
+  E("leg-curl", "Leg Curl", "Hamstrings", "Machine", ["Calves"], {
+    aliases: ["Hamstring Curl", "Machine Leg Curl"],
+  }),
+  E("lunge", "Walking Lunge", "Quads", "Dumbbell", ["Glutes", "Hamstrings", "Calves"], {
+    aliases: ["Lunges", "Dumbbell Walking Lunge", "DB Lunge"],
+  }),
+  E(
+    "bulgarian-split-squat",
+    "Bulgarian Split Squat",
+    "Quads",
+    "Dumbbell",
+    ["Glutes", "Hamstrings"],
+    { unilateral: true, aliases: ["BSS", "Rear Foot Elevated Split Squat", "Split Squat"] },
+  ),
+  E("hip-thrust", "Hip Thrust", "Glutes", "Barbell", ["Hamstrings"], {
+    aliases: ["Barbell Hip Thrust", "BB Hip Thrust"],
+  }),
+  E("db-hip-thrust", "Dumbbell Hip Thrust", "Glutes", "Dumbbell", ["Hamstrings"], {
+    aliases: ["DB Hip Thrust"],
+  }),
+  E("glute-bridge", "Glute Bridge", "Glutes", "Bodyweight", ["Hamstrings"], {
+    aliases: ["Bodyweight Hip Thrust", "Bridge"],
+  }),
+  E("calf-raise", "Standing Calf Raise", "Calves", "Machine", [], {
+    aliases: ["Calf Raise", "Calf Raises"],
+  }),
+  E("seated-calf-raise", "Seated Calf Raise", "Calves", "Machine", [], {
+    aliases: ["Seated Calf Raises"],
+  }),
 
   // Core (time-based)
-  E("plank", "Plank", "Abs", "Bodyweight", ["Obliques", "Shoulders"], { time: true, aliases: ["Front Plank", "Forearm Plank"] }),
-  E("side-plank", "Side Plank", "Obliques", "Bodyweight", ["Abs"], { time: true, unilateral: true, aliases: ["Side Planks"] }),
-  E("dead-hang", "Dead Hang", "Forearms", "Bodyweight", ["Lats", "Biceps"], { time: true, aliases: ["Bar Hang", "Passive Hang"] }),
-  E("wall-sit", "Wall Sit", "Quads", "Bodyweight", ["Glutes"], { time: true, aliases: ["Wall Squat"] }),
-  E("hollow-hold", "Hollow Hold", "Abs", "Bodyweight", ["Obliques", "LowerBack"], { time: true, aliases: ["Hollow Body Hold"] }),
-  E("l-sit", "L-Sit", "Abs", "Bodyweight", ["Quads", "Triceps"], { time: true, aliases: ["L Sit"] }),
+  E("plank", "Plank", "Abs", "Bodyweight", ["Obliques", "Shoulders"], {
+    time: true,
+    aliases: ["Front Plank", "Forearm Plank"],
+  }),
+  E("side-plank", "Side Plank", "Obliques", "Bodyweight", ["Abs"], {
+    time: true,
+    unilateral: true,
+    aliases: ["Side Planks"],
+  }),
+  E("dead-hang", "Dead Hang", "Forearms", "Bodyweight", ["Lats", "Biceps"], {
+    time: true,
+    aliases: ["Bar Hang", "Passive Hang"],
+  }),
+  E("wall-sit", "Wall Sit", "Quads", "Bodyweight", ["Glutes"], {
+    time: true,
+    aliases: ["Wall Squat"],
+  }),
+  E("hollow-hold", "Hollow Hold", "Abs", "Bodyweight", ["Obliques", "LowerBack"], {
+    time: true,
+    aliases: ["Hollow Body Hold"],
+  }),
+  E("l-sit", "L-Sit", "Abs", "Bodyweight", ["Quads", "Triceps"], {
+    time: true,
+    aliases: ["L Sit"],
+  }),
 
   // Core (reps)
   E("crunch", "Crunch", "Abs", "Bodyweight", ["Obliques"], { aliases: ["Crunches", "Ab Crunch"] }),
   E("sit-up", "Sit Up", "Abs", "Bodyweight", ["Obliques"], { aliases: ["Situp", "Sit-up"] }),
-  E("hanging-leg-raise", "Hanging Leg Raise", "Abs", "Bodyweight", ["Forearms"], { aliases: ["Hanging Knee Raise", "Leg Raise"] }),
-  E("russian-twist", "Russian Twist", "Obliques", "Bodyweight", [], { aliases: ["Russian Twists"] }),
-  E("ab-wheel", "Ab Wheel Rollout", "Abs", "Other", ["Obliques", "Shoulders", "Lats"], { aliases: ["Ab Roller", "Ab Wheel", "Wheel Rollout"] }),
+  E("hanging-leg-raise", "Hanging Leg Raise", "Abs", "Bodyweight", ["Forearms"], {
+    aliases: ["Hanging Knee Raise", "Leg Raise"],
+  }),
+  E("russian-twist", "Russian Twist", "Obliques", "Bodyweight", [], {
+    aliases: ["Russian Twists"],
+  }),
+  E("ab-wheel", "Ab Wheel Rollout", "Abs", "Other", ["Obliques", "Shoulders", "Lats"], {
+    aliases: ["Ab Roller", "Ab Wheel", "Wheel Rollout"],
+  }),
 
   // Cardio (time-based)
-  E("treadmill", "Treadmill Run", "Cardio", "Cardio", ["Quads", "Hamstrings", "Calves", "Glutes"], { cardio: true, time: true, aliases: ["Treadmill", "Running"] }),
-  E("rowing-machine", "Rowing Machine", "Cardio", "Cardio", ["Quads", "Hamstrings", "Glutes", "UpperBack", "Lats", "Biceps", "Forearms"], { cardio: true, time: true, aliases: ["Erg", "Rower", "Row Machine"] }),
-  E("stationary-bike", "Stationary Bike", "Cardio", "Cardio", ["Quads", "Hamstrings", "Calves", "Glutes"], { cardio: true, time: true, aliases: ["Exercise Bike", "Spin Bike"] }),
-  E("elliptical", "Elliptical", "Cardio", "Cardio", ["Quads", "Hamstrings", "Glutes", "Calves"], { cardio: true, time: true, aliases: ["Elliptical Trainer", "Cross Trainer"] }),
-  E("stair-climber", "Stair Climber", "Cardio", "Cardio", ["Glutes", "Quads", "Hamstrings", "Calves"], { cardio: true, time: true, aliases: ["Stairmaster", "Stair Stepper"] }),
-  E("jump-rope", "Jump Rope", "Cardio", "Cardio", ["Calves", "Quads"], { cardio: true, time: true, aliases: ["Skipping Rope", "Jumping Rope"] }),
-  E("rowing-intervals", "Rowing Intervals", "Cardio", "Cardio", ["Quads", "Hamstrings", "Glutes", "UpperBack", "Lats", "Biceps", "Forearms"], {
-    interval: { rounds: 8, workSeconds: 60, restSeconds: 120 },
-    aliases: ["Interval Rowing", "HIIT Rowing"],
+  E("treadmill", "Treadmill Run", "Cardio", "Cardio", ["Quads", "Hamstrings", "Calves", "Glutes"], {
+    cardio: true,
+    time: true,
+    aliases: ["Treadmill", "Running"],
   }),
+  E(
+    "rowing-machine",
+    "Rowing Machine",
+    "Cardio",
+    "Cardio",
+    ["Quads", "Hamstrings", "Glutes", "UpperBack", "Lats", "Biceps", "Forearms"],
+    { cardio: true, time: true, aliases: ["Erg", "Rower", "Row Machine"] },
+  ),
+  E(
+    "stationary-bike",
+    "Stationary Bike",
+    "Cardio",
+    "Cardio",
+    ["Quads", "Hamstrings", "Calves", "Glutes"],
+    { cardio: true, time: true, aliases: ["Exercise Bike", "Spin Bike"] },
+  ),
+  E("elliptical", "Elliptical", "Cardio", "Cardio", ["Quads", "Hamstrings", "Glutes", "Calves"], {
+    cardio: true,
+    time: true,
+    aliases: ["Elliptical Trainer", "Cross Trainer"],
+  }),
+  E(
+    "stair-climber",
+    "Stair Climber",
+    "Cardio",
+    "Cardio",
+    ["Glutes", "Quads", "Hamstrings", "Calves"],
+    { cardio: true, time: true, aliases: ["Stairmaster", "Stair Stepper"] },
+  ),
+  E("jump-rope", "Jump Rope", "Cardio", "Cardio", ["Calves", "Quads"], {
+    cardio: true,
+    time: true,
+    aliases: ["Skipping Rope", "Jumping Rope"],
+  }),
+  E(
+    "rowing-intervals",
+    "Rowing Intervals",
+    "Cardio",
+    "Cardio",
+    ["Quads", "Hamstrings", "Glutes", "UpperBack", "Lats", "Biceps", "Forearms"],
+    {
+      interval: { rounds: 8, workSeconds: 60, restSeconds: 120 },
+      aliases: ["Interval Rowing", "HIIT Rowing"],
+    },
+  ),
 ];
 
 export const MUSCLE_GROUPS: MuscleGroup[] = [
@@ -312,16 +559,44 @@ export interface ExerciseLoggingSchema {
 export function getExerciseLoggingSchema(def: ExerciseDef | undefined): ExerciseLoggingSchema {
   const unilateral = isUnilateral(def);
   if (!def) {
-    return { weight: "hidden", reps: false, duration: false, distance: false, interval: false, unilateral: false };
+    return {
+      weight: "hidden",
+      reps: false,
+      duration: false,
+      distance: false,
+      interval: false,
+      unilateral: false,
+    };
   }
   if (getIntervalConfig(def)) {
-    return { weight: "hidden", reps: false, duration: true, distance: false, interval: true, unilateral };
+    return {
+      weight: "hidden",
+      reps: false,
+      duration: true,
+      distance: false,
+      interval: true,
+      unilateral,
+    };
   }
   if (isCardio(def)) {
-    return { weight: "hidden", reps: false, duration: true, distance: true, interval: false, unilateral };
+    return {
+      weight: "hidden",
+      reps: false,
+      duration: true,
+      distance: true,
+      interval: false,
+      unilateral,
+    };
   }
   if (isTimeBased(def)) {
-    return { weight: "hidden", reps: false, duration: true, distance: false, interval: false, unilateral };
+    return {
+      weight: "hidden",
+      reps: false,
+      duration: true,
+      distance: false,
+      interval: false,
+      unilateral,
+    };
   }
   return {
     weight: isBodyweight(def) ? "optional" : "required",
@@ -342,13 +617,16 @@ export function getExerciseLoggingSchema(def: ExerciseDef | undefined): Exercise
  * a routine target, the previous set, or a blank zero. A no-op for any
  * non-unilateral exercise.
  */
-export function seedUnilateralSide<
-  T extends { weight?: number; reps?: number; duration?: number },
->(def: ExerciseDef | undefined, set: T): T & { additionalPerformances?: SetSide[] } {
+export function seedUnilateralSide<T extends { weight?: number; reps?: number; duration?: number }>(
+  def: ExerciseDef | undefined,
+  set: T,
+): T & { additionalPerformances?: SetSide[] } {
   if (!isUnilateral(def)) return set;
   return {
     ...set,
-    additionalPerformances: [{ weight: set.weight ?? 0, reps: set.reps ?? 0, duration: set.duration }],
+    additionalPerformances: [
+      { weight: set.weight ?? 0, reps: set.reps ?? 0, duration: set.duration },
+    ],
   };
 }
 
@@ -419,10 +697,7 @@ function formatPerformance(schema: ExerciseLoggingSchema, perf: SetSide): string
  * established by LiveSession's formatPrevSet, built on the shared schema
  * and the shared formatDuration rather than re-deriving either.
  */
-export function formatCompletedSet(
-  def: ExerciseDef | undefined,
-  set: CompletedSetLike,
-): string {
+export function formatCompletedSet(def: ExerciseDef | undefined, set: CompletedSetLike): string {
   const schema = getExerciseLoggingSchema(def);
   if (schema.interval) {
     const total = formatDuration(set.duration ?? 0);
