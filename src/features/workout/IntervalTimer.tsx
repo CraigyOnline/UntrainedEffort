@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { IntervalTimerState } from "@/lib/db";
 import type { IntervalConfig } from "@/lib/exercises";
+import { isIntervalDone } from "@/features/workout/intervalTimer";
 
 export interface IntervalTimerProps {
   config: IntervalConfig;
@@ -13,13 +14,6 @@ export interface IntervalTimerProps {
 
 function phaseSeconds(config: IntervalConfig, phase: "work" | "rest"): number {
   return phase === "work" ? config.workSeconds : config.restSeconds;
-}
-
-export function isIntervalDone(
-  state: IntervalTimerState | undefined,
-  config: IntervalConfig,
-): boolean {
-  return !!state && state.round > config.rounds;
 }
 
 /**
