@@ -60,6 +60,11 @@ export const haptics = {
    *  notification pattern, so it reads as its own kind of moment rather
    *  than a stronger "tap" or an early finish signal. */
   prAchieved: () => fire(() => Haptics.impact({ style: ImpactStyle.Heavy })),
+  /** The rest countdown reaches zero. Deliberately the same light impact
+   *  as setComplete() rather than the heavier notification-style success
+   *  used by workoutFinish() — this is a quiet "whenever you're ready"
+   *  nudge, not a milestone to make a fuss over. */
+  restReady: () => fire(() => Haptics.impact({ style: ImpactStyle.Light })),
   /** Picking up an exercise card to drag-reorder it. */
   dragStart: () => fire(() => Haptics.impact({ style: ImpactStyle.Light })),
   /** Dropping an exercise card after a drag-reorder. */

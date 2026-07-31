@@ -63,6 +63,11 @@ export const FINISH_ANTICIPATION_MS = 350;
 
 export const DEFAULT_REST_DURATION_SEC = 90;
 export const REST_EXTEND_SEC = 30;
+/** How long "✓ Ready" stays visible before the timer hides itself and the
+ *  HUD returns to normal — measured from the moment the countdown reaches
+ *  zero, not from when the row first appeared. Mid-range of the requested
+ *  20–30s window. */
+export const REST_AUTO_HIDE_SEC = 25;
 
 export function startRestTimer(durationSec: number = DEFAULT_REST_DURATION_SEC): RestTimerState {
   return { endsAt: Date.now() + durationSec * 1000 };

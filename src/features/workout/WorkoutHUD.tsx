@@ -12,6 +12,7 @@ import { WorkoutTimer } from "./WorkoutTimer";
 import { RestTimer } from "./RestTimer";
 import {
   PR_CELEBRATION_VISIBLE_MS,
+  REST_AUTO_HIDE_SEC,
   REST_EXTEND_SEC,
   sessionHasData,
   type ActiveSession,
@@ -179,6 +180,31 @@ export function WorkoutHUD({
         : s,
     );
   }
+
+  // Auto-hide: once "✓ Ready" has been showing for REST_AUTO_HIDE_SEC,
+  // clear restTimer entirely so the row disappears and the HUD returns to
+  // its normal height. Scheduled from the deadline itself (endsAt), not
+  // from when this effect happens to run, so re-mounting mid-workout (or
+  // extending, which moves endsAt forward and re-fires this effect)
+  // schedules against the right moment rather than an arbitrary "now".
+  // The endsAt check inside `clear` guards against a stale timeout from an
+  // earlier rest period reaching in after a new set has already replaced
+  // it with a fresh one.
+  useEffect(() => {
+    const rt = session.restTimer;
+    if (!rt) return;
+    const hideAt = rt.endsAt + REST_AUTO_HIDE_SEC * 1000;
+    const clear = () =>
+      setSession((s) => (s?.restTimer?.endsAt === rt.endsAt ? { ...s, restTimer: undefined } : s));
+    const remaining = hideAt - Date.now();
+    if (remaining <= 0) {
+      clear();
+      return;
+    }
+    const t = setTimeout(clear, remaining);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed off session.restTimer?.endsAt only, not the whole object, so extending (which replaces the object but not this effect's timing basis until endsAt itself changes) doesn't double-schedule
+  }, [session.restTimer?.endsAt, setSession]);
 
   // ── Live PR celebration ──────────────────────────────────────────────
   // Everything below is driven by real state transitions with CSS
