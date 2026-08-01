@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-import { getDb, type Routine, type Workout, type PRRecord } from "@/lib/db";
+import { getDb, type Routine, type Workout, type PRRecord, type ExerciseSettings } from "@/lib/db";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
@@ -12,6 +12,16 @@ export interface BackupPayload {
   routines: Routine[];
   workouts: Workout[];
   prHistory: PRRecord[];
+  /** Added after schemaVersion 1 shipped. Optional on read so backups
+   *  taken before this field existed still import cleanly (isBackupPayload
+   *  below accepts it being absent, and the import loop below treats a
+   *  missing array the same as an empty one) — this version's
+   *  exportBackup always writes it (possibly as an empty array). Not
+   *  worth a schemaVersion bump: that gate is a strict equality check (see
+   *  the import handler), so bumping it would make every backup file that
+   *  already exists suddenly "Unsupported schema version" for a purely
+   *  additive field, not an actual incompatibility. */
+  exerciseSettings?: ExerciseSettings[];
 }
 
 export function isBackupPayload(x: unknown): x is BackupPayload {
@@ -21,7 +31,8 @@ export function isBackupPayload(x: unknown): x is BackupPayload {
     typeof o.schemaVersion === "number" &&
     Array.isArray(o.routines) &&
     Array.isArray(o.workouts) &&
-    Array.isArray(o.prHistory)
+    Array.isArray(o.prHistory) &&
+    (o.exerciseSettings === undefined || Array.isArray(o.exerciseSettings))
   );
 }
 
@@ -29,6 +40,7 @@ export interface BackupSelection {
   routines?: boolean;
   workouts?: boolean;
   prHistory?: boolean;
+  exerciseSettings?: boolean;
 }
 
 /**
@@ -44,14 +56,20 @@ export interface BackupSelection {
  * safely decide not to proceed rather than assuming success.
  */
 export async function exportBackup(
-  selection: BackupSelection = { routines: true, workouts: true, prHistory: true },
+  selection: BackupSelection = {
+    routines: true,
+    workouts: true,
+    prHistory: true,
+    exerciseSettings: true,
+  },
 ): Promise<boolean> {
   try {
     const db = getDb();
-    const [routines, workouts, prHistory] = await Promise.all([
+    const [routines, workouts, prHistory, exerciseSettings] = await Promise.all([
       selection.routines ? db.routines.toArray() : Promise.resolve([]),
       selection.workouts ? db.workouts.toArray() : Promise.resolve([]),
       selection.prHistory ? db.prHistory.toArray() : Promise.resolve([]),
+      selection.exerciseSettings ? db.exerciseSettings.toArray() : Promise.resolve([]),
     ]);
 
     const payload: BackupPayload = {
@@ -60,6 +78,7 @@ export async function exportBackup(
       routines,
       workouts,
       prHistory,
+      exerciseSettings,
     };
 
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");

@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export const Route = createFileRoute("/_app/settings/database")({
+export const Route = createFileRoute("/_app/settings_/database")({
   head: () => ({
     meta: [{ title: "Database Maintenance · Untrained Effort" }],
   }),

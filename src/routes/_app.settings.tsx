@@ -57,12 +57,21 @@ export const Route = createFileRoute("/_app/settings")({
   component: SettingsPage,
 });
 
-type Category = "routines" | "workouts" | "prHistory";
+type Category = "routines" | "workouts" | "prHistory" | "exerciseSettings";
 
 function categoryLabel(c: Category): string {
   if (c === "routines") return "Routines";
   if (c === "workouts") return "Workout History";
-  return "PR Records";
+  if (c === "prHistory") return "PR Records";
+  return "Exercise Rest Times";
+}
+
+function importCategoryCount(payload: BackupPayload, c: Category): number {
+  if (c === "routines") return payload.routines.length;
+  if (c === "workouts") return payload.workouts.length;
+  if (c === "prHistory") return payload.prHistory.length;
+  // Absent on backups taken before this field existed — same as empty.
+  return payload.exerciseSettings?.length ?? 0;
 }
 
 function SettingsPage() {
@@ -74,6 +83,7 @@ function SettingsPage() {
     routines: true,
     workouts: true,
     prHistory: true,
+    exerciseSettings: true,
   });
   const [exportCounts, setExportCounts] = useState<Record<Category, number> | null>(null);
 
@@ -84,6 +94,7 @@ function SettingsPage() {
     routines: true,
     workouts: true,
     prHistory: true,
+    exerciseSettings: true,
   });
   const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false);
 
@@ -127,13 +138,14 @@ function SettingsPage() {
 
   async function openExportDialog() {
     const db = getDb();
-    const [routines, workouts, prHistory] = await Promise.all([
+    const [routines, workouts, prHistory, exerciseSettings] = await Promise.all([
       db.routines.count(),
       db.workouts.count(),
       db.prHistory.count(),
+      db.exerciseSettings.count(),
     ]);
-    setExportCounts({ routines, workouts, prHistory });
-    setExportSelected({ routines: true, workouts: true, prHistory: true });
+    setExportCounts({ routines, workouts, prHistory, exerciseSettings });
+    setExportSelected({ routines: true, workouts: true, prHistory: true, exerciseSettings: true });
     setExportOpen(true);
   }
 
@@ -177,6 +189,7 @@ function SettingsPage() {
         routines: parsed.routines.length > 0,
         workouts: parsed.workouts.length > 0,
         prHistory: parsed.prHistory.length > 0,
+        exerciseSettings: (parsed.exerciseSettings?.length ?? 0) > 0,
       });
     } catch (err) {
       console.error(err);
@@ -206,50 +219,75 @@ function SettingsPage() {
 
     try {
       const db = getDb();
-      await db.transaction("rw", db.routines, db.workouts, db.prHistory, async () => {
-        if (mode === "replace") {
-          if (selected.routines) await db.routines.clear();
-          if (selected.workouts) await db.workouts.clear();
-        }
+      await db.transaction(
+        "rw",
+        db.routines,
+        db.workouts,
+        db.prHistory,
+        db.exerciseSettings,
+        async () => {
+          if (mode === "replace") {
+            if (selected.routines) await db.routines.clear();
+            if (selected.workouts) await db.workouts.clear();
+            if (selected.exerciseSettings) await db.exerciseSettings.clear();
+          }
 
-        if (selected.routines) {
-          // sortOrder is assigned by each routine's position within the
-          // imported list rather than copied from the payload directly.
-          // This isn't a compatibility concern — even a current-schema
-          // backup's routines carry sortOrder values from a different
-          // database, so in merge mode they'd collide with existing
-          // routines' values if copied verbatim. Offsetting by the current
-          // max makes imported routines append cleanly after existing ones.
-          let nextSortOrder = 0;
-          if (mode === "merge") {
-            const last = await db.routines.orderBy("sortOrder").last();
-            nextSortOrder = (last?.sortOrder ?? -1) + 1;
+          if (selected.routines) {
+            // sortOrder is assigned by each routine's position within the
+            // imported list rather than copied from the payload directly.
+            // This isn't a compatibility concern — even a current-schema
+            // backup's routines carry sortOrder values from a different
+            // database, so in merge mode they'd collide with existing
+            // routines' values if copied verbatim. Offsetting by the current
+            // max makes imported routines append cleanly after existing ones.
+            let nextSortOrder = 0;
+            if (mode === "merge") {
+              const last = await db.routines.orderBy("sortOrder").last();
+              nextSortOrder = (last?.sortOrder ?? -1) + 1;
+            }
+            for (const r of payload.routines) {
+              const { id: _id, sortOrder: _sortOrder, ...rest } = r;
+              await db.routines.add({ ...rest, sortOrder: nextSortOrder } as Routine);
+              nextSortOrder++;
+            }
           }
-          for (const r of payload.routines) {
-            const { id: _id, sortOrder: _sortOrder, ...rest } = r;
-            await db.routines.add({ ...rest, sortOrder: nextSortOrder } as Routine);
-            nextSortOrder++;
+          if (selected.workouts) {
+            for (const w of payload.workouts) {
+              const { id: _id, ...rest } = w;
+              await db.workouts.add(rest as Workout);
+            }
           }
-        }
-        if (selected.workouts) {
-          for (const w of payload.workouts) {
-            const { id: _id, ...rest } = w;
-            await db.workouts.add(rest as Workout);
+          if (selected.exerciseSettings) {
+            // Unlike routines/workouts (auto-increment ids, stripped and
+            // reassigned above so merge mode can't collide), exerciseSettings
+            // is keyed by exerciseId itself — a stable, natural key shared
+            // between databases. put() is correct for both modes: replace
+            // mode already cleared the table above, and merge mode
+            // overwriting an existing override with the imported one is the
+            // sensible reading of "merge" for a settings table (as opposed
+            // to appending a duplicate, which doesn't make sense for a
+            // one-row-per-exercise table).
+            for (const s of payload.exerciseSettings ?? []) {
+              await db.exerciseSettings.put(s);
+            }
           }
-        }
 
-        // Personal Records are fully derived from workout history — an
-        // imported backup's PR rows reference workoutIds from the old
-        // database and can never line up with the fresh ids Dexie assigns
-        // on import, so writing them directly would just recreate the
-        // orphaned-PR bug this replaces. Rebuilding from whatever workouts
-        // now exist is correct regardless of import mode or selection.
-        await syncWorkoutIntegrity();
-      });
+          // Personal Records are fully derived from workout history — an
+          // imported backup's PR rows reference workoutIds from the old
+          // database and can never line up with the fresh ids Dexie assigns
+          // on import, so writing them directly would just recreate the
+          // orphaned-PR bug this replaces. Rebuilding from whatever workouts
+          // now exist is correct regardless of import mode or selection.
+          await syncWorkoutIntegrity();
+        },
+      );
 
       const parts: string[] = [];
       if (selected.routines) parts.push(`${payload.routines.length} routines`);
       if (selected.workouts) parts.push(`${payload.workouts.length} workouts`);
+      if (selected.exerciseSettings) {
+        parts.push(`${payload.exerciseSettings?.length ?? 0} exercise rest times`);
+      }
       toast.success(
         `${mode === "replace" ? "Replaced" : "Imported"} ${parts.join(", ")}. Personal Records recalculated.`,
         { duration: 4000 },
@@ -465,7 +503,7 @@ function SettingsPage() {
           </DialogHeader>
 
           <div className="flex flex-col gap-3 py-2">
-            {(["routines", "workouts", "prHistory"] as Category[]).map((c) => (
+            {(["routines", "workouts", "prHistory", "exerciseSettings"] as Category[]).map((c) => (
               <label key={c} className="flex items-center justify-between gap-3">
                 <span className="flex items-center gap-2 text-sm">
                   <Checkbox
@@ -509,31 +547,28 @@ function SettingsPage() {
           {importPayload && (
             <>
               <div className="flex flex-col gap-3 py-2">
-                {(["routines", "workouts", "prHistory"] as Category[]).map((c) => {
-                  const count =
-                    c === "routines"
-                      ? importPayload.routines.length
-                      : c === "workouts"
-                        ? importPayload.workouts.length
-                        : importPayload.prHistory.length;
-                  return (
-                    <label key={c} className="flex items-center justify-between gap-3">
-                      <span className="flex items-center gap-2 text-sm">
-                        <Checkbox
-                          checked={importSelected[c]}
-                          disabled={count === 0}
-                          onCheckedChange={(v) =>
-                            setImportSelected((s) => ({ ...s, [c]: v === true }))
-                          }
-                        />
-                        {categoryLabel(c)}
-                      </span>
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {count} {count === 0 ? "(empty)" : ""}
-                      </span>
-                    </label>
-                  );
-                })}
+                {(["routines", "workouts", "prHistory", "exerciseSettings"] as Category[]).map(
+                  (c) => {
+                    const count = importCategoryCount(importPayload, c);
+                    return (
+                      <label key={c} className="flex items-center justify-between gap-3">
+                        <span className="flex items-center gap-2 text-sm">
+                          <Checkbox
+                            checked={importSelected[c]}
+                            disabled={count === 0}
+                            onCheckedChange={(v) =>
+                              setImportSelected((s) => ({ ...s, [c]: v === true }))
+                            }
+                          />
+                          {categoryLabel(c)}
+                        </span>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {count} {count === 0 ? "(empty)" : ""}
+                        </span>
+                      </label>
+                    );
+                  },
+                )}
               </div>
 
               <div className="flex gap-2 rounded-lg bg-secondary/50 p-1">
