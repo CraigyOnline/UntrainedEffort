@@ -32,7 +32,7 @@ import {
   Database,
   Wrench,
   MonitorSmartphone,
-  Timer,
+  ChevronRight,
 } from "lucide-react";
 import { getKeepAwakeDefault, setKeepAwakeDefault } from "@/lib/keepAwake";
 import { getHapticsEnabled, setHapticsEnabled } from "@/lib/haptics";
@@ -319,10 +319,15 @@ function SettingsPage() {
 
         <Link
           to="/settings/rest-times"
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary/40 py-3 text-sm font-medium text-foreground/80 active:bg-secondary/70"
+          className="mt-4 flex items-center justify-between gap-3 border-t border-border/50 pt-4 active:opacity-70"
         >
-          <Timer className="h-4 w-4" />
-          Exercise Rest Times
+          <div className="min-w-0">
+            <p className="text-sm">Exercise Rest Times</p>
+            <p className="text-xs text-muted-foreground">
+              Override the automatic rest duration for specific exercises
+            </p>
+          </div>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
         </Link>
       </section>
 
