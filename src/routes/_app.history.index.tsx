@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
 import { z } from "zod";
-import { List } from "lucide-react";
+import { Dumbbell, List } from "lucide-react";
 import { getDb, type Workout, type PRRecord } from "@/lib/db";
 import { TrainingConsistencyHeatmap } from "@/features/history/TrainingConsistencyHeatmap";
 import { LifetimeSummary } from "@/features/history/LifetimeSummary";
@@ -47,15 +47,24 @@ function ProgressPage() {
           <h1 className="text-2xl font-bold">Progress</h1>
           <p className="text-sm text-muted-foreground">Every workout counts.</p>
         </div>
-        {!!workouts?.length && (
+        <div className="flex shrink-0 items-center gap-2">
           <button
-            onClick={() => navigate({ to: "/history/timeline" })}
-            className="flex shrink-0 items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1.5 text-xs font-medium text-primary active:scale-[0.98]"
+            onClick={() => navigate({ to: "/exercises" })}
+            className="flex items-center gap-1.5 rounded-full bg-secondary/60 px-3 py-1.5 text-xs font-medium text-foreground/80 active:scale-[0.98]"
           >
-            <List className="h-3.5 w-3.5" />
-            Timeline
+            <Dumbbell className="h-3.5 w-3.5" />
+            Exercises
           </button>
-        )}
+          {!!workouts?.length && (
+            <button
+              onClick={() => navigate({ to: "/history/timeline" })}
+              className="flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1.5 text-xs font-medium text-primary active:scale-[0.98]"
+            >
+              <List className="h-3.5 w-3.5" />
+              Timeline
+            </button>
+          )}
+        </div>
       </div>
 
       <TrainingConsistencyHeatmap workouts={workouts ?? []} />

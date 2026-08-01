@@ -426,6 +426,12 @@ function ProfilePage() {
               </div>
             ))}
           </div>
+          <button
+            onClick={() => navigate({ to: "/exercises" })}
+            className="mt-3 w-full text-center text-xs font-medium text-primary active:opacity-70"
+          >
+            See all exercises →
+          </button>
         </section>
       )}
 

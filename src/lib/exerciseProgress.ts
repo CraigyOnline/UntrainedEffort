@@ -1,4 +1,4 @@
-import type { WorkoutSet } from "@/lib/db";
+import type { Workout, WorkoutSet } from "@/lib/db";
 import { setPerformances, type ExerciseLoggingSchema, type SetSide } from "@/lib/exercises";
 import { formatDuration } from "@/lib/format";
 
@@ -89,4 +89,33 @@ export function compareTrend(previous: number, latest: number): Trend {
   if (latest > previous) return "up";
   if (latest < previous) return "down";
   return "flat";
+}
+
+/**
+ * When each exercise was last actually trained (a session with at least
+ * one completed set of it) — one pass over all workouts, most-recent-first
+ * (matches every existing caller's query order, e.g.
+ * .orderBy("startedAt").reverse()), keeping only the first (most recent)
+ * hit per exercise. Used by the Exercises list page as a lightweight
+ * per-row badge.
+ *
+ * Deliberately just a timestamp rather than reusing/extending
+ * computeExerciseStatus (Profile's improving/plateauing status) — that
+ * function does a full best-value and two-session trend comparison *per
+ * exercise it's asked about*, which is fine for the handful of exercises
+ * Profile's Recent Progress shows, but would mean one full pass over
+ * `workouts` for every exercise in the whole catalog here. This is a
+ * single O(workouts) pass regardless of catalog size.
+ */
+export function computeLastTrainedAt(workouts: Workout[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const w of workouts) {
+    for (const log of w.exercises) {
+      if (map.has(log.exerciseId)) continue;
+      if (log.sets.some((s) => s.completed)) {
+        map.set(log.exerciseId, w.startedAt);
+      }
+    }
+  }
+  return map;
 }
