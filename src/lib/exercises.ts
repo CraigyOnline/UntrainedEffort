@@ -37,6 +37,17 @@ export interface IntervalConfig {
   restSeconds: number;
 }
 
+/**
+ * Broad rest-recovery grouping for non-cardio, non-interval exercises —
+ * see getRestDurationSec below for how this is used, and its doc comment
+ * for the full priority chain this is one step of. Deliberately coarse
+ * (four buckets, not a duration per exercise) so tagging the catalog stays
+ * a one-word decision per exercise rather than a number to tune; a later
+ * per-exercise override is exactly what step 1 of that chain is reserved
+ * for once it exists.
+ */
+export type RestCategory = "heavyCompound" | "compound" | "isolation" | "core";
+
 /** One side's performance values — see setPerformances below for why this
  *  exists and where "left"/"right" actually come from (nowhere in here). */
 export interface SetSide {
@@ -74,6 +85,15 @@ export interface ExerciseDef {
    *  hold. See isUnilateral, ExerciseLoggingSchema.unilateral, and
    *  WorkoutSet.additionalPerformances. */
   unilateral?: boolean;
+
+  /** Rest-recovery grouping used to pick a default rest-timer duration —
+   *  see getRestDurationSec. Absent for cardio and interval exercises
+   *  (they're exempted from the rest timer entirely, so tagging them
+   *  would be meaningless) and, currently, nothing else — every other
+   *  catalog entry is tagged. Left optional rather than required so a
+   *  future exercise can be added without immediately having to decide
+   *  its category. */
+  restCategory?: RestCategory;
 }
 
 const E = (
@@ -88,6 +108,7 @@ const E = (
     interval?: IntervalConfig;
     unilateral?: boolean;
     aliases?: string[];
+    restCategory?: RestCategory;
   } = {},
 ): ExerciseDef => ({
   id,
@@ -100,11 +121,13 @@ const E = (
   interval: opts.interval,
   unilateral: opts.unilateral,
   aliases: opts.aliases,
+  restCategory: opts.restCategory,
 });
 
 export const EXERCISES: ExerciseDef[] = [
   // Chest
   E("bench-press", "Bench Press (Barbell)", "Chest", "Barbell", ["Triceps", "Shoulders"], {
+    restCategory: "heavyCompound",
     aliases: [
       "Bench Press",
       "Barbell Bench Press",
@@ -119,9 +142,13 @@ export const EXERCISES: ExerciseDef[] = [
     "Chest",
     "Barbell",
     ["Shoulders", "Triceps"],
-    { aliases: ["Incline Bench Press", "Incline Barbell Bench Press", "BB Incline Bench"] },
+    {
+      restCategory: "heavyCompound",
+      aliases: ["Incline Bench Press", "Incline Barbell Bench Press", "BB Incline Bench"],
+    },
   ),
   E("db-bench-press", "Dumbbell Bench Press", "Chest", "Dumbbell", ["Triceps", "Shoulders"], {
+    restCategory: "compound",
     aliases: ["DB Bench", "DB Bench Press", "Flat Dumbbell Bench Press", "Flat DB Bench"],
   }),
   E(
@@ -130,27 +157,34 @@ export const EXERCISES: ExerciseDef[] = [
     "Chest",
     "Dumbbell",
     ["Shoulders", "Triceps"],
-    { aliases: ["Incline DB Bench", "Incline DB Bench Press"] },
+    { restCategory: "compound", aliases: ["Incline DB Bench", "Incline DB Bench Press"] },
   ),
   E("floor-press", "Floor Press", "Chest", "Barbell", ["Triceps"], {
+    restCategory: "compound",
     aliases: ["Barbell Floor Press", "BB Floor Press"],
   }),
   E("db-floor-press", "Dumbbell Floor Press", "Chest", "Dumbbell", ["Triceps"], {
+    restCategory: "compound",
     aliases: ["DB Floor Press"],
   }),
   E("chest-fly", "Chest Fly (Dumbbell)", "Chest", "Dumbbell", [], {
+    restCategory: "isolation",
     aliases: ["Dumbbell Fly", "DB Fly", "Chest Flye", "Pec Fly"],
   }),
   E("db-pullover", "Dumbbell Pullover", "Chest", "Dumbbell", ["Lats", "Triceps"], {
+    restCategory: "isolation",
     aliases: ["DB Pullover"],
   }),
   E("cable-crossover", "Cable Crossover", "Chest", "Cable", [], {
+    restCategory: "isolation",
     aliases: ["Cable Fly", "Cable Crossovers"],
   }),
   E("push-up", "Push Up", "Chest", "Bodyweight", ["Triceps", "Shoulders"], {
+    restCategory: "compound",
     aliases: ["Pushup", "Push-up", "Press Up"],
   }),
   E("dip", "Chest Dip", "Chest", "Bodyweight", ["Triceps", "Shoulders"], {
+    restCategory: "compound",
     aliases: ["Dips", "Chest Dips", "Parallel Bar Dip"],
   }),
 
@@ -161,9 +195,13 @@ export const EXERCISES: ExerciseDef[] = [
     "LowerBack",
     "Barbell",
     ["Glutes", "Hamstrings", "Quads", "UpperBack", "Forearms"],
-    { aliases: ["Deadlift", "Barbell Deadlift", "DL", "Conventional Deadlift"] },
+    {
+      restCategory: "heavyCompound",
+      aliases: ["Deadlift", "Barbell Deadlift", "DL", "Conventional Deadlift"],
+    },
   ),
   E("romanian-deadlift", "Romanian Deadlift", "Hamstrings", "Barbell", ["Glutes", "LowerBack"], {
+    restCategory: "heavyCompound",
     aliases: ["RDL", "Romanian Deadlifts", "Stiff Leg Deadlift"],
   }),
   E(
@@ -172,26 +210,36 @@ export const EXERCISES: ExerciseDef[] = [
     "Hamstrings",
     "Dumbbell",
     ["Glutes", "LowerBack"],
-    { unilateral: true, aliases: ["Single-leg RDL", "Single Leg RDL", "SL RDL", "Unilateral RDL"] },
+    {
+      unilateral: true,
+      restCategory: "compound",
+      aliases: ["Single-leg RDL", "Single Leg RDL", "SL RDL", "Unilateral RDL"],
+    },
   ),
   E("pull-up", "Pull Up", "Lats", "Bodyweight", ["UpperBack", "Biceps"], {
+    restCategory: "compound",
     aliases: ["Pullup", "Pull-up", "Wide Grip Pull Up"],
   }),
   E("chin-up", "Chin Up", "Lats", "Bodyweight", ["UpperBack", "Biceps"], {
+    restCategory: "compound",
     aliases: ["Chinup", "Chin-up", "Underhand Pull Up"],
   }),
   E("lat-pulldown", "Lat Pulldown", "Lats", "Cable", ["UpperBack", "Biceps"], {
+    restCategory: "compound",
     aliases: ["Lat Pull Down", "Lat Pulldowns", "Cable Pulldown"],
   }),
   E("seated-row", "Seated Cable Row", "UpperBack", "Cable", ["Lats", "Biceps"], {
+    restCategory: "compound",
     aliases: ["Cable Row", "Seated Row"],
   }),
   E("single-arm-cable-row", "Single-arm Cable Row", "UpperBack", "Cable", ["Lats", "Biceps"], {
     unilateral: true,
+    restCategory: "compound",
     aliases: ["Single Arm Cable Row", "Unilateral Cable Row"],
   }),
   E("db-row", "Dumbbell Row", "Lats", "Dumbbell", ["UpperBack", "Biceps"], {
     unilateral: true,
+    restCategory: "compound",
     aliases: ["DB Row", "One Arm Dumbbell Row", "Single Arm Dumbbell Row"],
   }),
   E(
@@ -201,6 +249,7 @@ export const EXERCISES: ExerciseDef[] = [
     "Dumbbell",
     ["Lats", "Shoulders", "Biceps"],
     {
+      restCategory: "compound",
       aliases: [
         "Incline Dumbbell Row",
         "Chest Supported Incline Row",
@@ -210,20 +259,25 @@ export const EXERCISES: ExerciseDef[] = [
     },
   ),
   E("barbell-row", "Barbell Row", "UpperBack", "Barbell", ["Lats", "Biceps"], {
+    restCategory: "heavyCompound",
     aliases: ["BB Row", "Bent Over Row", "Bent-over Barbell Row"],
   }),
   E("t-bar-row", "T-Bar Row", "UpperBack", "Barbell", ["Lats", "Biceps"], {
+    restCategory: "heavyCompound",
     aliases: ["T Bar Row", "TBar Row"],
   }),
   E("face-pull", "Face Pull", "UpperBack", "Cable", ["Shoulders", "Biceps"], {
+    restCategory: "isolation",
     aliases: ["Face Pulls", "Cable Face Pull"],
   }),
   E("back-extension", "Back Extension", "LowerBack", "Bodyweight", ["Glutes", "Hamstrings"], {
+    restCategory: "isolation",
     aliases: ["Hyperextension", "Hyperextensions", "Roman Chair Back Extension"],
   }),
 
   // Shoulders
   E("ohp", "Overhead Press (Barbell)", "Shoulders", "Barbell", ["Triceps", "UpperBack"], {
+    restCategory: "heavyCompound",
     aliases: [
       "OHP",
       "Military Press",
@@ -238,7 +292,10 @@ export const EXERCISES: ExerciseDef[] = [
     "Shoulders",
     "Dumbbell",
     ["Triceps", "UpperBack"],
-    { aliases: ["DB Shoulder Press", "Dumbbell Overhead Press", "DB OHP"] },
+    {
+      restCategory: "compound",
+      aliases: ["DB Shoulder Press", "Dumbbell Overhead Press", "DB OHP"],
+    },
   ),
   E(
     "single-arm-shoulder-press",
@@ -246,59 +303,80 @@ export const EXERCISES: ExerciseDef[] = [
     "Shoulders",
     "Dumbbell",
     ["Triceps", "UpperBack"],
-    { unilateral: true, aliases: ["Single Arm Shoulder Press", "Single Arm DB Press"] },
+    {
+      unilateral: true,
+      restCategory: "compound",
+      aliases: ["Single Arm Shoulder Press", "Single Arm DB Press"],
+    },
   ),
   E("arnold-press", "Arnold Press", "Shoulders", "Dumbbell", ["Triceps", "UpperBack"], {
+    restCategory: "compound",
     aliases: ["Arnold Shoulder Press"],
   }),
   E("lateral-raise", "Lateral Raise", "Shoulders", "Dumbbell", [], {
+    restCategory: "isolation",
     aliases: ["Side Lateral Raise", "DB Lateral Raise", "Dumbbell Lateral Raise"],
   }),
   E("front-raise", "Front Raise", "Shoulders", "Dumbbell", [], {
+    restCategory: "isolation",
     aliases: ["DB Front Raise", "Dumbbell Front Raise"],
   }),
   E("rear-delt-fly", "Rear Delt Reverse Fly", "Shoulders", "Dumbbell", ["UpperBack"], {
+    restCategory: "isolation",
     aliases: ["Reverse Fly", "Rear Delt Fly", "Bent Over Rear Delt Fly"],
   }),
   E("incline-rear-delt-fly", "Incline Rear Delt Fly", "Shoulders", "Dumbbell", ["UpperBack"], {
+    restCategory: "isolation",
     aliases: ["Incline Reverse Fly"],
   }),
   E("reverse-pec-deck", "Reverse Pec Deck", "Shoulders", "Machine", ["UpperBack"], {
+    restCategory: "isolation",
     aliases: ["Rear Delt Machine Fly", "Reverse Fly Machine"],
   }),
   E("shrug", "Shrug (Dumbbell)", "UpperBack", "Dumbbell", [], {
+    restCategory: "isolation",
     aliases: ["Dumbbell Shrug", "DB Shrug", "Shrugs"],
   }),
 
   // Arms
   E("bicep-curl-db", "Dumbbell Curl", "Biceps", "Dumbbell", [], {
+    restCategory: "isolation",
     aliases: ["DB Curl", "Dumbbell Bicep Curl", "Standing Dumbbell Curl"],
   }),
   E("incline-db-curl", "Incline Dumbbell Curl", "Biceps", "Dumbbell", ["Forearms"], {
+    restCategory: "isolation",
     aliases: ["Incline DB Curl", "Incline Bicep Curl"],
   }),
   E("bicep-curl-bb", "Barbell Curl", "Biceps", "Barbell", [], {
+    restCategory: "isolation",
     aliases: ["BB Curl", "Barbell Bicep Curl", "Standing Barbell Curl"],
   }),
   E("hammer-curl", "Hammer Curl", "Biceps", "Dumbbell", ["Forearms"], {
+    restCategory: "isolation",
     aliases: ["Dumbbell Hammer Curl", "Neutral Grip Curl"],
   }),
   E("preacher-curl", "Preacher Curl", "Biceps", "Barbell", [], {
+    restCategory: "isolation",
     aliases: ["Preacher Bicep Curl", "Barbell Preacher Curl"],
   }),
   E("tricep-pushdown", "Tricep Pushdown", "Triceps", "Cable", [], {
+    restCategory: "isolation",
     aliases: ["Triceps Pushdown", "Cable Pushdown", "Rope Pushdown"],
   }),
   E("overhead-tri-ext", "Overhead Tricep Extension", "Triceps", "Dumbbell", [], {
+    restCategory: "isolation",
     aliases: ["Overhead Triceps Extension", "DB Overhead Extension", "French Press"],
   }),
   E("skullcrusher", "Skullcrusher", "Triceps", "Barbell", [], {
+    restCategory: "isolation",
     aliases: ["Skull Crusher", "Lying Triceps Extension", "Barbell Skullcrusher"],
   }),
   E("close-grip-bench", "Close-Grip Bench Press", "Triceps", "Barbell", ["Chest"], {
+    restCategory: "compound",
     aliases: ["Close Grip Bench Press", "CGBP"],
   }),
   E("wrist-curl", "Wrist Curl", "Forearms", "Dumbbell", [], {
+    restCategory: "isolation",
     aliases: ["Dumbbell Wrist Curl", "Forearm Curl"],
   }),
 
@@ -309,24 +387,33 @@ export const EXERCISES: ExerciseDef[] = [
     "Quads",
     "Barbell",
     ["Glutes", "Hamstrings", "LowerBack", "Calves"],
-    { aliases: ["Squat", "Barbell Squat", "Barbell Back Squat", "High Bar Squat"] },
+    {
+      restCategory: "heavyCompound",
+      aliases: ["Squat", "Barbell Squat", "Barbell Back Squat", "High Bar Squat"],
+    },
   ),
   E("front-squat", "Front Squat", "Quads", "Barbell", ["Glutes", "Hamstrings", "LowerBack"], {
+    restCategory: "heavyCompound",
     aliases: ["Barbell Front Squat"],
   }),
   E("goblet-squat", "Goblet Squat", "Quads", "Dumbbell", ["Glutes", "Hamstrings"], {
+    restCategory: "compound",
     aliases: ["DB Goblet Squat", "Dumbbell Goblet Squat"],
   }),
   E("leg-press", "Leg Press", "Quads", "Machine", ["Glutes", "Hamstrings"], {
+    restCategory: "compound",
     aliases: ["Machine Leg Press", "45 Degree Leg Press"],
   }),
   E("leg-extension", "Leg Extension", "Quads", "Machine", [], {
+    restCategory: "isolation",
     aliases: ["Quad Extension", "Machine Leg Extension"],
   }),
   E("leg-curl", "Leg Curl", "Hamstrings", "Machine", ["Calves"], {
+    restCategory: "isolation",
     aliases: ["Hamstring Curl", "Machine Leg Curl"],
   }),
   E("lunge", "Walking Lunge", "Quads", "Dumbbell", ["Glutes", "Hamstrings", "Calves"], {
+    restCategory: "compound",
     aliases: ["Lunges", "Dumbbell Walking Lunge", "DB Lunge"],
   }),
   E(
@@ -335,61 +422,85 @@ export const EXERCISES: ExerciseDef[] = [
     "Quads",
     "Dumbbell",
     ["Glutes", "Hamstrings"],
-    { unilateral: true, aliases: ["BSS", "Rear Foot Elevated Split Squat", "Split Squat"] },
+    {
+      unilateral: true,
+      restCategory: "compound",
+      aliases: ["BSS", "Rear Foot Elevated Split Squat", "Split Squat"],
+    },
   ),
   E("hip-thrust", "Hip Thrust", "Glutes", "Barbell", ["Hamstrings"], {
+    restCategory: "compound",
     aliases: ["Barbell Hip Thrust", "BB Hip Thrust"],
   }),
   E("db-hip-thrust", "Dumbbell Hip Thrust", "Glutes", "Dumbbell", ["Hamstrings"], {
+    restCategory: "compound",
     aliases: ["DB Hip Thrust"],
   }),
   E("glute-bridge", "Glute Bridge", "Glutes", "Bodyweight", ["Hamstrings"], {
+    restCategory: "isolation",
     aliases: ["Bodyweight Hip Thrust", "Bridge"],
   }),
   E("calf-raise", "Standing Calf Raise", "Calves", "Machine", [], {
+    restCategory: "isolation",
     aliases: ["Calf Raise", "Calf Raises"],
   }),
   E("seated-calf-raise", "Seated Calf Raise", "Calves", "Machine", [], {
+    restCategory: "isolation",
     aliases: ["Seated Calf Raises"],
   }),
 
   // Core (time-based)
   E("plank", "Plank", "Abs", "Bodyweight", ["Obliques", "Shoulders"], {
     time: true,
+    restCategory: "core",
     aliases: ["Front Plank", "Forearm Plank"],
   }),
   E("side-plank", "Side Plank", "Obliques", "Bodyweight", ["Abs"], {
     time: true,
     unilateral: true,
+    restCategory: "core",
     aliases: ["Side Planks"],
   }),
   E("dead-hang", "Dead Hang", "Forearms", "Bodyweight", ["Lats", "Biceps"], {
     time: true,
+    restCategory: "core",
     aliases: ["Bar Hang", "Passive Hang"],
   }),
   E("wall-sit", "Wall Sit", "Quads", "Bodyweight", ["Glutes"], {
     time: true,
+    restCategory: "core",
     aliases: ["Wall Squat"],
   }),
   E("hollow-hold", "Hollow Hold", "Abs", "Bodyweight", ["Obliques", "LowerBack"], {
     time: true,
+    restCategory: "core",
     aliases: ["Hollow Body Hold"],
   }),
   E("l-sit", "L-Sit", "Abs", "Bodyweight", ["Quads", "Triceps"], {
     time: true,
+    restCategory: "core",
     aliases: ["L Sit"],
   }),
 
   // Core (reps)
-  E("crunch", "Crunch", "Abs", "Bodyweight", ["Obliques"], { aliases: ["Crunches", "Ab Crunch"] }),
-  E("sit-up", "Sit Up", "Abs", "Bodyweight", ["Obliques"], { aliases: ["Situp", "Sit-up"] }),
+  E("crunch", "Crunch", "Abs", "Bodyweight", ["Obliques"], {
+    restCategory: "core",
+    aliases: ["Crunches", "Ab Crunch"],
+  }),
+  E("sit-up", "Sit Up", "Abs", "Bodyweight", ["Obliques"], {
+    restCategory: "core",
+    aliases: ["Situp", "Sit-up"],
+  }),
   E("hanging-leg-raise", "Hanging Leg Raise", "Abs", "Bodyweight", ["Forearms"], {
+    restCategory: "core",
     aliases: ["Hanging Knee Raise", "Leg Raise"],
   }),
   E("russian-twist", "Russian Twist", "Obliques", "Bodyweight", [], {
+    restCategory: "core",
     aliases: ["Russian Twists"],
   }),
   E("ab-wheel", "Ab Wheel Rollout", "Abs", "Other", ["Obliques", "Shoulders", "Lats"], {
+    restCategory: "core",
     aliases: ["Ab Roller", "Ab Wheel", "Wheel Rollout"],
   }),
 
@@ -517,6 +628,52 @@ export function isUnilateral(def: ExerciseDef | undefined): boolean {
  *  WorkoutSet.intervalConfig in db.ts. */
 export function getIntervalConfig(def: ExerciseDef | undefined): IntervalConfig | undefined {
   return def?.interval;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rest timer defaults
+//
+// See getRestDurationSec below for the actual priority chain — this table
+// is just step 2 of it (restCategory -> seconds). Kept next to the catalog
+// rather than in workoutHelpers.ts because it's fundamentally exercise
+// metadata, the same reasoning as getIntervalConfig above.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const REST_CATEGORY_DURATIONS_SEC: Record<RestCategory, number> = {
+  heavyCompound: 150,
+  compound: 120,
+  isolation: 75,
+  core: 60,
+};
+
+/** Step 3 of getRestDurationSec's priority chain — what a rest timer uses
+ *  when an exercise has no restCategory tagged. Every catalog entry that
+ *  can start a rest timer is tagged today, so this mostly guards against a
+ *  future addition slipping through untagged. */
+export const DEFAULT_REST_DURATION_SEC = 90;
+
+/**
+ * The single source of truth for how long a rest timer should run after a
+ * set of this exercise is completed — see LiveSession's
+ * toggleSetCompletion, the only caller. Priority order:
+ *
+ *   1. An exercise-specific override. Not built yet — this is the one
+ *      place it would slot in, ahead of the category lookup below.
+ *   2. This exercise's restCategory default (REST_CATEGORY_DURATIONS_SEC).
+ *   3. DEFAULT_REST_DURATION_SEC, for the rare exercise with no category
+ *      tagged.
+ *
+ * Returns undefined for exercises that shouldn't auto-start a rest timer
+ * at all: cardio (isCardio) and anything with its own interval config
+ * (getIntervalConfig) — both already have their own pacing (a live
+ * stopwatch, or IntervalTimer's own work/rest cycle) that an independent
+ * rest timer would only compete with rather than complement.
+ */
+export function getRestDurationSec(def: ExerciseDef | undefined): number | undefined {
+  if (isCardio(def) || getIntervalConfig(def)) return undefined;
+  return def?.restCategory
+    ? REST_CATEGORY_DURATIONS_SEC[def.restCategory]
+    : DEFAULT_REST_DURATION_SEC;
 }
 
 /**

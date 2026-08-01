@@ -7,6 +7,7 @@ import {
   getExercise,
   getExerciseLoggingSchema,
   getIntervalConfig,
+  getRestDurationSec,
   formatCompletedSet,
   seedUnilateralSide,
   type IntervalConfig,
@@ -506,8 +507,16 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
       // Restart rather than merely start — a rest already in progress (or
       // already showing "Ready ✓") from a previous set gets replaced
       // outright, per the spec's "if another set is completed while a
-      // timer is already running, restart the timer".
-      setSession((s) => (s ? { ...s, restTimer: startRestTimer() } : s));
+      // timer is already running, restart the timer". getRestDurationSec
+      // returns undefined for cardio and interval exercises, which don't
+      // get an auto rest timer at all (they already have their own
+      // pacing) — in that case restTimer is left exactly as it was rather
+      // than cleared, so finishing a cardio set mid-rest-from-a-previous-
+      // exercise doesn't cut that rest short.
+      const restDurationSec = getRestDurationSec(getExercise(ex.exerciseId));
+      if (restDurationSec !== undefined) {
+        setSession((s) => (s ? { ...s, restTimer: startRestTimer(restDurationSec) } : s));
+      }
     }
   }
 

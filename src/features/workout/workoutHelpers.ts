@@ -6,6 +6,7 @@ import {
   type Routine,
   type RestTimerState,
 } from "@/lib/db";
+import { DEFAULT_REST_DURATION_SEC } from "@/lib/exercises";
 import { recordNewWorkoutPRs } from "@/lib/workoutIntegrity";
 import { haptics } from "@/lib/haptics";
 import { selectCompletionMessage, type CompletionMessage } from "@/lib/completionMessages";
@@ -54,14 +55,13 @@ export const FINISH_ANTICIPATION_MS = 350;
 // ─────────────────────────────────────────────────────────────────────────────
 // Rest timer
 //
-// A single configurable default for this first iteration — see
-// RestTimerState in db.ts for how it's represented on the session draft.
-// Per-exercise durations and a user-facing preference are future work
-// (deliberately not built yet), so this is the one place both would plug
-// in later without touching the timer's start/restart/display logic.
+// See getRestDurationSec in @/lib/exercises for how a duration is chosen
+// (exercise category default, currently — per-exercise overrides and a
+// user-facing preference are future work, deliberately not built yet).
+// This file only owns the timer's mechanics: starting it with whatever
+// duration the caller passes in, extending, and auto-hiding.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const DEFAULT_REST_DURATION_SEC = 90;
 export const REST_EXTEND_SEC = 30;
 /** How long "✓ Ready" stays visible before the timer hides itself and the
  *  HUD returns to normal — measured from the moment the countdown reaches
