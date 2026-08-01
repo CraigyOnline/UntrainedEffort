@@ -70,7 +70,7 @@ export const REST_EXTEND_SEC = 30;
 export const REST_AUTO_HIDE_SEC = 25;
 
 export function startRestTimer(durationSec: number = DEFAULT_REST_DURATION_SEC): RestTimerState {
-  return { endsAt: Date.now() + durationSec * 1000 };
+  return { endsAt: Date.now() + durationSec * 1000, durationSec };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

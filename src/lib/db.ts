@@ -149,19 +149,27 @@ export interface ActiveSessionExercise {
 
 /**
  * A single, workout-wide rest timer — started/restarted whenever a set is
- * completed (see LiveSession's toggleSetCompletion). Deliberately just an
- * end deadline, the same "absolute epoch ms" shape IntervalTimerState's
- * `running` status uses above, for the same reason: a live countdown only
- * needs `Date.now()` compared against one fixed point, with no separate
- * "remaining seconds" value that could drift out of sync with it.
+ * completed (see LiveSession's toggleSetCompletion). `endsAt` is the same
+ * "absolute epoch ms" shape IntervalTimerState's `running` status uses
+ * above, for the same reason: a live countdown only needs `Date.now()`
+ * compared against one fixed point, with no separate "remaining seconds"
+ * value that could drift out of sync with it.
  *
- * Stays set past `endsAt` — the HUD reads that as "Ready ✓" — until either
+ * `durationSec` is the total length this rest period was started (or
+ * extended) to — RestTimer's progress bar is the only reader, dividing
+ * remaining-time by this to get a fill fraction. Extending (+30s) bumps
+ * both `endsAt` and `durationSec` together, so the bar's 0-100% range
+ * always reflects the currently-agreed-on rest length, not the original
+ * one.
+ *
+ * Stays set past `endsAt` — the HUD reads that as "✓ Ready" — until either
  * a new set completes (replaces it) or the workout ends (the whole draft,
  * this field included, goes away). Absent means no rest is in progress or
  * has finished yet this workout.
  */
 export interface RestTimerState {
   endsAt: number;
+  durationSec: number;
 }
 
 export interface ActiveWorkoutDraft {

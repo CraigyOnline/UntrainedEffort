@@ -176,7 +176,13 @@ export function WorkoutHUD({
   function handleExtendRest() {
     setSession((s) =>
       s?.restTimer
-        ? { ...s, restTimer: { endsAt: s.restTimer.endsAt + REST_EXTEND_SEC * 1000 } }
+        ? {
+            ...s,
+            restTimer: {
+              endsAt: s.restTimer.endsAt + REST_EXTEND_SEC * 1000,
+              durationSec: s.restTimer.durationSec + REST_EXTEND_SEC,
+            },
+          }
         : s,
     );
   }
