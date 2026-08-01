@@ -9,30 +9,25 @@ import { computeIntensity } from "@/lib/muscles";
 import { getKeepAwakeDefault, enableKeepAwake, disableKeepAwake } from "@/lib/keepAwake";
 import { useDismissOnBack } from "@/lib/backHandler";
 import { WorkoutTimer } from "./WorkoutTimer";
-import { RestTimer } from "./RestTimer";
-import {
-  PR_CELEBRATION_VISIBLE_MS,
-  REST_AUTO_HIDE_SEC,
-  REST_EXTEND_SEC,
-  sessionHasData,
-  type ActiveSession,
-} from "./workoutHelpers";
+import { PR_CELEBRATION_VISIBLE_MS, sessionHasData, type ActiveSession } from "./workoutHelpers";
 
 /**
  * Initial/fallback content height of the HUD below the safe-area inset —
  * used as LiveSession's top padding for exactly one frame before the
  * ResizeObserver below reports the real, measured height via
- * onHeightChange. Kept close to the bar's actual height without a
- * rest-timer row (see the WORKOUT_HUD_HEIGHT history below) purely to
- * avoid a visible content jump on that first frame.
+ * onHeightChange.
  *
  * This *was* a static constant the HUD's height was assumed to always
- * equal — correct back when everything rendered here had a fixed height
+ * equal, back when everything rendered here had a fixed height
  * (name/timer/options row + stats/map/finish row: 44 + 8 + 64 + 12 + 8 + 1
- * = 137). The rest-timer row below only renders while a rest is in
- * progress, so the bar now genuinely grows and shrinks — the exact case
- * that comment anticipated as the point to switch to a measured height
- * instead. This is that switch.
+ * = 137). A rest-timer row briefly lived here too and made that height
+ * genuinely variable, which is why this switched to a measured
+ * ResizeObserver value instead of staying a plain constant — the rest
+ * timer has since moved out to its own bottom-docked bar (see
+ * RestTimer.tsx), so this is back to reporting a fixed 137 in practice,
+ * but the measurement mechanism stays: it's correct regardless, and
+ * removing it would just be churn against whatever the HUD's content
+ * turns out to be next.
  */
 export const WORKOUT_HUD_HEIGHT = 137;
 
@@ -56,10 +51,11 @@ export interface WorkoutHUDProps {
    *  opinion on what counts as a PR, it only animates when told one just
    *  happened. */
   celebration?: WorkoutHUDCelebration | null;
-  /** Reports the HUD's real rendered height whenever it changes (e.g. the
-   *  rest-timer row appearing/disappearing), so LiveSession can keep its
-   *  scrolling content padded below this fixed bar without either
-   *  overlapping it or guessing at a size in advance. */
+  /** Reports the HUD's real rendered height whenever it changes, so
+   *  LiveSession can keep its scrolling content padded below this fixed
+   *  bar without either overlapping it or guessing at a size in advance.
+   *  See WORKOUT_HUD_HEIGHT above for why this is measured rather than a
+   *  plain constant. */
   onHeightChange?: (height: number) => void;
 }
 
@@ -166,52 +162,6 @@ export function WorkoutHUD({
     };
   }, [keepAwake]);
 
-  // ── Rest timer controls ─────────────────────────────────────────────
-  // Starting/restarting on a completed set lives in LiveSession (the one
-  // place that already owns set-completion) — this HUD only needs to
-  // handle the two person-initiated actions on an already-running timer.
-  function handleSkipRest() {
-    setSession((s) => (s ? { ...s, restTimer: undefined } : s));
-  }
-  function handleExtendRest() {
-    setSession((s) =>
-      s?.restTimer
-        ? {
-            ...s,
-            restTimer: {
-              endsAt: s.restTimer.endsAt + REST_EXTEND_SEC * 1000,
-              durationSec: s.restTimer.durationSec + REST_EXTEND_SEC,
-            },
-          }
-        : s,
-    );
-  }
-
-  // Auto-hide: once "✓ Ready" has been showing for REST_AUTO_HIDE_SEC,
-  // clear restTimer entirely so the row disappears and the HUD returns to
-  // its normal height. Scheduled from the deadline itself (endsAt), not
-  // from when this effect happens to run, so re-mounting mid-workout (or
-  // extending, which moves endsAt forward and re-fires this effect)
-  // schedules against the right moment rather than an arbitrary "now".
-  // The endsAt check inside `clear` guards against a stale timeout from an
-  // earlier rest period reaching in after a new set has already replaced
-  // it with a fresh one.
-  useEffect(() => {
-    const rt = session.restTimer;
-    if (!rt) return;
-    const hideAt = rt.endsAt + REST_AUTO_HIDE_SEC * 1000;
-    const clear = () =>
-      setSession((s) => (s?.restTimer?.endsAt === rt.endsAt ? { ...s, restTimer: undefined } : s));
-    const remaining = hideAt - Date.now();
-    if (remaining <= 0) {
-      clear();
-      return;
-    }
-    const t = setTimeout(clear, remaining);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed off session.restTimer?.endsAt only, not the whole object, so extending (which replaces the object but not this effect's timing basis until endsAt itself changes) doesn't double-schedule
-  }, [session.restTimer?.endsAt, setSession]);
-
   // ── Live PR celebration ──────────────────────────────────────────────
   // Everything below is driven by real state transitions with CSS
   // *transitions* (not @keyframes animations) on purpose: a transition
@@ -316,14 +266,6 @@ export function WorkoutHUD({
             )}
           </div>
         </div>
-
-        {session.restTimer && (
-          <RestTimer
-            restTimer={session.restTimer}
-            onSkip={handleSkipRest}
-            onExtend={handleExtendRest}
-          />
-        )}
 
         <div className="flex items-center gap-3">
           {/* Muscle map thumbnail — same size/styling as the Workout/Routine/History cards */}

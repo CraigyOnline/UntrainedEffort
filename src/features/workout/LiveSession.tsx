@@ -21,11 +21,14 @@ import { Button } from "@/components/ui/button";
 import { SetTimer, TimerToggleButton } from "./WorkoutTimer";
 import { IntervalTimer } from "./IntervalTimer";
 import { WorkoutHUD, WORKOUT_HUD_HEIGHT, type WorkoutHUDCelebration } from "./WorkoutHUD";
+import { RestTimer } from "./RestTimer";
 import {
   type ActiveSession,
   type ActiveSessionExercise,
   type IntervalTimerState,
   PR_CELEBRATION_VISIBLE_MS,
+  REST_AUTO_HIDE_SEC,
+  REST_EXTEND_SEC,
   makeSet,
   startRestTimer,
 } from "./workoutHelpers";
@@ -520,6 +523,52 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
     }
   }
 
+  // ── Rest timer controls ─────────────────────────────────────────────
+  // Starting/restarting lives in toggleSetCompletion above (the one place
+  // that already owns set-completion) — these are just the two
+  // person-initiated actions on an already-running timer, passed to the
+  // bottom-docked <RestTimer> rendered below.
+  function handleSkipRest() {
+    setSession((s) => (s ? { ...s, restTimer: undefined } : s));
+  }
+  function handleExtendRest() {
+    setSession((s) =>
+      s?.restTimer
+        ? {
+            ...s,
+            restTimer: {
+              endsAt: s.restTimer.endsAt + REST_EXTEND_SEC * 1000,
+              durationSec: s.restTimer.durationSec + REST_EXTEND_SEC,
+            },
+          }
+        : s,
+    );
+  }
+
+  // Auto-hide: once "✓ Ready" has been showing for REST_AUTO_HIDE_SEC,
+  // clear restTimer entirely so the bar disappears. Scheduled from the
+  // deadline itself (endsAt), not from when this effect happens to run, so
+  // re-mounting mid-workout (or extending, which moves endsAt forward and
+  // re-fires this effect) schedules against the right moment rather than
+  // an arbitrary "now". The endsAt check inside `clear` guards against a
+  // stale timeout from an earlier rest period reaching in after a new set
+  // has already replaced it with a fresh one.
+  useEffect(() => {
+    const rt = session.restTimer;
+    if (!rt) return;
+    const hideAt = rt.endsAt + REST_AUTO_HIDE_SEC * 1000;
+    const clear = () =>
+      setSession((s) => (s?.restTimer?.endsAt === rt.endsAt ? { ...s, restTimer: undefined } : s));
+    const remaining = hideAt - Date.now();
+    if (remaining <= 0) {
+      clear();
+      return;
+    }
+    const t = setTimeout(clear, remaining);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed off session.restTimer?.endsAt only, not the whole object, so extending (which replaces the object but not this effect's timing basis until endsAt itself changes) doesn't double-schedule
+  }, [session.restTimer?.endsAt, setSession]);
+
   function updateSet(ei: number, si: number, patch: Partial<LiveWorkoutSet>) {
     setSession((s) => {
       if (!s) return s;
@@ -731,6 +780,14 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
             : null
         }
       />
+
+      {session.restTimer && (
+        <RestTimer
+          restTimer={session.restTimer}
+          onSkip={handleSkipRest}
+          onExtend={handleExtendRest}
+        />
+      )}
 
       <Reorder.Group
         as="div"
