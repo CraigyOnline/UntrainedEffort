@@ -657,8 +657,12 @@ export const DEFAULT_REST_DURATION_SEC = 90;
  * set of this exercise is completed — see LiveSession's
  * toggleSetCompletion, the only caller. Priority order:
  *
- *   1. An exercise-specific override. Not built yet — this is the one
- *      place it would slot in, ahead of the category lookup below.
+ *   1. `overrideSec`, if provided — a person's own saved rest duration for
+ *      this exercise (see the ExerciseSettings table in db.ts and
+ *      Settings → Exercise Rest Times). Resolving that override is the
+ *      caller's job, not this function's — it stays a pure, synchronous
+ *      function over the static catalog either way, taking the resolved
+ *      number as a plain argument rather than reaching into Dexie itself.
  *   2. This exercise's restCategory default (REST_CATEGORY_DURATIONS_SEC).
  *   3. DEFAULT_REST_DURATION_SEC, for the rare exercise with no category
  *      tagged.
@@ -667,10 +671,16 @@ export const DEFAULT_REST_DURATION_SEC = 90;
  * at all: cardio (isCardio) and anything with its own interval config
  * (getIntervalConfig) — both already have their own pacing (a live
  * stopwatch, or IntervalTimer's own work/rest cycle) that an independent
- * rest timer would only compete with rather than complement.
+ * rest timer would only compete with rather than complement. This check
+ * happens before overrideSec is even consulted — there's no scenario
+ * where a cardio exercise should get an auto rest timer, override or not.
  */
-export function getRestDurationSec(def: ExerciseDef | undefined): number | undefined {
+export function getRestDurationSec(
+  def: ExerciseDef | undefined,
+  overrideSec?: number,
+): number | undefined {
   if (isCardio(def) || getIntervalConfig(def)) return undefined;
+  if (overrideSec !== undefined) return overrideSec;
   return def?.restCategory
     ? REST_CATEGORY_DURATIONS_SEC[def.restCategory]
     : DEFAULT_REST_DURATION_SEC;

@@ -170,6 +170,17 @@ export interface ActiveSessionExercise {
 export interface RestTimerState {
   endsAt: number;
   durationSec: number;
+  /** Which exercise this rest is for, captured by toggleSetCompletion at
+   *  the moment the timer starts — the exercise that had a set just
+   *  completed. RestTimer displays this exercise's name so it's never
+   *  ambiguous which exercise a rest is for if someone's scrolled to a
+   *  different one, and it's what a future duration-override edit would
+   *  key off of. Optional only so a rest timer already in progress at the
+   *  moment this field was introduced (an old persisted activeWorkout
+   *  row) doesn't crash — RestTimer falls back to a plain "Recovering"
+   *  label when absent; every rest started after this field existed
+   *  always sets it. */
+  exerciseId?: string;
 }
 
 export interface ActiveWorkoutDraft {
@@ -200,6 +211,25 @@ export interface ActiveWorkoutDraft {
 }
 
 /**
+ * A user's own settings for one exercise, keyed by exerciseId — the home
+ * for anything a person customizes about an exercise itself, as opposed
+ * to a single workout or set. `restDurationSec` is the only field built
+ * so far (an explicit override ahead of getRestDurationSec's category/
+ * global defaults — see that function's priority chain in exercises.ts).
+ * Named for what it holds rather than "Prefs" specifically because this
+ * is meant to be the eventual home for other per-exercise, user-owned
+ * settings too (e.g. a personal note, a favorite flag) — nothing beyond
+ * restDurationSec is built yet, so nothing else is declared here ahead of
+ * actually being needed. A row only exists for exercises someone has
+ * actually customized; no row (or an absent restDurationSec on one) means
+ * "use the automatic default," identically to a bare `undefined`.
+ */
+export interface ExerciseSettings {
+  exerciseId: string;
+  restDurationSec?: number;
+}
+
+/**
  * DATABASE
  */
 export class AppDB extends Dexie {
@@ -207,6 +237,7 @@ export class AppDB extends Dexie {
   workouts!: Table<Workout, number>;
   prHistory!: Table<PRRecord, number>;
   activeWorkout!: Table<ActiveWorkoutDraft, number>;
+  exerciseSettings!: Table<ExerciseSettings, string>;
 
   constructor() {
     super("untrained-effort-db");
@@ -220,6 +251,12 @@ export class AppDB extends Dexie {
     // Tables not mentioned here carry forward unchanged from version 1.
     this.version(2).stores({
       activeWorkout: "++id",
+    });
+
+    // exerciseId is the primary key directly (not auto-incrementing) since
+    // there's naturally at most one settings row per exercise.
+    this.version(3).stores({
+      exerciseSettings: "exerciseId",
     });
   }
 }

@@ -32,6 +32,7 @@ import {
   Database,
   Wrench,
   MonitorSmartphone,
+  Timer,
 } from "lucide-react";
 import { getKeepAwakeDefault, setKeepAwakeDefault } from "@/lib/keepAwake";
 import { getHapticsEnabled, setHapticsEnabled } from "@/lib/haptics";
@@ -315,6 +316,14 @@ function SettingsPage() {
             onCheckedChange={handleRoutineUpdatePromptChange}
           />
         </div>
+
+        <Link
+          to="/settings/rest-times"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-secondary/40 py-3 text-sm font-medium text-foreground/80 active:bg-secondary/70"
+        >
+          <Timer className="h-4 w-4" />
+          Exercise Rest Times
+        </Link>
       </section>
 
       {/* Database Management */}

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import { BOTTOM_NAV_HEIGHT } from "@/components/BottomTabs";
+import { getExercise } from "@/lib/exercises";
 import { formatTime } from "@/lib/format";
 import { haptics } from "@/lib/haptics";
 import type { RestTimerState } from "@/lib/db";
@@ -43,6 +45,15 @@ export interface RestTimerProps {
  * button and LiveSession's drag handle/delete button), not bare underlined
  * text — this gets tapped mid-set, one-handed, without looking closely.
  *
+ * The exercise name (when known — see RestTimerState.exerciseId) is part
+ * of the "Recovering" label itself, not a separate element, so it's never
+ * ambiguous which exercise a rest belongs to if someone's scrolled away
+ * from it. It's also a quiet link to that exercise's rest-time settings —
+ * deliberately just a link, not an inline editor here: changing "how long
+ * do I rest right now" (this bar's job) and "how long should I always
+ * rest for this exercise" (a permanent preference) are different
+ * intentions that shouldn't live in the same small, transient control.
+ *
  * The resting/ready swap is a short fade (reusing the existing
  * fade-in-soft keyframe already used elsewhere on this screen, not a new
  * animation) via remounting just the inner content on transition — the
@@ -60,6 +71,7 @@ export function RestTimer({ restTimer, onSkip, onExtend }: RestTimerProps) {
   const remaining = Math.max(0, Math.round((restTimer.endsAt - Date.now()) / 1000));
   const resting = remaining > 0;
   const progress = restTimer.durationSec > 0 ? Math.min(1, remaining / restTimer.durationSec) : 0;
+  const exerciseName = restTimer.exerciseId ? getExercise(restTimer.exerciseId)?.name : undefined;
 
   // Fires exactly once, right at the resting -> ready transition — not on
   // every tick while already at zero, and not on mount (prevRestingRef
@@ -89,7 +101,20 @@ export function RestTimer({ restTimer, onSkip, onExtend }: RestTimerProps) {
           >
             {resting ? (
               <>
-                Recovering &middot;{" "}
+                Recovering
+                {exerciseName && restTimer.exerciseId ? (
+                  <>
+                    {" from "}
+                    <Link
+                      to="/settings/rest-times/$exerciseId"
+                      params={{ exerciseId: restTimer.exerciseId }}
+                      className="text-foreground underline decoration-dotted underline-offset-2"
+                    >
+                      {exerciseName}
+                    </Link>
+                  </>
+                ) : null}
+                {" · "}
                 <span className="font-medium tabular-nums text-foreground">
                   {formatTime(remaining)}
                 </span>

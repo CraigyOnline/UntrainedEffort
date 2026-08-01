@@ -14,6 +14,7 @@ import {
   type SetSide,
 } from "@/lib/exercises";
 import { useUndo } from "@/hooks/useUndo";
+import { getAllExerciseSettings } from "@/lib/exerciseSettings";
 import { NumberInput, StepperInput } from "@/components/forms/NumberInput";
 import { MmSsInput } from "@/components/forms/MmSsInput";
 import { UnilateralSetInputs } from "@/components/forms/UnilateralSetInputs";
@@ -407,6 +408,21 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
 
   const exerciseIds = session.exercises.map((e) => e.exerciseId);
 
+  // Loaded once up front (rather than queried inside toggleSetCompletion
+  // itself) so starting a rest timer stays the same synchronous state
+  // update it already was — getRestDurationSec takes the resolved number
+  // as a plain argument and stays a pure function over the static catalog;
+  // this Map is where "resolved" happens. Keyed by exerciseId, matching
+  // ExerciseSettings' primary key.
+  const restOverrides = useLiveQuery(async (): Promise<Map<string, number>> => {
+    const map = new Map<string, number>();
+    const all = await getAllExerciseSettings();
+    for (const s of all) {
+      if (s.restDurationSec !== undefined) map.set(s.exerciseId, s.restDurationSec);
+    }
+    return map;
+  }, []);
+
   const previousByExerciseResult = useLiveQuery(async (): Promise<Map<string, WorkoutSet[]>> => {
     const map = new Map<string, WorkoutSet[]>();
     if (typeof window === "undefined") return map;
@@ -516,9 +532,19 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
       // pacing) — in that case restTimer is left exactly as it was rather
       // than cleared, so finishing a cardio set mid-rest-from-a-previous-
       // exercise doesn't cut that rest short.
-      const restDurationSec = getRestDurationSec(getExercise(ex.exerciseId));
+      const restDurationSec = getRestDurationSec(
+        getExercise(ex.exerciseId),
+        restOverrides?.get(ex.exerciseId),
+      );
       if (restDurationSec !== undefined) {
-        setSession((s) => (s ? { ...s, restTimer: startRestTimer(restDurationSec) } : s));
+        setSession((s) =>
+          s
+            ? {
+                ...s,
+                restTimer: { ...startRestTimer(restDurationSec), exerciseId: ex.exerciseId },
+              }
+            : s,
+        );
       }
     }
   }
@@ -537,6 +563,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
         ? {
             ...s,
             restTimer: {
+              ...s.restTimer,
               endsAt: s.restTimer.endsAt + REST_EXTEND_SEC * 1000,
               durationSec: s.restTimer.durationSec + REST_EXTEND_SEC,
             },

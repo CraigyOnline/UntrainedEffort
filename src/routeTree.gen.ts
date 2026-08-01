@@ -9,33 +9,32 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppWorkoutRouteImport } from './routes/_app.workout'
-import { Route as AppSettingsRouteImport } from './routes/_app.settings'
-import { Route as AppProfileRouteImport } from './routes/_app.profile'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppHistoryRouteImport } from './routes/_app.history'
-import { Route as AppHistoryIdRouteImport } from './routes/_app.history.$id'
+import { Route as AppProfileRouteImport } from './routes/_app.profile'
+import { Route as AppSettingsRouteImport } from './routes/_app.settings'
+import { Route as AppWorkoutRouteImport } from './routes/_app.workout'
 import { Route as AppExerciseIdRouteImport } from './routes/_app.exercise.$id'
+import { Route as AppHistoryIndexRouteImport } from './routes/_app.history.index'
+import { Route as AppHistoryIdRouteImport } from './routes/_app.history.$id'
+import { Route as AppHistoryTimelineRouteImport } from './routes/_app.history.timeline'
 import { Route as AppSettingsDatabaseRouteImport } from './routes/_app.settings_.database'
+import { Route as AppSettingsRestTimesRouteImport } from './routes/_app.settings_.rest-times'
+import { Route as AppSettingsRestTimesExerciseIdRouteImport } from './routes/_app.settings_.rest-times_.$exerciseId'
 
-const AppRoute = AppRouteImport.update({
-  id: '/_app',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppWorkoutRoute = AppWorkoutRouteImport.update({
-  id: '/workout',
-  path: '/workout',
-  getParentRoute: () => AppRoute,
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
+const AppHistoryRoute = AppHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
   getParentRoute: () => AppRoute,
 } as any)
 const AppProfileRoute = AppProfileRouteImport.update({
@@ -43,26 +42,52 @@ const AppProfileRoute = AppProfileRouteImport.update({
   path: '/profile',
   getParentRoute: () => AppRoute,
 } as any)
-const AppHistoryRoute = AppHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
-const AppHistoryIdRoute = AppHistoryIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AppHistoryRoute,
+const AppWorkoutRoute = AppWorkoutRouteImport.update({
+  id: '/workout',
+  path: '/workout',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppExerciseIdRoute = AppExerciseIdRouteImport.update({
   id: '/exercise/$id',
   path: '/exercise/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppHistoryIndexRoute = AppHistoryIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppHistoryRoute,
+} as any)
+const AppHistoryIdRoute = AppHistoryIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AppHistoryRoute,
+} as any)
+const AppHistoryTimelineRoute = AppHistoryTimelineRouteImport.update({
+  id: '/timeline',
+  path: '/timeline',
+  getParentRoute: () => AppHistoryRoute,
+} as any)
 const AppSettingsDatabaseRoute = AppSettingsDatabaseRouteImport.update({
-  id: '/settings/database',
+  id: '/settings_/database',
   path: '/settings/database',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsRestTimesRoute = AppSettingsRestTimesRouteImport.update({
+  id: '/settings_/rest-times',
+  path: '/settings/rest-times',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRestTimesExerciseIdRoute =
+  AppSettingsRestTimesExerciseIdRouteImport.update({
+    id: '/settings_/rest-times_/$exerciseId',
+    path: '/settings/rest-times/$exerciseId',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -70,19 +95,26 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AppProfileRoute
   '/settings': typeof AppSettingsRoute
   '/workout': typeof AppWorkoutRoute
-  '/history/$id': typeof AppHistoryIdRoute
   '/exercise/$id': typeof AppExerciseIdRoute
+  '/history/$id': typeof AppHistoryIdRoute
+  '/history/timeline': typeof AppHistoryTimelineRoute
   '/settings/database': typeof AppSettingsDatabaseRoute
+  '/settings/rest-times': typeof AppSettingsRestTimesRoute
+  '/history/': typeof AppHistoryIndexRoute
+  '/settings/rest-times/$exerciseId': typeof AppSettingsRestTimesExerciseIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/history': typeof AppHistoryRouteWithChildren
   '/profile': typeof AppProfileRoute
   '/settings': typeof AppSettingsRoute
   '/workout': typeof AppWorkoutRoute
-  '/history/$id': typeof AppHistoryIdRoute
   '/exercise/$id': typeof AppExerciseIdRoute
+  '/history/$id': typeof AppHistoryIdRoute
+  '/history/timeline': typeof AppHistoryTimelineRoute
   '/settings/database': typeof AppSettingsDatabaseRoute
+  '/settings/rest-times': typeof AppSettingsRestTimesRoute
+  '/history': typeof AppHistoryIndexRoute
+  '/settings/rest-times/$exerciseId': typeof AppSettingsRestTimesExerciseIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -92,9 +124,13 @@ export interface FileRoutesById {
   '/_app/profile': typeof AppProfileRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/workout': typeof AppWorkoutRoute
-  '/_app/history/$id': typeof AppHistoryIdRoute
   '/_app/exercise/$id': typeof AppExerciseIdRoute
-  '/_app/settings/database': typeof AppSettingsDatabaseRoute
+  '/_app/history/$id': typeof AppHistoryIdRoute
+  '/_app/history/timeline': typeof AppHistoryTimelineRoute
+  '/_app/settings_/database': typeof AppSettingsDatabaseRoute
+  '/_app/settings_/rest-times': typeof AppSettingsRestTimesRoute
+  '/_app/history/': typeof AppHistoryIndexRoute
+  '/_app/settings_/rest-times_/$exerciseId': typeof AppSettingsRestTimesExerciseIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -104,19 +140,26 @@ export interface FileRouteTypes {
     | '/profile'
     | '/settings'
     | '/workout'
-    | '/history/$id'
     | '/exercise/$id'
+    | '/history/$id'
+    | '/history/timeline'
     | '/settings/database'
+    | '/settings/rest-times'
+    | '/history/'
+    | '/settings/rest-times/$exerciseId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/history'
     | '/profile'
     | '/settings'
     | '/workout'
-    | '/history/$id'
     | '/exercise/$id'
+    | '/history/$id'
+    | '/history/timeline'
     | '/settings/database'
+    | '/settings/rest-times'
+    | '/history'
+    | '/settings/rest-times/$exerciseId'
   id:
     | '__root__'
     | '/'
@@ -125,9 +168,13 @@ export interface FileRouteTypes {
     | '/_app/profile'
     | '/_app/settings'
     | '/_app/workout'
-    | '/_app/history/$id'
     | '/_app/exercise/$id'
-    | '/_app/settings/database'
+    | '/_app/history/$id'
+    | '/_app/history/timeline'
+    | '/_app/settings_/database'
+    | '/_app/settings_/rest-times'
+    | '/_app/history/'
+    | '/_app/settings_/rest-times_/$exerciseId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -137,13 +184,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/_app': {
-      id: '/_app'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -151,18 +191,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/workout': {
-      id: '/_app/workout'
-      path: '/workout'
-      fullPath: '/workout'
-      preLoaderRoute: typeof AppWorkoutRouteImport
-      parentRoute: typeof AppRoute
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/settings': {
-      id: '/_app/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
+    '/_app/history': {
+      id: '/_app/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof AppHistoryRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/profile': {
@@ -172,19 +212,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProfileRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/history': {
-      id: '/_app/history'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof AppHistoryRouteImport
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/history/$id': {
-      id: '/_app/history/$id'
-      path: '/$id'
-      fullPath: '/history/$id'
-      preLoaderRoute: typeof AppHistoryIdRouteImport
-      parentRoute: typeof AppHistoryRoute
+    '/_app/workout': {
+      id: '/_app/workout'
+      path: '/workout'
+      fullPath: '/workout'
+      preLoaderRoute: typeof AppWorkoutRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/exercise/$id': {
       id: '/_app/exercise/$id'
@@ -193,11 +233,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppExerciseIdRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/settings/database': {
-      id: '/_app/settings/database'
+    '/_app/history/': {
+      id: '/_app/history/'
+      path: '/'
+      fullPath: '/history/'
+      preLoaderRoute: typeof AppHistoryIndexRouteImport
+      parentRoute: typeof AppHistoryRoute
+    }
+    '/_app/history/$id': {
+      id: '/_app/history/$id'
+      path: '/$id'
+      fullPath: '/history/$id'
+      preLoaderRoute: typeof AppHistoryIdRouteImport
+      parentRoute: typeof AppHistoryRoute
+    }
+    '/_app/history/timeline': {
+      id: '/_app/history/timeline'
+      path: '/timeline'
+      fullPath: '/history/timeline'
+      preLoaderRoute: typeof AppHistoryTimelineRouteImport
+      parentRoute: typeof AppHistoryRoute
+    }
+    '/_app/settings_/database': {
+      id: '/_app/settings_/database'
       path: '/settings/database'
       fullPath: '/settings/database'
       preLoaderRoute: typeof AppSettingsDatabaseRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings_/rest-times': {
+      id: '/_app/settings_/rest-times'
+      path: '/settings/rest-times'
+      fullPath: '/settings/rest-times'
+      preLoaderRoute: typeof AppSettingsRestTimesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings_/rest-times_/$exerciseId': {
+      id: '/_app/settings_/rest-times_/$exerciseId'
+      path: '/settings/rest-times/$exerciseId'
+      fullPath: '/settings/rest-times/$exerciseId'
+      preLoaderRoute: typeof AppSettingsRestTimesExerciseIdRouteImport
       parentRoute: typeof AppRoute
     }
   }
@@ -205,10 +280,14 @@ declare module '@tanstack/react-router' {
 
 interface AppHistoryRouteChildren {
   AppHistoryIdRoute: typeof AppHistoryIdRoute
+  AppHistoryTimelineRoute: typeof AppHistoryTimelineRoute
+  AppHistoryIndexRoute: typeof AppHistoryIndexRoute
 }
 
 const AppHistoryRouteChildren: AppHistoryRouteChildren = {
   AppHistoryIdRoute: AppHistoryIdRoute,
+  AppHistoryTimelineRoute: AppHistoryTimelineRoute,
+  AppHistoryIndexRoute: AppHistoryIndexRoute,
 }
 
 const AppHistoryRouteWithChildren = AppHistoryRoute._addFileChildren(
@@ -222,6 +301,8 @@ interface AppRouteChildren {
   AppWorkoutRoute: typeof AppWorkoutRoute
   AppExerciseIdRoute: typeof AppExerciseIdRoute
   AppSettingsDatabaseRoute: typeof AppSettingsDatabaseRoute
+  AppSettingsRestTimesRoute: typeof AppSettingsRestTimesRoute
+  AppSettingsRestTimesExerciseIdRoute: typeof AppSettingsRestTimesExerciseIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -231,6 +312,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppWorkoutRoute: AppWorkoutRoute,
   AppExerciseIdRoute: AppExerciseIdRoute,
   AppSettingsDatabaseRoute: AppSettingsDatabaseRoute,
+  AppSettingsRestTimesRoute: AppSettingsRestTimesRoute,
+  AppSettingsRestTimesExerciseIdRoute: AppSettingsRestTimesExerciseIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -242,3 +325,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
