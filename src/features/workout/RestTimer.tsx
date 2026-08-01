@@ -84,7 +84,9 @@ export function RestTimer({ restTimer, onSkip, onExtend }: RestTimerProps) {
         className="mx-auto flex max-w-md animate-[fade-in-soft_260ms_ease-out] items-center gap-3 px-4 py-3"
       >
         <div className="min-w-0 flex-1">
-          <div className="mb-1.5 text-xs leading-none text-muted-foreground">
+          <div
+            className={`mb-1.5 text-xs leading-none text-muted-foreground ${resting ? "" : "text-center"}`}
+          >
             {resting ? (
               <>
                 Recovering &middot;{" "}
