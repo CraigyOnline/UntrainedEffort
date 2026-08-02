@@ -187,6 +187,25 @@ export const EXERCISES: ExerciseDef[] = [
     restCategory: "compound",
     aliases: ["Dips", "Chest Dips", "Parallel Bar Dip"],
   }),
+  E("machine-chest-press", "Machine Chest Press", "Chest", "Machine", ["Triceps", "Shoulders"], {
+    restCategory: "compound",
+    aliases: ["Chest Press Machine", "Seated Chest Press"],
+  }),
+  E(
+    "decline-bench-press",
+    "Decline Bench Press (Barbell)",
+    "Chest",
+    "Barbell",
+    ["Triceps", "Shoulders"],
+    {
+      restCategory: "heavyCompound",
+      aliases: ["Decline Bench Press", "Decline Barbell Bench Press"],
+    },
+  ),
+  E("pec-deck", "Pec Deck", "Chest", "Machine", ["Shoulders"], {
+    restCategory: "isolation",
+    aliases: ["Pec Deck Fly", "Chest Fly Machine", "Butterfly Machine"],
+  }),
 
   // Back
   E(
@@ -274,6 +293,30 @@ export const EXERCISES: ExerciseDef[] = [
     restCategory: "isolation",
     aliases: ["Hyperextension", "Hyperextensions", "Roman Chair Back Extension"],
   }),
+  E(
+    "sumo-deadlift",
+    "Sumo Deadlift",
+    "LowerBack",
+    "Barbell",
+    ["Glutes", "Hamstrings", "Quads", "UpperBack", "Forearms"],
+    { restCategory: "heavyCompound", aliases: ["Sumo DL"] },
+  ),
+  E(
+    "trap-bar-deadlift",
+    "Trap Bar Deadlift",
+    "LowerBack",
+    "Barbell",
+    ["Glutes", "Hamstrings", "Quads", "UpperBack", "Forearms"],
+    { restCategory: "heavyCompound", aliases: ["Hex Bar Deadlift", "Hex Deadlift"] },
+  ),
+  E("straight-arm-pulldown", "Straight-Arm Pulldown", "Lats", "Cable", ["Triceps", "UpperBack"], {
+    restCategory: "isolation",
+    aliases: ["Straight Arm Pulldown", "Cable Pullover"],
+  }),
+  E("assisted-pull-up", "Assisted Pull Up", "Lats", "Machine", ["UpperBack", "Biceps"], {
+    restCategory: "compound",
+    aliases: ["Assisted Pull-up", "Assisted Pullup Machine"],
+  }),
 
   // Shoulders
   E("ohp", "Overhead Press (Barbell)", "Shoulders", "Barbell", ["Triceps", "UpperBack"], {
@@ -337,6 +380,25 @@ export const EXERCISES: ExerciseDef[] = [
     restCategory: "isolation",
     aliases: ["Dumbbell Shrug", "DB Shrug", "Shrugs"],
   }),
+  E("cable-lateral-raise", "Cable Lateral Raise", "Shoulders", "Cable", [], {
+    restCategory: "isolation",
+    aliases: ["Cable Lat Raise"],
+  }),
+  E(
+    "machine-shoulder-press",
+    "Machine Shoulder Press",
+    "Shoulders",
+    "Machine",
+    ["Triceps", "UpperBack"],
+    {
+      restCategory: "compound",
+      aliases: ["Shoulder Press Machine"],
+    },
+  ),
+  E("upright-row", "Upright Row (Barbell)", "Shoulders", "Barbell", ["UpperBack", "Biceps"], {
+    restCategory: "isolation",
+    aliases: ["Upright Row", "Cable Upright Row", "EZ Bar Upright Row"],
+  }),
 
   // Arms
   E("bicep-curl-db", "Dumbbell Curl", "Biceps", "Dumbbell", [], {
@@ -378,6 +440,19 @@ export const EXERCISES: ExerciseDef[] = [
   E("wrist-curl", "Wrist Curl", "Forearms", "Dumbbell", [], {
     restCategory: "isolation",
     aliases: ["Dumbbell Wrist Curl", "Forearm Curl"],
+  }),
+  E("ez-bar-curl", "EZ-Bar Curl", "Biceps", "Barbell", ["Forearms"], {
+    restCategory: "isolation",
+    aliases: ["EZ Bar Curl", "EZ Bar Bicep Curl"],
+  }),
+  E("cable-curl", "Cable Curl", "Biceps", "Cable", ["Forearms"], {
+    restCategory: "isolation",
+    aliases: ["Cable Bicep Curl"],
+  }),
+  E("concentration-curl", "Concentration Curl", "Biceps", "Dumbbell", [], {
+    unilateral: true,
+    restCategory: "isolation",
+    aliases: ["DB Concentration Curl"],
   }),
 
   // Legs
@@ -448,6 +523,57 @@ export const EXERCISES: ExerciseDef[] = [
     restCategory: "isolation",
     aliases: ["Seated Calf Raises"],
   }),
+  E("hack-squat", "Hack Squat", "Quads", "Machine", ["Glutes", "Hamstrings"], {
+    restCategory: "compound",
+    aliases: ["Hack Squat Machine"],
+  }),
+  E("step-up", "Step Up", "Quads", "Dumbbell", ["Glutes", "Hamstrings"], {
+    unilateral: true,
+    restCategory: "compound",
+    aliases: ["Step-up", "Dumbbell Step Up", "Box Step Up"],
+  }),
+  E("hip-abduction", "Hip Abduction", "Glutes", "Machine", [], {
+    restCategory: "isolation",
+    aliases: ["Hip Abductor Machine", "Abductor Machine"],
+  }),
+  E("hip-adduction", "Hip Adduction", "Glutes", "Machine", [], {
+    restCategory: "isolation",
+    aliases: ["Hip Adductor Machine", "Adductor Machine", "Inner Thigh Machine"],
+  }),
+
+  // Functional
+  //
+  // Deliberately doesn't include carries or sled work (Farmer's Carry,
+  // Sled Push/Pull) — those are naturally weight-held-over-distance-or-time,
+  // a combination getExerciseLoggingSchema doesn't have a field set for
+  // today (its only weight+something pairing is weight+reps; the
+  // duration/distance branches both hide weight entirely). Logging them
+  // as reps or as a plain timed hold would silently drop the number that
+  // actually matters for those exercises, so they're left out rather than
+  // forced into a schema shape that would misrepresent what was done.
+  E("good-morning", "Good Morning", "LowerBack", "Barbell", ["Glutes", "Hamstrings"], {
+    restCategory: "compound",
+    aliases: ["Barbell Good Morning"],
+  }),
+  E(
+    "kettlebell-swing",
+    "Kettlebell Swing",
+    "Glutes",
+    "Kettlebell",
+    ["Hamstrings", "LowerBack", "Shoulders"],
+    {
+      restCategory: "compound",
+      aliases: ["KB Swing", "Russian Kettlebell Swing"],
+    },
+  ),
+  E("box-jump", "Box Jump", "Quads", "Bodyweight", ["Glutes", "Calves"], {
+    restCategory: "compound",
+    aliases: ["Box Jumps", "Plyo Box Jump"],
+  }),
+  E("burpee", "Burpee", "Chest", "Bodyweight", ["Quads", "Shoulders", "Glutes", "Calves"], {
+    restCategory: "compound",
+    aliases: ["Burpees"],
+  }),
 
   // Core (time-based)
   E("plank", "Plank", "Abs", "Bodyweight", ["Obliques", "Shoulders"], {
@@ -508,7 +634,10 @@ export const EXERCISES: ExerciseDef[] = [
   E("treadmill", "Treadmill Run", "Cardio", "Cardio", ["Quads", "Hamstrings", "Calves", "Glutes"], {
     cardio: true,
     time: true,
-    aliases: ["Treadmill", "Running"],
+    // "Running" moved to outdoor-run below now that it exists as its own
+    // entry — kept here too it'd be ambiguous which one a bare "Running"
+    // search should match.
+    aliases: ["Treadmill", "Treadmill Running"],
   }),
   E(
     "rowing-machine",
@@ -543,6 +672,52 @@ export const EXERCISES: ExerciseDef[] = [
     cardio: true,
     time: true,
     aliases: ["Skipping Rope", "Jumping Rope"],
+  }),
+  E("battle-ropes", "Battle Ropes", "Cardio", "Cardio", ["Shoulders", "Forearms", "Abs"], {
+    cardio: true,
+    time: true,
+    aliases: ["Battle Rope", "Rope Slams"],
+  }),
+  E("outdoor-run", "Outdoor Run", "Cardio", "Cardio", ["Quads", "Hamstrings", "Calves", "Glutes"], {
+    cardio: true,
+    time: true,
+    aliases: ["Running", "Jogging", "Outdoor Running", "Jog"],
+  }),
+  E("outdoor-walk", "Walk", "Cardio", "Cardio", ["Quads", "Hamstrings", "Calves", "Glutes"], {
+    cardio: true,
+    time: true,
+    aliases: ["Walking", "Brisk Walk", "Outdoor Walk"],
+  }),
+  E(
+    "outdoor-cycling",
+    "Outdoor Cycling",
+    "Cardio",
+    "Cardio",
+    ["Quads", "Hamstrings", "Calves", "Glutes"],
+    { cardio: true, time: true, aliases: ["Cycling", "Bike Ride", "Road Cycling", "Biking"] },
+  ),
+  E(
+    "swimming",
+    "Swimming",
+    "Cardio",
+    "Cardio",
+    ["Lats", "Shoulders", "Triceps", "Quads", "Calves"],
+    {
+      cardio: true,
+      time: true,
+      // Distance is tracked in km (the app's one distance unit today,
+      // same limitation noted for Stair Climber's floors/levels — see the
+      // cardio-support discussion this batch came out of); meters or laps
+      // would read more naturally for pool swimming specifically, but
+      // giving cardio exercises their own unit is separate, bigger work
+      // than this catalog pass.
+      aliases: ["Swim", "Pool Swimming", "Laps"],
+    },
+  ),
+  E("general-cardio", "Other Cardio", "Cardio", "Cardio", [], {
+    cardio: true,
+    time: true,
+    aliases: ["General Cardio", "Cardio", "Cardio Session"],
   }),
   E(
     "rowing-intervals",
