@@ -264,6 +264,7 @@ function HistoryDetailPage() {
   }
 
   async function confirmDelete() {
+    if (!workout) return;
     const db = getDb();
     await db.transaction("rw", db.workouts, db.prHistory, async () => {
       await db.workouts.delete(workout.id!);
