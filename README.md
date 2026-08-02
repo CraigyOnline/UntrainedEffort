@@ -31,7 +31,9 @@ Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownershi
 - Exercise reordering during workouts
 - Optional routine synchronisation
 - Rich Android workout notifications
-- Cardio & interval workouts
+- Automatic rest timers, tuned per exercise, with per-exercise overrides
+- Cardio & interval workouts, tracked in the right unit for each activity (km, meters, floors)
+- A wide and growing exercise library, spanning strength, functional, and cardio movements
 - Unilateral exercise support
 
 ### Progress
@@ -41,6 +43,7 @@ Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownershi
 - Personal records (PRs)
 - Exercise progress charts
 - Exercise detail pages
+- Browse & search the full exercise library
 - Profile dashboard
 - Muscle activity maps
 - Workout completion celebrations
@@ -61,7 +64,7 @@ Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownershi
 
 - Weekly & monthly volume charts
 - Richer exercise statistics
-- Better cardio analytics
+- Cardio pace & speed metrics
 - Muscle activity trends
 
 ### Insights
@@ -75,6 +78,8 @@ Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownershi
 - Goal tracking
 - Optional cloud sync
 - Wear OS support
+- Original muscle-map artwork (replacing wger-sourced assets)
+- Illustrated exercise form guidance (start/end position art)
 
 ---
 
@@ -86,4 +91,6 @@ This project is developed primarily for personal use, but ideas, bug reports and
 
 ## License
 
-MIT
+Untrained Effort's own code is licensed under MIT.
+
+Some exercise data and muscle-map artwork are sourced from the [wger project](https://github.com/wger-project/wger) and carry their own licensing — wger's software under AGPL-3.0+, and its exercise data/media under CC-BY-SA. Full attribution and license text are available in-app under **Settings → Open Source Licenses**.
