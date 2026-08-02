@@ -60,6 +60,25 @@ export type RestCategory = "heavyCompound" | "compound" | "isolation" | "core";
  */
 export type DistanceUnit = "km" | "m" | "floors";
 
+/**
+ * How a distance-tracked cardio exercise's "how fast" number is
+ * conventionally expressed — this is genuinely different per activity,
+ * not just a distance/time division applied uniformly:
+ *   - "pace": minutes:seconds per `per` distance-units, e.g. running's
+ *     min/km (per: 1, in km) or rowing's classic /500m split (per: 500,
+ *     in meters — `per` is always expressed in the exercise's own
+ *     distanceUnit, so no unit conversion is needed to compute it).
+ *   - "speed": distance-units per hour, e.g. cycling's km/h — cyclists
+ *     think in speed, not pace, unlike runners.
+ *   - "rate": distance-units per minute, e.g. Stair Climber's
+ *     floors/min — there's no standard "pace" or "speed" convention for
+ *     floors, but a per-minute rate is still a meaningful, readable
+ *     number.
+ * See formatPace below for how each is actually computed and displayed.
+ */
+export type PaceConvention =
+  { style: "pace"; per: number } | { style: "speed" } | { style: "rate" };
+
 /** One side's performance values — see setPerformances below for why this
  *  exists and where "left"/"right" actually come from (nowhere in here). */
 export interface SetSide {
@@ -90,6 +109,12 @@ export interface ExerciseDef {
    *  logged as duration only. Meaningless outside a cardio exercise; see
    *  DistanceUnit's own doc comment. */
   distanceUnit?: DistanceUnit;
+  /** How this cardio exercise's pace/speed should be computed and
+   *  displayed, if at all — always absent when distanceUnit is (nothing
+   *  to compute a rate from), and set for every distance-tracked cardio
+   *  exercise otherwise. See PaceConvention's own doc comment for what
+   *  each style means and which activities use which. */
+  paceConvention?: PaceConvention;
   /** time-based (planks, holds) — uses duration instead of reps */
   time?: boolean;
   /** interval/HIIT default config — drives an auto interval timer on
@@ -123,6 +148,7 @@ const E = (
   opts: {
     cardio?: boolean;
     distanceUnit?: DistanceUnit;
+    paceConvention?: PaceConvention;
     time?: boolean;
     interval?: IntervalConfig;
     unilateral?: boolean;
@@ -137,6 +163,7 @@ const E = (
   secondary,
   cardio: opts.cardio,
   distanceUnit: opts.distanceUnit,
+  paceConvention: opts.paceConvention,
   time: opts.time,
   interval: opts.interval,
   unilateral: opts.unilateral,
@@ -655,6 +682,7 @@ export const EXERCISES: ExerciseDef[] = [
     cardio: true,
     time: true,
     distanceUnit: "km",
+    paceConvention: { style: "pace", per: 1 }, // running pace, min/km
     // "Running" moved to outdoor-run below now that it exists as its own
     // entry — kept here too it'd be ambiguous which one a bare "Running"
     // search should match.
@@ -673,6 +701,9 @@ export const EXERCISES: ExerciseDef[] = [
       // meters (a "2000m row" is the standard benchmark distance), and a
       // 0.1km-stepped input would be a genuinely wrong way to log one.
       distanceUnit: "m",
+      // The classic rowing split — every rowing machine's own display
+      // shows pace as time per 500m, not a raw m/s or km/h figure.
+      paceConvention: { style: "pace", per: 500 },
       aliases: ["Erg", "Rower", "Row Machine"],
     },
   ),
@@ -682,12 +713,19 @@ export const EXERCISES: ExerciseDef[] = [
     "Cardio",
     "Cardio",
     ["Quads", "Hamstrings", "Calves", "Glutes"],
-    { cardio: true, time: true, distanceUnit: "km", aliases: ["Exercise Bike", "Spin Bike"] },
+    {
+      cardio: true,
+      time: true,
+      distanceUnit: "km",
+      paceConvention: { style: "speed" }, // cyclists think in km/h, not pace
+      aliases: ["Exercise Bike", "Spin Bike"],
+    },
   ),
   E("elliptical", "Elliptical", "Cardio", "Cardio", ["Quads", "Hamstrings", "Glutes", "Calves"], {
     cardio: true,
     time: true,
     distanceUnit: "km",
+    paceConvention: { style: "speed" },
     aliases: ["Elliptical Trainer", "Cross Trainer"],
   }),
   E(
@@ -703,6 +741,9 @@ export const EXERCISES: ExerciseDef[] = [
       // kilometers; the console counts floors, and that's what a person
       // actually reads off it to log.
       distanceUnit: "floors",
+      // No standard "pace" or "speed" convention for floors — a
+      // floors-per-minute rate is still a meaningful number though.
+      paceConvention: { style: "rate" },
       aliases: ["Stairmaster", "Stair Stepper"],
     },
   ),
@@ -725,12 +766,14 @@ export const EXERCISES: ExerciseDef[] = [
     cardio: true,
     time: true,
     distanceUnit: "km",
+    paceConvention: { style: "pace", per: 1 },
     aliases: ["Running", "Jogging", "Outdoor Running", "Jog"],
   }),
   E("outdoor-walk", "Walk", "Cardio", "Cardio", ["Quads", "Hamstrings", "Calves", "Glutes"], {
     cardio: true,
     time: true,
     distanceUnit: "km",
+    paceConvention: { style: "pace", per: 1 },
     aliases: ["Walking", "Brisk Walk", "Outdoor Walk"],
   }),
   E(
@@ -743,6 +786,7 @@ export const EXERCISES: ExerciseDef[] = [
       cardio: true,
       time: true,
       distanceUnit: "km",
+      paceConvention: { style: "speed" },
       aliases: ["Cycling", "Bike Ride", "Road Cycling", "Biking"],
     },
   ),
@@ -758,6 +802,8 @@ export const EXERCISES: ExerciseDef[] = [
       // Meters, not km — pool lengths are meters (or laps), and km reads
       // as strangely large for anything but open-water distance swimming.
       distanceUnit: "m",
+      // The standard swim-pace convention: time per 100m.
+      paceConvention: { style: "pace", per: 100 },
       aliases: ["Swim", "Pool Swimming", "Laps"],
     },
   ),
@@ -947,6 +993,9 @@ export interface ExerciseLoggingSchema {
    *  See DistanceUnit's doc comment for why not every cardio exercise has
    *  one. */
   distanceUnit?: DistanceUnit;
+  /** How to compute/display this exercise's pace or speed — present
+   *  exactly when distanceUnit is. See PaceConvention's doc comment. */
+  paceConvention?: PaceConvention;
   interval: boolean;
   unilateral: boolean;
 }
@@ -980,6 +1029,7 @@ export function getExerciseLoggingSchema(def: ExerciseDef | undefined): Exercise
       duration: true,
       distance: def.distanceUnit !== undefined,
       distanceUnit: def.distanceUnit,
+      paceConvention: def.paceConvention,
       interval: false,
       unilateral,
     };
@@ -1034,6 +1084,37 @@ export function getDistanceStepperConfig(unit: DistanceUnit): { step: number; de
   if (unit === "km") return { step: 0.1, decimal: true };
   if (unit === "m") return { step: 50, decimal: false };
   return { step: 1, decimal: false }; // floors
+}
+
+/**
+ * Computes and formats a completed cardio set's pace/speed/rate, per its
+ * PaceConvention — see that type's doc comment for what each style means.
+ * Returns undefined when there's nothing sensible to compute (zero
+ * distance or zero duration — an unfinished or not-yet-logged set),
+ * rather than a divide-by-zero or a "0:00/km" that would misreport an
+ * incomplete set as instantaneous.
+ */
+export function formatPace(
+  convention: PaceConvention,
+  unit: DistanceUnit,
+  distance: number,
+  durationSec: number,
+): string | undefined {
+  if (distance <= 0 || durationSec <= 0) return undefined;
+  const unitLabel = unit === "km" ? "km" : unit === "m" ? "m" : "floors";
+
+  if (convention.style === "pace") {
+    const secondsPerChunk = durationSec / (distance / convention.per);
+    const per = convention.per === 1 ? unitLabel : `${convention.per}${unit === "km" ? "km" : "m"}`;
+    return `${formatDuration(Math.round(secondsPerChunk))}/${per}`;
+  }
+  if (convention.style === "speed") {
+    const perHour = (distance / durationSec) * 3600;
+    return `${perHour.toFixed(1)} ${unitLabel}/h`;
+  }
+  // "rate"
+  const perMinute = (distance / durationSec) * 60;
+  return `${perMinute.toFixed(1)} ${unitLabel}/min`;
 }
 
 /**
@@ -1105,7 +1186,11 @@ export function sideLabel(index: number): string {
  *  the way independent copies would. */
 function formatPerformance(schema: ExerciseLoggingSchema, perf: SetSide): string {
   if (schema.distance && schema.distanceUnit) {
-    return `${formatDistanceValue(schema.distanceUnit, perf.weight)} · ${formatDuration(perf.duration ?? 0)}`;
+    const base = `${formatDistanceValue(schema.distanceUnit, perf.weight)} · ${formatDuration(perf.duration ?? 0)}`;
+    const pace = schema.paceConvention
+      ? formatPace(schema.paceConvention, schema.distanceUnit, perf.weight, perf.duration ?? 0)
+      : undefined;
+    return pace ? `${base} · ${pace}` : base;
   }
   if (schema.duration) {
     return formatDuration(perf.duration ?? 0);
