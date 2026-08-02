@@ -10,6 +10,8 @@ import {
   getRestDurationSec,
   formatCompletedSet,
   seedUnilateralSide,
+  distanceUnitLabel,
+  getDistanceStepperConfig,
   type IntervalConfig,
   type SetSide,
 } from "@/lib/exercises";
@@ -313,7 +315,13 @@ function ExerciseCard({
         <>
           <div className="mt-3 grid grid-cols-[24px_1fr_1fr_auto_auto] items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             <span>{schema.distance ? "Set" : "#"}</span>
-            <span>{schema.distance ? "Km" : schema.duration ? "Sec" : "Kg"}</span>
+            <span>
+              {schema.distance && schema.distanceUnit
+                ? distanceUnitLabel(schema.distanceUnit)
+                : schema.duration
+                  ? "Sec"
+                  : "Kg"}
+            </span>
             <span>{schema.distance ? "Time" : schema.duration ? "" : "Reps"}</span>
             <span />
             <span />
@@ -330,13 +338,12 @@ function ExerciseCard({
             >
               <span className="text-sm font-semibold">{si + 1}</span>
 
-              {schema.distance ? (
+              {schema.distance && schema.distanceUnit ? (
                 <>
                   <StepperInput
                     value={s.weight ?? 0}
                     onCommit={(v) => updateSet(ei, si, { weight: v })}
-                    step={0.1}
-                    decimal
+                    {...getDistanceStepperConfig(schema.distanceUnit)}
                     min={0}
                     size="normal"
                   />

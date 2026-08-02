@@ -48,6 +48,18 @@ export interface IntervalConfig {
  */
 export type RestCategory = "heavyCompound" | "compound" | "isolation" | "core";
 
+/**
+ * What a cardio exercise's distance number actually means — see
+ * distanceUnitLabel and getDistanceStepperConfig below for how this
+ * drives both the displayed unit and the input's step size. Not every
+ * cardio exercise has one: Jump Rope, Battle Ropes, and Other Cardio have
+ * no meaningful "how far" concept at all, so they're logged as duration
+ * only (see ExerciseDef.distanceUnit below, and isCardio's distance
+ * branch in getExerciseLoggingSchema, which is now driven by this being
+ * present rather than assumed true for every cardio exercise).
+ */
+export type DistanceUnit = "km" | "m" | "floors";
+
 /** One side's performance values — see setPerformances below for why this
  *  exists and where "left"/"right" actually come from (nowhere in here). */
 export interface SetSide {
@@ -72,6 +84,12 @@ export interface ExerciseDef {
 
   /** cardio-style (treadmill, rowing) — uses time + optional distance */
   cardio?: boolean;
+  /** What unit this cardio exercise's distance is tracked in — km, meters,
+   *  or floors (Stair Climber). Absent means this cardio exercise has no
+   *  distance concept at all (Jump Rope, Battle Ropes, Other Cardio),
+   *  logged as duration only. Meaningless outside a cardio exercise; see
+   *  DistanceUnit's own doc comment. */
+  distanceUnit?: DistanceUnit;
   /** time-based (planks, holds) — uses duration instead of reps */
   time?: boolean;
   /** interval/HIIT default config — drives an auto interval timer on
@@ -104,6 +122,7 @@ const E = (
   secondary: MuscleGroup[] = [],
   opts: {
     cardio?: boolean;
+    distanceUnit?: DistanceUnit;
     time?: boolean;
     interval?: IntervalConfig;
     unilateral?: boolean;
@@ -117,6 +136,7 @@ const E = (
   equipment,
   secondary,
   cardio: opts.cardio,
+  distanceUnit: opts.distanceUnit,
   time: opts.time,
   interval: opts.interval,
   unilateral: opts.unilateral,
@@ -634,6 +654,7 @@ export const EXERCISES: ExerciseDef[] = [
   E("treadmill", "Treadmill Run", "Cardio", "Cardio", ["Quads", "Hamstrings", "Calves", "Glutes"], {
     cardio: true,
     time: true,
+    distanceUnit: "km",
     // "Running" moved to outdoor-run below now that it exists as its own
     // entry — kept here too it'd be ambiguous which one a bare "Running"
     // search should match.
@@ -645,7 +666,15 @@ export const EXERCISES: ExerciseDef[] = [
     "Cardio",
     "Cardio",
     ["Quads", "Hamstrings", "Glutes", "UpperBack", "Lats", "Biceps", "Forearms"],
-    { cardio: true, time: true, aliases: ["Erg", "Rower", "Row Machine"] },
+    {
+      cardio: true,
+      time: true,
+      // Meters, not km — rowing machines display and are programmed in
+      // meters (a "2000m row" is the standard benchmark distance), and a
+      // 0.1km-stepped input would be a genuinely wrong way to log one.
+      distanceUnit: "m",
+      aliases: ["Erg", "Rower", "Row Machine"],
+    },
   ),
   E(
     "stationary-bike",
@@ -653,11 +682,12 @@ export const EXERCISES: ExerciseDef[] = [
     "Cardio",
     "Cardio",
     ["Quads", "Hamstrings", "Calves", "Glutes"],
-    { cardio: true, time: true, aliases: ["Exercise Bike", "Spin Bike"] },
+    { cardio: true, time: true, distanceUnit: "km", aliases: ["Exercise Bike", "Spin Bike"] },
   ),
   E("elliptical", "Elliptical", "Cardio", "Cardio", ["Quads", "Hamstrings", "Glutes", "Calves"], {
     cardio: true,
     time: true,
+    distanceUnit: "km",
     aliases: ["Elliptical Trainer", "Cross Trainer"],
   }),
   E(
@@ -666,26 +696,41 @@ export const EXERCISES: ExerciseDef[] = [
     "Cardio",
     "Cardio",
     ["Glutes", "Quads", "Hamstrings", "Calves"],
-    { cardio: true, time: true, aliases: ["Stairmaster", "Stair Stepper"] },
+    {
+      cardio: true,
+      time: true,
+      // Floors climbed, not km — this machine has never measured
+      // kilometers; the console counts floors, and that's what a person
+      // actually reads off it to log.
+      distanceUnit: "floors",
+      aliases: ["Stairmaster", "Stair Stepper"],
+    },
   ),
   E("jump-rope", "Jump Rope", "Cardio", "Cardio", ["Calves", "Quads"], {
     cardio: true,
     time: true,
+    // No distanceUnit: there's no "how far" to a jump rope session, only
+    // duration — see getExerciseLoggingSchema's cardio branch, which now
+    // reads distance support from this being present rather than assuming
+    // every cardio exercise has one.
     aliases: ["Skipping Rope", "Jumping Rope"],
   }),
   E("battle-ropes", "Battle Ropes", "Cardio", "Cardio", ["Shoulders", "Forearms", "Abs"], {
     cardio: true,
     time: true,
+    // No distanceUnit — same reasoning as Jump Rope above.
     aliases: ["Battle Rope", "Rope Slams"],
   }),
   E("outdoor-run", "Outdoor Run", "Cardio", "Cardio", ["Quads", "Hamstrings", "Calves", "Glutes"], {
     cardio: true,
     time: true,
+    distanceUnit: "km",
     aliases: ["Running", "Jogging", "Outdoor Running", "Jog"],
   }),
   E("outdoor-walk", "Walk", "Cardio", "Cardio", ["Quads", "Hamstrings", "Calves", "Glutes"], {
     cardio: true,
     time: true,
+    distanceUnit: "km",
     aliases: ["Walking", "Brisk Walk", "Outdoor Walk"],
   }),
   E(
@@ -694,7 +739,12 @@ export const EXERCISES: ExerciseDef[] = [
     "Cardio",
     "Cardio",
     ["Quads", "Hamstrings", "Calves", "Glutes"],
-    { cardio: true, time: true, aliases: ["Cycling", "Bike Ride", "Road Cycling", "Biking"] },
+    {
+      cardio: true,
+      time: true,
+      distanceUnit: "km",
+      aliases: ["Cycling", "Bike Ride", "Road Cycling", "Biking"],
+    },
   ),
   E(
     "swimming",
@@ -705,18 +755,17 @@ export const EXERCISES: ExerciseDef[] = [
     {
       cardio: true,
       time: true,
-      // Distance is tracked in km (the app's one distance unit today,
-      // same limitation noted for Stair Climber's floors/levels — see the
-      // cardio-support discussion this batch came out of); meters or laps
-      // would read more naturally for pool swimming specifically, but
-      // giving cardio exercises their own unit is separate, bigger work
-      // than this catalog pass.
+      // Meters, not km — pool lengths are meters (or laps), and km reads
+      // as strangely large for anything but open-water distance swimming.
+      distanceUnit: "m",
       aliases: ["Swim", "Pool Swimming", "Laps"],
     },
   ),
   E("general-cardio", "Other Cardio", "Cardio", "Cardio", [], {
     cardio: true,
     time: true,
+    // No distanceUnit — this is the catch-all for whatever doesn't have
+    // its own entry; it has no consistent "how far" concept to assume.
     aliases: ["General Cardio", "Cardio", "Cardio Session"],
   }),
   E(
@@ -894,6 +943,10 @@ export interface ExerciseLoggingSchema {
   reps: boolean;
   duration: boolean;
   distance: boolean;
+  /** Which unit `distance` is in — present exactly when distance is true.
+   *  See DistanceUnit's doc comment for why not every cardio exercise has
+   *  one. */
+  distanceUnit?: DistanceUnit;
   interval: boolean;
   unilateral: boolean;
 }
@@ -925,7 +978,8 @@ export function getExerciseLoggingSchema(def: ExerciseDef | undefined): Exercise
       weight: "hidden",
       reps: false,
       duration: true,
-      distance: true,
+      distance: def.distanceUnit !== undefined,
+      distanceUnit: def.distanceUnit,
       interval: false,
       unilateral,
     };
@@ -948,6 +1002,38 @@ export function getExerciseLoggingSchema(def: ExerciseDef | undefined): Exercise
     interval: false,
     unilateral,
   };
+}
+
+/** Short column-header label for a distance unit, matching the existing
+ *  "Km"/"Sec"/"Kg" convention in the workout logging screen. */
+export function distanceUnitLabel(unit: DistanceUnit): string {
+  if (unit === "km") return "Km";
+  if (unit === "m") return "M";
+  return "Floors";
+}
+
+/** Suffix used when formatting a logged distance value for display (the
+ *  progress chart, Current Focus, Recent Progress) — symbol-like units
+ *  (km, m) attach directly to the number; word units (floors) get a
+ *  space, matching how "reps" is already formatted elsewhere. */
+export function formatDistanceValue(unit: DistanceUnit, value: number): string {
+  if (unit === "km") return `${value}km`;
+  if (unit === "m") return `${value}m`;
+  return `${value} floors`;
+}
+
+/**
+ * How the distance input's stepper should behave for a given unit — a
+ * 0.1 decimal step (right for km) would be a strange way to log meters or
+ * floors, which are naturally whole numbers logged in much larger jumps
+ * (a rowing 2000m piece, not 2000.0). One source of truth for this so
+ * LiveSession's stepper can't drift out of sync with what each unit
+ * actually looks like on the machine that produced it.
+ */
+export function getDistanceStepperConfig(unit: DistanceUnit): { step: number; decimal: boolean } {
+  if (unit === "km") return { step: 0.1, decimal: true };
+  if (unit === "m") return { step: 50, decimal: false };
+  return { step: 1, decimal: false }; // floors
 }
 
 /**
@@ -1018,8 +1104,8 @@ export function sideLabel(index: number): string {
  *  unilateral path (called once per side), so the two can't drift apart
  *  the way independent copies would. */
 function formatPerformance(schema: ExerciseLoggingSchema, perf: SetSide): string {
-  if (schema.distance) {
-    return `${perf.weight}km · ${formatDuration(perf.duration ?? 0)}`;
+  if (schema.distance && schema.distanceUnit) {
+    return `${formatDistanceValue(schema.distanceUnit, perf.weight)} · ${formatDuration(perf.duration ?? 0)}`;
   }
   if (schema.duration) {
     return formatDuration(perf.duration ?? 0);

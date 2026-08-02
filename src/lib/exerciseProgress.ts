@@ -1,5 +1,11 @@
 import type { Workout, WorkoutSet } from "@/lib/db";
-import { setPerformances, type ExerciseLoggingSchema, type SetSide } from "@/lib/exercises";
+import {
+  setPerformances,
+  formatDistanceValue,
+  type DistanceUnit,
+  type ExerciseLoggingSchema,
+  type SetSide,
+} from "@/lib/exercises";
 import { formatDuration } from "@/lib/format";
 
 export type MetricKind = "weight" | "reps" | "duration" | "distance";
@@ -71,8 +77,19 @@ export function metricLabel(kind: MetricKind): string {
   return "Reps";
 }
 
-export function formatMetricValue(kind: MetricKind, value: number): string {
-  if (kind === "distance") return `${value}km`;
+/**
+ * distanceUnit is optional and defaults to "km" — every current call site
+ * has a schema (or a computeExerciseStatus result carrying distanceUnit)
+ * to pass in, but this keeps the function safely callable without one
+ * rather than requiring every caller to thread it through even when the
+ * kind isn't "distance" in the first place.
+ */
+export function formatMetricValue(
+  kind: MetricKind,
+  value: number,
+  distanceUnit: DistanceUnit = "km",
+): string {
+  if (kind === "distance") return formatDistanceValue(distanceUnit, value);
   if (kind === "duration") return formatDuration(value);
   if (kind === "weight") return `${value}kg`;
   return `${value} reps`;

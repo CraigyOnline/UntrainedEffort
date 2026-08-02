@@ -7,6 +7,7 @@ import {
   getExerciseLoggingSchema,
   MUSCLE_GROUPS,
   type MuscleGroup,
+  type DistanceUnit,
 } from "@/lib/exercises";
 import { computeWorkoutStats } from "@/lib/workoutStats";
 import {
@@ -91,8 +92,11 @@ function ProfilePage() {
     const exerciseId = recentExerciseIds[0];
     if (!exerciseId) return null;
     const def = getExercise(exerciseId);
-    const { status, best, metricKind } = computeExerciseStatus(workouts ?? [], exerciseId);
-    return { exerciseId, name: def?.name ?? exerciseId, status, best, metricKind };
+    const { status, best, metricKind, distanceUnit } = computeExerciseStatus(
+      workouts ?? [],
+      exerciseId,
+    );
+    return { exerciseId, name: def?.name ?? exerciseId, status, best, metricKind, distanceUnit };
   }, [recentExerciseIds, workouts]);
 
   const consistency = useMemo(
@@ -105,8 +109,11 @@ function ProfilePage() {
   const recentProgress = useMemo(() => {
     return recentExerciseIds.slice(0, 5).map((exerciseId) => {
       const def = getExercise(exerciseId);
-      const { status, best, metricKind } = computeExerciseStatus(workouts ?? [], exerciseId);
-      return { exerciseId, name: def?.name ?? exerciseId, status, best, metricKind };
+      const { status, best, metricKind, distanceUnit } = computeExerciseStatus(
+        workouts ?? [],
+        exerciseId,
+      );
+      return { exerciseId, name: def?.name ?? exerciseId, status, best, metricKind, distanceUnit };
     });
   }, [recentExerciseIds, workouts]);
 
@@ -257,7 +264,11 @@ function ProfilePage() {
                       Current Best
                     </p>
                     <p className="text-base font-bold text-primary">
-                      {formatMetricValue(currentFocus.metricKind, currentFocus.best)}
+                      {formatMetricValue(
+                        currentFocus.metricKind,
+                        currentFocus.best,
+                        currentFocus.distanceUnit,
+                      )}
                     </p>
                   </>
                 ) : null}
@@ -418,7 +429,7 @@ function ProfilePage() {
                   <p className="truncate text-sm font-medium">{row.name}</p>
                   {row.best != null && (
                     <p className="text-xs text-muted-foreground">
-                      {formatMetricValue(row.metricKind, row.best)}
+                      {formatMetricValue(row.metricKind, row.best, row.distanceUnit)}
                     </p>
                   )}
                 </div>
@@ -698,7 +709,12 @@ function getRecentlyTrainedExercises(workouts: Workout[], count: number): string
 function computeExerciseStatus(
   workouts: Workout[],
   exerciseId: string,
-): { status: ExerciseStatus; best: number | null; metricKind: MetricKind } {
+): {
+  status: ExerciseStatus;
+  best: number | null;
+  metricKind: MetricKind;
+  distanceUnit?: DistanceUnit;
+} {
   const def = getExercise(exerciseId);
   const schema = getExerciseLoggingSchema(def);
 
@@ -711,6 +727,7 @@ function computeExerciseStatus(
   }
 
   const metricKind = getPrimaryMetricKind(schema);
+  const distanceUnit = schema.distanceUnit;
 
   const values = sessionSets
     .map((sets) => getPrimaryMetric(metricKind, sets))
@@ -719,14 +736,14 @@ function computeExerciseStatus(
   const best = values.length > 0 ? Math.max(...values) : null;
 
   if (values.length < 2) {
-    return { status: "needs-more-data", best, metricKind };
+    return { status: "needs-more-data", best, metricKind, distanceUnit };
   }
 
   // values is most-recent-first (workouts is), so values[0] is latest.
   const trend = compareTrend(values[1], values[0]);
   const status: ExerciseStatus =
     trend === "up" ? "improving" : trend === "down" ? "plateauing" : "stable";
-  return { status, best, metricKind };
+  return { status, best, metricKind, distanceUnit };
 }
 
 /**

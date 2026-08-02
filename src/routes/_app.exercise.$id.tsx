@@ -243,7 +243,7 @@ function ExerciseProgressPage() {
                 <Tooltip
                   labelFormatter={(ts) => formatDate(ts as number)}
                   formatter={(value: number) => [
-                    formatMetricValue(metricKind, value),
+                    formatMetricValue(metricKind, value, schema.distanceUnit),
                     metricLabel(metricKind),
                   ]}
                   contentStyle={{
