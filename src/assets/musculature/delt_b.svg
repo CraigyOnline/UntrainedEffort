@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="2048"
+   height="2048"
+   viewBox="0 0 2048 2048"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="delt_b.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <g
+     fill="#57c26b"
+     fill-opacity="0.55"
+     stroke="#2f6b3d"
+     stroke-width="1.5"
+     id="g1">
+    <path
+       id="delt_b-left"
+       d="M 1314,423 C 1296,412 1285,415 1287,425 C 1277,448 1266,472 1264,500 C 1263,518 1263,533 1264,546 C 1293,554 1325,558 1353,559 C 1382,538 1396,495 1390,468 C 1382,448 1355,432 1314,423 Z" />
+    <path
+       id="delt_b-right"
+       d="M 1762,423 C 1780,412 1791,415 1789,425 C 1799,448 1810,472 1812,500 C 1813,518 1813,533 1812,546 C 1783,554 1751,558 1723,559 C 1694,538 1680,495 1686,468 C 1694,448 1721,432 1762,423 Z" />
+  </g>
+</svg>
