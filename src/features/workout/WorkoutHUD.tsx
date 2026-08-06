@@ -2,6 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { Check, MoreVertical } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
 import { SetProgressBar } from "@/components/SetProgressBar";
 import { computeWorkoutStats } from "@/lib/workoutStats";
@@ -129,14 +139,27 @@ export function WorkoutHUD({
     [],
   );
 
-  async function handleFinishClick() {
+  // ── Finish confirmation ──────────────────────────────────────────────
+  // A logged set is real progress, so a stray tap on Finish shouldn't be
+  // able to end the session outright — gate it behind the same
+  // AlertDialog pattern used elsewhere in the app (discard/delete
+  // confirmations) rather than a bespoke prompt.
+  const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
+
+  function handleFinishClick() {
     if (finishing) return;
     if (!sessionHasData(session)) {
       // Nothing to save — this opens the discard-confirmation dialog
-      // instead of actually finishing, so there's nothing to anticipate.
+      // instead of actually finishing, so there's nothing to anticipate
+      // or confirm.
       onFinish(true);
       return;
     }
+    setFinishConfirmOpen(true);
+  }
+
+  async function confirmFinish() {
+    setFinishConfirmOpen(false);
     setFinishing(true);
     try {
       await onFinish(true);
@@ -224,88 +247,107 @@ export function WorkoutHUD({
   const progress = loggedSets > 0 ? Math.min(1, totalSets / loggedSets) : 0;
 
   return (
-    <div className="fixed inset-x-0 top-0 z-30 flex justify-center bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div
-        ref={contentRef}
-        className={`relative flex w-full max-w-md min-w-0 flex-col gap-2 border-b border-border px-4 pt-3 pb-2 transition-transform ease-out ${
-          pulsing ? "scale-[1.02] duration-200" : "scale-100 duration-200"
-        } ${
-          glowPhase === "in"
-            ? "shadow-[0_0_28px_6px_var(--color-pr-gold)] transition-shadow duration-150 ease-out"
-            : glowPhase === "out"
-              ? "shadow-none transition-shadow duration-700 ease-out"
-              : ""
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          <input
-            value={session.name}
-            onChange={(e) => setSession((s) => (s ? { ...s, name: e.target.value } : s))}
-            className="min-w-0 flex-1 border-b border-border/30 bg-transparent text-lg font-bold outline-none transition-colors focus:border-border"
-          />
-          <WorkoutTimer startedAt={session.startedAt} />
+    <>
+      <div className="fixed inset-x-0 top-0 z-30 flex justify-center bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div
+          ref={contentRef}
+          className={`relative flex w-full max-w-md min-w-0 flex-col gap-2 border-b border-border px-4 pt-3 pb-2 transition-transform ease-out ${
+            pulsing ? "scale-[1.02] duration-200" : "scale-100 duration-200"
+          } ${
+            glowPhase === "in"
+              ? "shadow-[0_0_28px_6px_var(--color-pr-gold)] transition-shadow duration-150 ease-out"
+              : glowPhase === "out"
+                ? "shadow-none transition-shadow duration-700 ease-out"
+                : ""
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <input
+              value={session.name}
+              onChange={(e) => setSession((s) => (s ? { ...s, name: e.target.value } : s))}
+              className="min-w-0 flex-1 border-b border-border/30 bg-transparent text-lg font-bold outline-none transition-colors focus:border-border"
+            />
+            <WorkoutTimer startedAt={session.startedAt} />
 
-          <div className="relative">
-            <button
-              onClick={() => setOptionsOpen((o) => !o)}
-              aria-label="Workout options"
-              className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors active:text-foreground"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </button>
-            {optionsOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setOptionsOpen(false)} />
-                <div className="absolute right-0 top-11 z-50 w-64 rounded-xl border border-border bg-card p-3 shadow-xl">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm">Keep screen on</span>
-                    <Switch checked={keepAwake} onCheckedChange={setKeepAwake} />
+            <div className="relative">
+              <button
+                onClick={() => setOptionsOpen((o) => !o)}
+                aria-label="Workout options"
+                className="flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors active:text-foreground"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+              {optionsOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setOptionsOpen(false)} />
+                  <div className="absolute right-0 top-11 z-50 w-64 rounded-xl border border-border bg-card p-3 shadow-xl">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm">Keep screen on</span>
+                      <Switch checked={keepAwake} onCheckedChange={setKeepAwake} />
+                    </div>
                   </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Muscle map thumbnail — same size/styling as the Workout/Routine/History cards */}
-          <div className="flex w-16 shrink-0 items-center justify-center">
-            <ExpandableMuscleMap intensity={intensity} compact className="max-h-16" />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>
-                {totalSets} / {loggedSets} sets
-              </span>
-              <span>{Math.round(totalVolume)} kg</span>
+                </>
+              )}
             </div>
-            <SetProgressBar value={progress} className="mt-1" />
           </div>
 
-          <Button
-            size="sm"
-            onClick={handleFinishClick}
-            disabled={finishing}
-            className={`transition-colors duration-200 ${finishing ? "bg-primary/70" : ""}`}
-          >
-            {finishing ? <Check className="h-4 w-4" /> : "Finish"}
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* Muscle map thumbnail — same size/styling as the Workout/Routine/History cards */}
+            <div className="flex w-16 shrink-0 items-center justify-center">
+              <ExpandableMuscleMap intensity={intensity} compact className="max-h-16" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  {totalSets} / {loggedSets} sets
+                </span>
+                <span>{Math.round(totalVolume)} kg</span>
+              </div>
+              <SetProgressBar value={progress} className="mt-1" />
+            </div>
+
+            <Button
+              size="sm"
+              onClick={handleFinishClick}
+              disabled={finishing}
+              className={`transition-colors duration-200 ${finishing ? "bg-primary/70" : ""}`}
+            >
+              {finishing ? <Check className="h-4 w-4" /> : "Finish"}
+            </Button>
+          </div>
+
+          {badgeState !== "hidden" && (
+            <div
+              aria-hidden
+              className={`pointer-events-none absolute left-1/2 top-full z-40 -translate-x-1/2 whitespace-nowrap rounded-full border border-pr-gold/40 bg-pr-gold/15 px-3 py-1.5 text-xs font-semibold text-pr-gold shadow-sm transition-all duration-300 ease-out ${
+                badgeState === "visible"
+                  ? "mt-1 translate-y-0 opacity-100"
+                  : "mt-0 -translate-y-1 opacity-0"
+              }`}
+            >
+              🏆 {badgeLabel}
+            </div>
+          )}
         </div>
-
-        {badgeState !== "hidden" && (
-          <div
-            aria-hidden
-            className={`pointer-events-none absolute left-1/2 top-full z-40 -translate-x-1/2 whitespace-nowrap rounded-full border border-pr-gold/40 bg-pr-gold/15 px-3 py-1.5 text-xs font-semibold text-pr-gold shadow-sm transition-all duration-300 ease-out ${
-              badgeState === "visible"
-                ? "mt-1 translate-y-0 opacity-100"
-                : "mt-0 -translate-y-1 opacity-0"
-            }`}
-          >
-            🏆 {badgeLabel}
-          </div>
-        )}
       </div>
-    </div>
+
+      <AlertDialog open={finishConfirmOpen} onOpenChange={setFinishConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Finish workout?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will end your session and save your progress.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setFinishConfirmOpen(false)}>
+              Keep going
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmFinish}>Finish</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
