@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MuscleGroup } from "@/lib/exercises";
 import { muscleGroupToRegions, renderOnlyRegions } from "@/lib/muscles";
 import { getBodyType, type BodyType } from "@/lib/bodyType";
@@ -53,9 +53,59 @@ const ASSETS: Record<BodyType, Record<View, { silhouette: string; muscles: strin
 // script that generated them. All four (male/female × front/back) share
 // this exact size, so front and back panels are never visually mismatched.
 const ASPECT = "330 / 735";
+const PANEL_ASPECT = 330 / 735; // numeric form of ASPECT — used to size panels to fit the available width
 
-const RESTING_OPACITY = 0.16; // untrained region, always faintly visible
-const MAX_OPACITY = 1;
+/**
+ * Resolves a height prop (a number in px, or any CSS length like "65vh")
+ * down to an actual pixel value. Needed because sizing below has to check
+ * whether a given height would make the two panels overflow the container
+ * width — which requires a concrete number, not a string the browser
+ * resolves internally. A hidden probe element carries the raw CSS length
+ * so the browser does the resolving (vh, %, etc.) and this just reads the
+ * result back off it.
+ */
+function useResolvedHeight(
+  value: number | string,
+): [number, React.RefObject<HTMLDivElement | null>] {
+  const probeRef = useRef<HTMLDivElement>(null);
+  const [resolved, setResolved] = useState(typeof value === "number" ? value : 0);
+
+  useLayoutEffect(() => {
+    if (typeof value === "number") {
+      setResolved(value);
+      return;
+    }
+    const el = probeRef.current;
+    if (!el) return;
+    const measure = () => setResolved(el.getBoundingClientRect().height);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [value]);
+
+  return [resolved, probeRef];
+}
+
+/** Tracks an element's rendered width, so panel sizing can react to it. */
+function useElementWidth(): [number, React.RefObject<HTMLDivElement | null>] {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (typeof w === "number") setWidth(w);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return [width, ref];
+}
+
+const REST_OPACITY = 0.08; // untrained/no-data region — a faint outline only, never mistaken for "worked"
 const DIMMED_MULTIPLIER = 0.35; // applied when a different muscle is selected
 
 // The app's one established accent colour (nav active state, progress bars,
@@ -67,10 +117,38 @@ const DIMMED_MULTIPLIER = 0.35; // applied when a different muscle is selected
 // real hue, not just lightness, is what actually reads at low opacity.
 const MUSCLE_COLOR = "var(--primary)";
 
-function regionOpacity(rawIntensity: number | undefined, dimmed: boolean): number {
+// Discrete intensity tiers rather than a continuous opacity ramp. A smooth
+// gradient from REST_OPACITY to 1 reads as one undifferentiated wash of
+// green once real workout data (which rarely produces an intensity near
+// the theoretical max of 1) is plugged in — most trained muscles end up
+// bunched in the low-to-mid range and become hard to tell apart. Named,
+// stepped bands give the eye an actual jump to notice between "barely
+// worked" and "worked a lot", and only the top tier gets the glow.
+const INTENSITY_TIERS: { upTo: number; opacity: number; glow: boolean }[] = [
+  { upTo: 0.15, opacity: 0.32, glow: false }, // light
+  { upTo: 0.35, opacity: 0.55, glow: false }, // moderate
+  { upTo: 0.6, opacity: 0.8, glow: false }, // heavy
+  { upTo: Infinity, opacity: 1, glow: true }, // max — the only tier with a glow
+];
+
+const GLOW_FILTER = `drop-shadow(0 0 6px ${MUSCLE_COLOR})`;
+
+function regionStyle(
+  rawIntensity: number | undefined,
+  dimmed: boolean,
+): { opacity: number; glow: boolean } {
   const v = Math.max(0, Math.min(1, rawIntensity ?? 0));
-  const base = v > 0 ? RESTING_OPACITY + v * (MAX_OPACITY - RESTING_OPACITY) : RESTING_OPACITY;
-  return dimmed ? base * DIMMED_MULTIPLIER : base;
+  if (v <= 0)
+    return { opacity: dimmed ? REST_OPACITY * DIMMED_MULTIPLIER : REST_OPACITY, glow: false };
+  const tier =
+    INTENSITY_TIERS.find((t) => v <= t.upTo) ?? INTENSITY_TIERS[INTENSITY_TIERS.length - 1];
+  // A dimmed-but-trained region (another muscle is selected) still reads at
+  // its tier's relative opacity, just scaled down — but never glows, since
+  // the glow is meant to draw the eye to what's currently highlighted.
+  return {
+    opacity: dimmed ? tier.opacity * DIMMED_MULTIPLIER : tier.opacity,
+    glow: dimmed ? false : tier.glow,
+  };
 }
 
 /**
@@ -93,7 +171,7 @@ function regionOpacity(rawIntensity: number | undefined, dimmed: boolean): numbe
 function prepareSvg(svg: string, prefix: string): string {
   return svg
     .replace(/width="\d+" height="\d+"/, 'width="100%" height="100%"')
-    .replace(/fill="#b5b5b5"/, `fill="${MUSCLE_COLOR}" fill-opacity="${RESTING_OPACITY}"`)
+    .replace(/fill="#b5b5b5"/, `fill="${MUSCLE_COLOR}" fill-opacity="${REST_OPACITY}"`)
     .replace(/id="([a-zA-Z0-9-]+)"/g, `id="${prefix}-$1"`);
 }
 
@@ -128,14 +206,17 @@ function Panel({
       const dimmed = activeMuscle != null && activeMuscle !== group;
       const raw = intensity[group];
       if (!dimmed && !(typeof raw === "number" && raw > 0)) continue;
-      const opacity = regionOpacity(raw, dimmed);
+      const { opacity, glow } = regionStyle(raw, dimmed);
+      const filterRule = glow ? ` filter: ${GLOW_FILTER};` : "";
       for (const region of regions) {
-        rules.push(`#${prefix}-${region}-l, #${prefix}-${region}-r { fill-opacity: ${opacity}; }`);
+        rules.push(
+          `#${prefix}-${region}-l, #${prefix}-${region}-r { fill-opacity: ${opacity};${filterRule} }`,
+        );
       }
     }
 
     if (activeMuscle != null) {
-      const opacity = regionOpacity(undefined, true);
+      const { opacity } = regionStyle(undefined, true);
       for (const region of renderOnlyRegions) {
         rules.push(`#${prefix}-${region}-l, #${prefix}-${region}-r { fill-opacity: ${opacity}; }`);
       }
@@ -179,19 +260,48 @@ export function MuscleMap({
   // selector strings below, not just DOM/ARIA attributes.
   const idPrefix = useId().replace(/:/g, "");
   const [bodyType] = useState(() => getBodyType());
-  const panelHeight = height ?? (compact ? 72 : 288);
+  const gap = compact ? 6 : 16;
+
+  const requestedHeight = height ?? (compact ? 72 : 288);
+  const [desiredHeight, probeRef] = useResolvedHeight(requestedHeight);
+  const [containerWidth, containerRef] = useElementWidth();
+
+  // Both panels sit side by side at a fixed aspect ratio; a height alone
+  // (e.g. the expanded dialog's "65vh") says nothing about how wide that
+  // makes the pair, so on a narrow screen it can overflow the container
+  // and get clipped instead of scaling down. Cap the height so both panels
+  // plus the gap between them always fit the measured container width,
+  // then use whichever of that cap and the requested height is smaller.
+  const widthCappedHeight =
+    containerWidth > 0 ? (containerWidth - gap) / (2 * PANEL_ASPECT) : Infinity;
+  const panelHeight =
+    desiredHeight > 0 ? Math.min(desiredHeight, widthCappedHeight) : desiredHeight;
 
   return (
     <div
+      ref={containerRef}
       className={className}
       style={{
         display: "flex",
         justifyContent: "center",
-        gap: compact ? 6 : 16,
+        gap,
         width: "100%",
         overflow: "hidden",
       }}
     >
+      {typeof requestedHeight === "string" && (
+        <div
+          ref={probeRef}
+          aria-hidden
+          style={{
+            position: "absolute",
+            visibility: "hidden",
+            pointerEvents: "none",
+            width: 0,
+            height: requestedHeight,
+          }}
+        />
+      )}
       <Panel
         idPrefix={idPrefix}
         view="front"
