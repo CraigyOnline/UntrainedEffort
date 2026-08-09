@@ -8,6 +8,8 @@ interface ExpandableMuscleMapProps {
   activeMuscle?: MuscleGroup | null;
   className?: string;
   compact?: boolean;
+  /** Forwarded to the trigger's MuscleMap — see MuscleMap's `height` prop. */
+  height?: number | string;
   /** Called before opening — lets callers stopPropagation when this map
    *  sits inside another clickable element (e.g. a card that navigates
    *  on click), without duplicating the open logic per call site. */
@@ -30,6 +32,7 @@ export function ExpandableMuscleMap({
   activeMuscle,
   className,
   compact,
+  height,
   onTriggerClick,
 }: ExpandableMuscleMapProps) {
   const [open, setOpen] = useState(false);
@@ -50,17 +53,14 @@ export function ExpandableMuscleMap({
           activeMuscle={activeMuscle}
           className={className}
           compact={compact}
+          height={height}
         />
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-sm">
           <DialogTitle className="sr-only">Muscle activity</DialogTitle>
-          <MuscleMap
-            intensity={intensity}
-            activeMuscle={activeMuscle}
-            className="max-h-[65vh] w-full"
-          />
+          <MuscleMap intensity={intensity} activeMuscle={activeMuscle} height="65vh" />
         </DialogContent>
       </Dialog>
     </>

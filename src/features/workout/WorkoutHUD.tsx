@@ -294,7 +294,7 @@ export function WorkoutHUD({
           <div className="flex items-center gap-3">
             {/* Muscle map thumbnail — same size/styling as the Workout/Routine/History cards */}
             <div className="flex w-16 shrink-0 items-center justify-center">
-              <ExpandableMuscleMap intensity={intensity} compact className="max-h-16" />
+              <ExpandableMuscleMap intensity={intensity} compact height={64} />
             </div>
 
             <div className="min-w-0 flex-1">
