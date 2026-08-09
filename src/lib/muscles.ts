@@ -1,48 +1,54 @@
 import type { Workout } from "@/lib/db";
 import { getExercise, type MuscleGroup } from "@/lib/exercises";
 
-export const muscleIdToSvg: Record<number, string> = {
-  1: "muscle-1.svg",
-  2: "muscle-2.svg",
-  3: "muscle-3.svg",
-  4: "muscle-4.svg",
-  5: "muscle-5.svg",
-  6: "muscle-6.svg",
-  7: "muscle-7.svg",
-  8: "muscle-8.svg",
-  9: "muscle-9.svg",
-  10: "muscle-10.svg",
-  11: "muscle-11.svg",
-  12: "muscle-12.svg",
-  13: "muscle-13.svg",
-  14: "muscle-14.svg",
-  15: "muscle-15.svg",
-  16: "muscle-16.svg",
+/**
+ * Maps each tracked MuscleGroup to the anatomical region(s) that light up
+ * for it on the body map. A region name here is the base id used in
+ * src/assets/muscles/muscles-*.svg, without its "-l"/"-r" suffix — every
+ * region exists as a left/right pair, and both always receive the same
+ * intensity (the app has no notion of per-side exercise data).
+ *
+ * A MuscleGroup can map to regions on both the front and back SVGs (e.g.
+ * Shoulders → the front anterior-deltoid and the back posterior-deltoid);
+ * MuscleMap doesn't need to know or care which view a region belongs to,
+ * since a CSS rule for a region id that isn't present in a given panel's
+ * SVG simply matches nothing there.
+ *
+ * Two regions — tensor-fasciae-latae and adductors — have no exercise
+ * category of their own in MuscleGroup. Both are folded into Quads: they
+ * sit at the hip/thigh junction and are what leg exercises actually train
+ * alongside the quads themselves, so this reads correctly without
+ * expanding MuscleGroup for two minor regions nothing explicitly targets.
+ *
+ * Excludes Cardio (no anatomical region).
+ */
+export const muscleGroupToRegions: Record<Exclude<MuscleGroup, "Cardio">, string[]> = {
+  Chest: ["pectoralis-major"],
+  Shoulders: ["anterior-deltoid", "posterior-deltoid"],
+  Biceps: ["biceps-brachii"],
+  Triceps: ["triceps-brachii"],
+  Forearms: ["forearm-flexors", "forearm-extensors"],
+  Abs: ["rectus-abdominis-upper", "rectus-abdominis-middle", "rectus-abdominis-lower"],
+  Obliques: ["external-oblique"],
+  Lats: ["latissimus-dorsi"],
+  UpperBack: ["trapezius"],
+  LowerBack: ["erector-spinae"],
+  Glutes: ["gluteus-maximus"],
+  Quads: ["quadriceps", "tensor-fasciae-latae", "adductors"],
+  Hamstrings: ["hamstrings"],
+  Calves: ["gastrocnemius", "soleus"],
 };
 
-/** All muscles that have an SVG body-map layer.
- *  Excludes Cardio (no anatomical layer) and adds render-only entries
- *  Serratus and LowerCalves which have no corresponding exercise data. */
-type RenderMuscle = Exclude<MuscleGroup, "Cardio"> | "Serratus" | "LowerCalves";
-
-export const muscleNameToId: Record<RenderMuscle, number> = {
-  Biceps: 1,
-  Shoulders: 2,
-  Serratus: 3,
-  Chest: 4,
-  Triceps: 5,
-  Abs: 6,
-  Calves: 7,
-  Glutes: 8,
-  UpperBack: 9,
-  LowerBack: 9,
-  Quads: 10,
-  Hamstrings: 11,
-  Lats: 12,
-  Forearms: 13,
-  Obliques: 14,
-  LowerCalves: 15,
-};
+/**
+ * Regions drawn on the body map that no MuscleGroup — and so no
+ * exercise — ever targets. Rendered at all times for anatomical
+ * completeness, at the same resting baseline as an untrained tracked
+ * muscle, and dimmed the same way when another muscle is selected. Today
+ * this is just serratus-anterior; unlike the old wger-derived asset set,
+ * this new one has no equivalent "LowerCalves" gap — soleus is a normal
+ * part of Calves above and highlights like any other tracked region.
+ */
+export const renderOnlyRegions: string[] = ["serratus-anterior"];
 
 /**
  * Computes activation intensity per MuscleGroup from a workout.

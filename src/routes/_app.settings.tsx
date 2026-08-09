@@ -23,6 +23,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Download,
   Upload,
@@ -36,6 +37,7 @@ import {
 } from "lucide-react";
 import { getKeepAwakeDefault, setKeepAwakeDefault } from "@/lib/keepAwake";
 import { getHapticsEnabled, setHapticsEnabled } from "@/lib/haptics";
+import { getBodyType, setBodyType, type BodyType } from "@/lib/bodyType";
 import {
   getRoutineUpdatePromptEnabled,
   setRoutineUpdatePromptEnabled,
@@ -121,6 +123,18 @@ function SettingsPage() {
   function handleHapticsChange(checked: boolean) {
     setHapticsEnabledState(checked);
     setHapticsEnabled(checked);
+  }
+
+  // ── Muscle map body type ─────────────────────────────────────────────
+  const [bodyType, setBodyTypeState] = useState<BodyType>("male");
+  useEffect(() => {
+    setBodyTypeState(getBodyType());
+  }, []);
+
+  function handleBodyTypeChange(value: string) {
+    const next = value as BodyType;
+    setBodyTypeState(next);
+    setBodyType(next);
   }
 
   // ── "Update Routine?" prompt ──────────────────────────────────────────
@@ -353,6 +367,30 @@ function SettingsPage() {
             checked={routineUpdatePromptEnabled}
             onCheckedChange={handleRoutineUpdatePromptChange}
           />
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-border/50 pt-4">
+          <div className="min-w-0">
+            <p className="text-sm">Muscle map body type</p>
+            <p className="text-xs text-muted-foreground">
+              Which body is shown on the muscle map (Profile, workout summaries, and the live HUD).
+              Purely visual — doesn't affect exercise data.
+            </p>
+          </div>
+          <RadioGroup
+            value={bodyType}
+            onValueChange={handleBodyTypeChange}
+            className="flex shrink-0 gap-3"
+          >
+            <label className="flex items-center gap-1.5 text-sm">
+              <RadioGroupItem value="male" />
+              Male
+            </label>
+            <label className="flex items-center gap-1.5 text-sm">
+              <RadioGroupItem value="female" />
+              Female
+            </label>
+          </RadioGroup>
         </div>
 
         <Link
