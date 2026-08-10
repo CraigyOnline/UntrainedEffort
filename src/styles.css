@@ -38,6 +38,7 @@
   --color-chart-5: var(--chart-5);
   --color-pr-gold: var(--pr-gold);
   --color-intensity: var(--intensity);
+  --color-muscle-silhouette: var(--muscle-silhouette);
   --font-display: "Inter", system-ui, -apple-system, sans-serif;
 }
 
@@ -80,6 +81,14 @@
    *  A dedicated amber token (same pattern as --pr-gold above) reads as
    *  "active exertion" without colliding with that learned meaning. */
   --intensity: oklch(0.75 0.17 55);
+  /** Muscle map body-outline fill. Previously hardcoded as #2e343a inside
+   *  each silhouette-*.svg asset, which happened to land at almost the
+   *  same lightness as --card/--secondary behind it — the outline read as
+   *  barely a layer at all. A dedicated token, one step lighter than
+   *  --border, keeps it theme-controlled and gives the outline (and by
+   *  extension the muscle overlay on top of it) an actual base to read
+   *  against. */
+  --muscle-silhouette: oklch(0.36 0.016 250);
 }
 
 @layer base {

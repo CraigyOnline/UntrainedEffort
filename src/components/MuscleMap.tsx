@@ -3,10 +3,10 @@ import type { MuscleGroup } from "@/lib/exercises";
 import { muscleGroupToRegions, renderOnlyRegions } from "@/lib/muscles";
 import { getBodyType, type BodyType } from "@/lib/bodyType";
 
-import silhouetteMaleFront from "@/assets/muscles/silhouette-male-front.svg";
-import silhouetteMaleBack from "@/assets/muscles/silhouette-male-back.svg";
-import silhouetteFemaleFront from "@/assets/muscles/silhouette-female-front.svg";
-import silhouetteFemaleBack from "@/assets/muscles/silhouette-female-back.svg";
+import silhouetteMaleFront from "@/assets/muscles/silhouette-male-front.svg?raw";
+import silhouetteMaleBack from "@/assets/muscles/silhouette-male-back.svg?raw";
+import silhouetteFemaleFront from "@/assets/muscles/silhouette-female-front.svg?raw";
+import silhouetteFemaleBack from "@/assets/muscles/silhouette-female-back.svg?raw";
 
 import musclesMaleFront from "@/assets/muscles/muscles-male-front.svg?raw";
 import musclesMaleBack from "@/assets/muscles/muscles-male-back.svg?raw";
@@ -117,6 +117,11 @@ const DIMMED_MULTIPLIER = 0.35; // applied when a different muscle is selected
 // real hue, not just lightness, is what actually reads at low opacity.
 const MUSCLE_COLOR = "var(--primary)";
 
+// Body-outline colour, drawn beneath the muscle overlay. See
+// --muscle-silhouette in styles.css for why this is a dedicated token
+// rather than the hardcoded #2e343a the source SVGs used to carry.
+const SILHOUETTE_COLOR = "var(--muscle-silhouette)";
+
 // Discrete intensity tiers rather than a continuous opacity ramp. A smooth
 // gradient from REST_OPACITY to 1 reads as one undifferentiated wash of
 // green once real workout data (which rarely produces an intensity near
@@ -179,8 +184,8 @@ function regionStyle(
  *    once (and so two MuscleMap instances on the same page never collide
  *    with each other either, since the prefix includes a React useId).
  *  - swaps the root <svg>'s fixed width/height for 100%, so it fills its
- *    container exactly like the silhouette <img> below it (both share the
- *    same viewBox, so they overlay in perfect alignment either way).
+ *    container exactly like the inlined silhouette beneath it (both share
+ *    the same viewBox, so they overlay in perfect alignment either way).
  *  - recolours the root <g>'s fill from the source file's flat grey to the
  *    app's accent colour, and sets a baseline fill-opacity there too —
  *    both inherited by every path unless a more specific rule below
@@ -193,6 +198,19 @@ function prepareSvg(svg: string, prefix: string): string {
     .replace(/width="\d+" height="\d+"/, 'width="100%" height="100%"')
     .replace(/fill="#b5b5b5"/, `fill="${MUSCLE_COLOR}" fill-opacity="${REST_OPACITY}"`)
     .replace(/id="([a-zA-Z0-9-]+)"/g, `id="${prefix}-$1"`);
+}
+
+/**
+ * Prepares one panel's raw silhouette-*.svg source for inline injection —
+ * same width/height treatment as prepareSvg, but recolours to
+ * SILHOUETTE_COLOR at full opacity rather than the muscle overlay's
+ * resting wash. No id-namespacing needed: the silhouette source has no
+ * ids of its own to collide with.
+ */
+function prepareSilhouetteSvg(svg: string): string {
+  return svg
+    .replace(/width="\d+" height="\d+"/, 'width="100%" height="100%"')
+    .replace(/fill="#b5b5b5"/, `fill="${SILHOUETTE_COLOR}"`);
 }
 
 function Panel({
@@ -213,6 +231,7 @@ function Panel({
   const { silhouette, muscles } = ASSETS[bodyType][view];
   const prefix = `${idPrefix}-${view}`;
 
+  const preparedSilhouette = useMemo(() => prepareSilhouetteSvg(silhouette), [silhouette]);
   const preparedSvg = useMemo(() => prepareSvg(muscles, prefix), [muscles, prefix]);
 
   // Only regions that need to differ from the baked-in resting baseline
@@ -248,16 +267,10 @@ function Panel({
 
   return (
     <div style={{ position: "relative", height, aspectRatio: ASPECT, flexShrink: 0 }}>
-      <img
-        src={silhouette}
-        alt=""
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "contain",
-        }}
+      <div
+        aria-hidden
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+        dangerouslySetInnerHTML={{ __html: preparedSilhouette }}
       />
       <style>{styleRules}</style>
       <div

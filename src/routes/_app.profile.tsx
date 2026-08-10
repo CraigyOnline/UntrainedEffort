@@ -329,7 +329,7 @@ function ProfilePage() {
         </div>
 
         <div
-          className={`mb-5 rounded-xl p-3 ${selectedMuscle ? "bg-primary/10" : "bg-secondary/20"}`}
+          className={`mb-5 rounded-xl p-3 ${selectedMuscle ? "bg-primary/10" : "bg-secondary/50"}`}
         >
           <MuscleMap intensity={intensity} activeMuscle={selectedMuscle} className="w-full" />
         </div>
