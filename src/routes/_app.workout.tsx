@@ -11,7 +11,8 @@ import {
   type WorkoutExerciseLog,
   type PRRecord,
 } from "@/lib/db";
-import { getExercise, formatCompletedSet, seedUnilateralSide } from "@/lib/exercises";
+import { getExercise, getExerciseLoggingSchema, formatCompletedSet, seedUnilateralSide } from "@/lib/exercises";
+import { formatPRValue, formatPRDelta } from "@/lib/exerciseProgress";
 import { ExercisePicker } from "@/components/forms/ExercisePicker";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -452,16 +453,22 @@ function WorkoutPage() {
               {summaryPRs.map((pr, i) => {
                 const def = getExercise(pr.exerciseId);
                 const name = def?.name ?? pr.exerciseId;
+                const schema = getExerciseLoggingSchema(def);
                 const typeLabel =
-                  pr.type === "weight" ? "Weight" : pr.type === "reps" ? "Reps" : "Duration";
-                const fmt = (v: number) =>
-                  pr.type === "time"
-                    ? v >= 60
-                      ? `${Math.floor(v / 60)}:${String(v % 60).padStart(2, "0")}`
-                      : `${v}s`
-                    : pr.type === "weight"
-                      ? `${v}kg`
-                      : `${v}`;
+                  pr.type === "weight"
+                    ? "Weight"
+                    : pr.type === "reps"
+                      ? "Reps"
+                      : pr.type === "time"
+                        ? "Duration"
+                        : pr.type === "distance"
+                          ? "Distance"
+                          : pr.type === "pace"
+                            ? "Pace"
+                          : schema.paceConvention?.style === "rate"
+                            ? "Rate"
+                            : "Speed";
+                const fmt = (v: number) => formatPRValue(pr.type, v, schema);
                 const isFirst = (pr.previousBest ?? 0) === 0;
                 return (
                   <div
@@ -485,7 +492,7 @@ function WorkoutPage() {
                     </div>
                     {!isFirst && (
                       <span className="shrink-0 text-xs text-pr-gold font-semibold">
-                        +{fmt(pr.delta ?? pr.value)}
+                        {formatPRDelta(pr.type, pr.delta ?? pr.value, schema)}
                       </span>
                     )}
                   </div>

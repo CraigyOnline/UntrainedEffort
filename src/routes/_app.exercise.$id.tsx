@@ -11,6 +11,9 @@ import {
   formatMetricValue,
   getCardioRate,
   formatCardioRate,
+  formatPRValue,
+  formatPRDelta,
+  type DisplayPRType,
 } from "@/lib/exerciseProgress";
 import { formatDate } from "@/lib/format";
 import { EmptyState } from "@/components/EmptyState";
@@ -116,21 +119,14 @@ function ExerciseProgressPage() {
     : null;
 
   // Latest PR per type — derived directly from stored records
-  const latest: Partial<Record<"weight" | "reps" | "time", PRRecord>> = {};
+  const latest: Partial<Record<DisplayPRType, PRRecord>> = {};
   if (prs) {
     for (const pr of prs) {
       latest[pr.type] = pr; // prs is ascending by createdAt, so last wins
     }
   }
 
-  const fmt = (pr: PRRecord, v: number) =>
-    pr.type === "time"
-      ? v >= 60
-        ? `${Math.floor(v / 60)}:${String(v % 60).padStart(2, "0")}`
-        : `${v}s`
-      : pr.type === "weight"
-        ? `${v}kg`
-        : `${v}`;
+  const fmt = (pr: PRRecord, v: number) => formatPRValue(pr.type, v, schema);
 
   // Group PRs by type for the progression list
   const byType: Record<string, PRRecord[]> = {};
@@ -141,11 +137,14 @@ function ExerciseProgressPage() {
     }
   }
 
-  const typeOrder: Array<"weight" | "reps" | "time"> = ["weight", "reps", "time"];
+  const typeOrder: DisplayPRType[] = ["weight", "reps", "time", "distance", "pace", "speed"];
   const typeLabel: Record<string, string> = {
     weight: "Weight",
     reps: "Reps",
     time: "Duration",
+    distance: "Distance",
+    pace: "Pace",
+    speed: schema.paceConvention?.style === "rate" ? "Rate" : "Speed",
   };
 
   return (
@@ -248,7 +247,7 @@ function ExerciseProgressPage() {
                       </div>
                       {!isFirst && (
                         <span className="shrink-0 text-xs font-semibold text-primary">
-                          +{fmt(pr, pr.delta ?? pr.value - (pr.previousBest ?? 0))}
+                          {formatPRDelta(pr.type, pr.delta ?? pr.value - (pr.previousBest ?? 0), schema)}
                         </span>
                       )}
                     </div>

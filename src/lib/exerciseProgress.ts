@@ -158,6 +158,42 @@ export function formatCardioRate(
   return `${value.toFixed(1)} ${unit}/min`;
 }
 
+export type DisplayPRType = "weight" | "reps" | "time" | "distance" | "pace" | "speed";
+
+export function formatPRValue(
+  type: DisplayPRType,
+  value: number,
+  schema: ExerciseLoggingSchema,
+): string {
+  if (type === "time") return formatMetricValue("duration", value);
+  if (type === "weight") return `${value}kg`;
+  if (type === "distance") return formatDistanceValue(schema.distanceUnit ?? "km", value);
+  if (type === "reps") return `${value}`;
+  if (schema.paceConvention && schema.distanceUnit) {
+    if (type === "pace") {
+      const unit = schema.distanceUnit === "km" ? "km" : schema.distanceUnit === "m" ? "m" : "floors";
+      const per = schema.paceConvention.per === 1 ? unit : `${schema.paceConvention.per}${unit}`;
+      return `${formatDuration(Math.round(value))}/${per}`;
+    }
+    const unit = schema.distanceUnit === "km" ? "km" : schema.distanceUnit === "m" ? "m" : "floors";
+    return schema.paceConvention.style === "rate"
+      ? `${value.toFixed(1)} ${unit}/min`
+      : `${value.toFixed(1)} ${unit}/h`;
+  }
+  return `${value}`;
+}
+
+export function formatPRDelta(
+  type: DisplayPRType,
+  delta: number,
+  schema: ExerciseLoggingSchema,
+): string {
+  if (type === "pace") {
+    return `${formatDuration(Math.round(delta))} faster`;
+  }
+  return `+${formatPRValue(type, delta, schema)}`;
+}
+
 export type Trend = "up" | "down" | "flat";
 
 /**

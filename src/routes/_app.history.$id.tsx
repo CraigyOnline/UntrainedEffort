@@ -22,6 +22,7 @@ import { UnilateralSetInputs } from "@/components/forms/UnilateralSetInputs";
 import { Button } from "@/components/ui/button";
 import { WorkoutSummary } from "@/components/WorkoutSummary";
 import { formatDuration } from "@/lib/format";
+import { formatPRValue, formatPRDelta } from "@/lib/exerciseProgress";
 import { haptics } from "@/lib/haptics";
 import {
   AlertDialog,
@@ -307,16 +308,22 @@ function HistoryDetailPage() {
           {workoutPRs.map((pr, i) => {
             const def = getExercise(pr.exerciseId);
             const name = def?.name ?? pr.exerciseId;
+            const schema = getExerciseLoggingSchema(def);
             const typeLabel =
-              pr.type === "weight" ? "Weight" : pr.type === "reps" ? "Reps" : "Duration";
-            const fmt = (v: number) =>
-              pr.type === "time"
-                ? v >= 60
-                  ? `${Math.floor(v / 60)}:${String(v % 60).padStart(2, "0")}`
-                  : `${v}s`
-                : pr.type === "weight"
-                  ? `${v}kg`
-                  : `${v}`;
+              pr.type === "weight"
+                ? "Weight"
+                : pr.type === "reps"
+                  ? "Reps"
+                  : pr.type === "time"
+                    ? "Duration"
+                    : pr.type === "distance"
+                      ? "Distance"
+                      : pr.type === "pace"
+                      ? "Pace"
+                      : schema.paceConvention?.style === "rate"
+                        ? "Rate"
+                        : "Speed";
+            const fmt = (v: number) => formatPRValue(pr.type, v, schema);
             const isFirst = (pr.previousBest ?? 0) === 0;
             return (
               <div key={i} className="flex items-center justify-between gap-2">
@@ -336,7 +343,7 @@ function HistoryDetailPage() {
                 </div>
                 {!isFirst && (
                   <span className="shrink-0 text-xs font-semibold text-primary">
-                    +{fmt(pr.delta ?? pr.value - (pr.previousBest ?? 0))}
+                    {formatPRDelta(pr.type, pr.delta ?? pr.value - (pr.previousBest ?? 0), schema)}
                   </span>
                 )}
               </div>

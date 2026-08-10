@@ -74,7 +74,7 @@ export interface Workout {
 export interface PRRecord {
   id?: number;
   exerciseId: string;
-  type: "weight" | "reps" | "time";
+  type: "weight" | "reps" | "time" | "distance" | "pace" | "speed";
   value: number;
   /** Which side this PR belongs to, for a unilateral exercise — a
    *  positional index matching setPerformances (0 = first/left, 1 =

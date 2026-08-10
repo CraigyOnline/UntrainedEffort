@@ -49,6 +49,10 @@ function prTypeLabel(type: PRType): string {
       return "Rep";
     case "time":
       return "Time";
+    case "pace":
+      return "Pace";
+    case "speed":
+      return "Speed";
   }
 }
 

@@ -2,6 +2,7 @@ import { getDb, type Workout, type PRRecord } from "@/lib/db";
 import {
   getExercise,
   getIntervalConfig,
+  getExerciseLoggingSchema,
   isTimeBased,
   setPerformances,
   type SetSide,
@@ -55,6 +56,31 @@ function relevantPRValues(def: ReturnType<typeof getExercise>, set: SetLike): PR
 
   performances.forEach((perf, i) => {
     const side = sided ? i : undefined;
+    const schema = getExerciseLoggingSchema(def);
+    if (schema.distance && schema.distanceUnit) {
+      const distance = perf.weight ?? 0;
+      if (distance > 0) out.push({ type: "distance", value: distance, side });
+
+      if (schema.paceConvention && (perf.duration ?? 0) > 0 && distance > 0) {
+        const durationSec = perf.duration!;
+        if (schema.paceConvention.style === "pace") {
+          const pace = durationSec / (distance / schema.paceConvention.per);
+          out.push({ type: "pace", value: pace, side });
+        } else if (schema.paceConvention.style === "speed") {
+          const speed = (distance / durationSec) * 3600;
+          out.push({ type: "speed", value: speed, side });
+        } else {
+          const rate = (distance / durationSec) * 60;
+          out.push({ type: "speed", value: rate, side });
+        }
+      }
+      return;
+    }
+    if (schema.duration && (isTimeBased(def) || def?.cardio)) {
+      const d = perf.duration ?? 0;
+      if (d > 0) out.push({ type: "time", value: d, side });
+      return;
+    }
     if (isTimeBased(def)) {
       const d = perf.duration ?? 0;
       if (d > 0) out.push({ type: "time", value: d, side });
@@ -100,6 +126,16 @@ function prKey(exerciseId: string, type: PRType, side: number | undefined): stri
  * Must be called from inside the caller's own Dexie transaction so a
  * failure here rolls back the mutation that triggered it too.
  */
+function isBetterPR(type: PRType, value: number, best: number): boolean {
+  if (best <= 0) return value > 0;
+  return type === "pace" ? value < best : value > best;
+}
+
+function prDelta(type: PRType, value: number, previousBest: number): number {
+  if (previousBest <= 0) return value;
+  return type === "pace" ? previousBest - value : value - previousBest;
+}
+
 async function rebuildPersonalRecords(): Promise<void> {
   const db = getDb();
   await db.prHistory.clear();
@@ -120,7 +156,8 @@ async function rebuildPersonalRecords(): Promise<void> {
         if (!s.completed) continue;
         for (const { type, value, side } of relevantPRValues(def, s)) {
           const key = prKey(ex.exerciseId, type, side);
-          if (value > (withinWorkout.get(key) ?? 0)) {
+          const current = withinWorkout.get(key) ?? 0;
+          if (isBetterPR(type, value, current)) {
             withinWorkout.set(key, value);
           }
         }
@@ -129,15 +166,15 @@ async function rebuildPersonalRecords(): Promise<void> {
 
     for (const [key, value] of withinWorkout) {
       const previousBest = best.get(key) ?? 0;
-      if (value > previousBest) {
-        const { exerciseId, type, side } = splitKey(key);
+      const { exerciseId, type, side } = splitKey(key);
+      if (isBetterPR(type, value, previousBest)) {
         await db.prHistory.add({
           exerciseId,
           type,
           value,
           side,
           previousBest,
-          delta: value - previousBest,
+          delta: prDelta(type, value, previousBest),
           workoutId: workout.id,
           createdAt: workout.startedAt,
         });
@@ -197,16 +234,19 @@ export async function recordNewWorkoutPRs(workout: Workout & { id: number }): Pr
         const existing = await db.prHistory.where({ exerciseId: ex.exerciseId, type }).toArray();
         const previousBest = existing
           .filter((p) => p.side === side)
-          .reduce((m, p) => Math.max(m, p.value), 0);
+          .reduce(
+            (m, p) => (m <= 0 || isBetterPR(type, p.value, m) ? p.value : m),
+            0,
+          );
 
-        if (value > previousBest) {
+        if (isBetterPR(type, value, previousBest)) {
           await db.prHistory.add({
             exerciseId: ex.exerciseId,
             type,
             value,
             side,
             previousBest,
-            delta: value - previousBest,
+            delta: prDelta(type, value, previousBest),
             workoutId: workout.id,
             createdAt: Date.now(),
           });
@@ -266,9 +306,12 @@ export async function checkLivePRs(
     const existing = await db.prHistory.where({ exerciseId, type }).toArray();
     const previousBest = existing
       .filter((p) => p.side === side)
-      .reduce((m, p) => Math.max(m, p.value), 0);
+      .reduce(
+        (m, p) => (m <= 0 || isBetterPR(type, p.value, m) ? p.value : m),
+        0,
+      );
 
-    if (value > previousBest) {
+    if (isBetterPR(type, value, previousBest)) {
       hits.push({ type, value, side, previousBest });
       alreadyCredited?.add(key);
     }
