@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { CardioPerformanceCard, IntervalPerformanceCard, WorkoutStatsRow } from "@/components/WorkoutSummary";
 import { computeIntensity } from "@/lib/muscles";
+import { computeWorkoutDisplayStats } from "@/lib/workoutStats";
 import {
   AlertDialog,
   AlertDialogAction,

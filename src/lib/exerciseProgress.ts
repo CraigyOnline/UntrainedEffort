@@ -170,7 +170,7 @@ export function formatPRValue(
   if (type === "distance") return formatDistanceValue(schema.distanceUnit ?? "km", value);
   if (type === "reps") return `${value}`;
   if (schema.paceConvention && schema.distanceUnit) {
-    if (type === "pace") {
+    if (type === "pace" && schema.paceConvention.style === "pace") {
       const unit = schema.distanceUnit === "km" ? "km" : schema.distanceUnit === "m" ? "m" : "floors";
       const per = schema.paceConvention.per === 1 ? unit : `${schema.paceConvention.per}${unit}`;
       return `${formatDuration(Math.round(value))}/${per}`;

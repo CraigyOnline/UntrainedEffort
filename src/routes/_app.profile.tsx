@@ -250,7 +250,7 @@ function ProfilePage() {
               <p className="text-xs text-muted-foreground">Your cardio counts too.</p>
             </div>
             <button
-              onClick={() => navigate({ to: "/history/" })}
+              onClick={() => navigate({ to: "/history" })}
               className="text-xs font-medium text-primary active:opacity-70"
             >
               See progress →
