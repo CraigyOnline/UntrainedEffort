@@ -129,12 +129,13 @@ export function computeWorkoutDisplayStats(
     cardioActivities.push(activity);
   }
 
+  const modalityCount = Number(hasStrength) + Number(hasCardio) + Number(hasInterval);
   const mode: WorkoutMode =
-    hasStrength && (hasCardio || hasInterval)
+    modalityCount > 1
       ? "mixed"
-      : hasCardio && !hasStrength && !hasInterval
+      : hasCardio
         ? "cardio"
-        : hasInterval && !hasStrength && !hasCardio
+        : hasInterval
           ? "interval"
           : "strength";
 

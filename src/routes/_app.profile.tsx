@@ -9,7 +9,12 @@ import {
   type MuscleGroup,
   type DistanceUnit,
 } from "@/lib/exercises";
-import { computeWorkoutStats } from "@/lib/workoutStats";
+import {
+  computeWorkoutDisplayStats,
+  computeWorkoutStats,
+  formatCardioActivity,
+  type CardioActivityStats,
+} from "@/lib/workoutStats";
 import {
   getPrimaryMetric,
   getPrimaryMetricKind,
@@ -23,6 +28,7 @@ import { selectHomeGreeting } from "@/lib/homeGreetings";
 import { Activity, TrendingUp, CalendarDays, BarChart3, Target, Flame } from "lucide-react";
 import { MuscleMap } from "@/components/MuscleMap";
 import { useDismissOnBack } from "@/lib/backHandler";
+import { formatTimeTrained } from "@/features/history/duration";
 
 export const Route = createFileRoute("/_app/profile")({
   head: () => ({
@@ -234,6 +240,51 @@ function ProfilePage() {
           value={stats.thisWeek.toString()}
         />
       </section>
+
+      {/* CARDIO SNAPSHOT */}
+      {stats.cardio.sessions > 0 && (
+        <section>
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold">Cardio</h2>
+              <p className="text-xs text-muted-foreground">Your cardio counts too.</p>
+            </div>
+            <button
+              onClick={() => navigate({ to: "/history/" })}
+              className="text-xs font-medium text-primary active:opacity-70"
+            >
+              See progress →
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <StatCard
+              icon={<Activity className="h-4 w-4" />}
+              label="Sessions"
+              value={stats.cardio.sessions.toString()}
+            />
+            <StatCard
+              icon={<CalendarDays className="h-4 w-4" />}
+              label="Cardio time"
+              value={formatTimeTrained(stats.cardio.durationSec)}
+            />
+          </div>
+
+          <div className="mt-3 rounded-2xl bg-card p-4">
+            <p className="text-xs font-medium text-muted-foreground">Recent activities</p>
+            <div className="mt-3 flex flex-col gap-2.5">
+              {stats.cardio.activities.slice(0, 3).map((activity) => (
+                <div key={activity.exerciseId} className="flex items-baseline justify-between gap-3">
+                  <span className="truncate text-sm font-medium">{activity.name}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formatProfileCardioActivity(activity)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* TRAINING INSIGHTS */}
       {!workouts ? null : workouts.length === 0 ? (
@@ -498,6 +549,11 @@ function ProfilePage() {
 
 /* ===================== */
 
+function formatProfileCardioActivity(activity: CardioActivityStats): string {
+  const formatted = formatCardioActivity(activity);
+  return formatted || formatTimeTrained(activity.durationSec);
+}
+
 function StatCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-card p-4">
@@ -588,10 +644,44 @@ function computeStats(workouts: Workout[]) {
     0,
   );
 
+  const cardioByExercise = new Map<string, CardioActivityStats>();
+  let cardioSessions = 0;
+  let cardioDurationSec = 0;
+
+  for (const workout of workouts) {
+    const display = computeWorkoutDisplayStats(workout.exercises);
+    if (display.cardioActivities.length === 0) continue;
+
+    cardioSessions += 1;
+    for (const activity of display.cardioActivities) {
+      cardioDurationSec += activity.durationSec;
+      const existing = cardioByExercise.get(activity.exerciseId);
+      if (!existing) {
+        cardioByExercise.set(activity.exerciseId, { ...activity });
+        continue;
+      }
+
+      existing.durationSec += activity.durationSec;
+      if (
+        activity.distance != null &&
+        activity.distanceUnit === existing.distanceUnit
+      ) {
+        existing.distance = (existing.distance ?? 0) + activity.distance;
+      }
+    }
+  }
+
   return {
     total,
     totalVolume,
     thisWeek: countActiveDays(workouts, 7 * 86400000),
+    cardio: {
+      sessions: cardioSessions,
+      durationSec: cardioDurationSec,
+      activities: Array.from(cardioByExercise.values()).sort(
+        (a, b) => b.durationSec - a.durationSec,
+      ),
+    },
   };
 }
 

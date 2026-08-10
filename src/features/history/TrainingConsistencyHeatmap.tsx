@@ -1,7 +1,12 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import type { Workout } from "@/lib/db";
-import { computeWorkoutStats } from "@/lib/workoutStats";
+import {
+  computeWorkoutDisplayStats,
+  computeWorkoutStats,
+  formatCardioActivity,
+  type WorkoutMode,
+} from "@/lib/workoutStats";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -53,6 +58,7 @@ interface DayCell {
   isFuture: boolean;
   isFirstOfMonth: boolean;
   monthLabel: string;
+  mode: WorkoutMode;
 }
 
 interface TrainingConsistencyHeatmapProps {
@@ -104,6 +110,7 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
         isFuture: cursor > today,
         isFirstOfMonth: cursor.getDate() === 1,
         monthLabel: MONTH_LABELS[cursor.getMonth()],
+        mode: getDayMode(workoutsByDay.get(key) ?? []),
       });
       cursor.setDate(cursor.getDate() + 1);
     }
@@ -180,14 +187,35 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
                 className={`aspect-square rounded-sm ${
                   day.isFuture
                     ? "invisible"
-                    : day.trained
-                      ? "bg-primary active:scale-90"
-                      : "bg-secondary"
+                    : !day.trained
+                      ? "bg-secondary"
+                      : day.mode === "cardio"
+                        ? "bg-primary/60 active:scale-90"
+                        : day.mode === "interval"
+                          ? "bg-primary/40 active:scale-90"
+                          : day.mode === "mixed"
+                            ? "bg-primary ring-1 ring-primary-foreground/70 active:scale-90"
+                            : "bg-primary active:scale-90"
                 }`}
               />
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-primary" /> Strength
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-primary/60" /> Cardio
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-primary/40" /> Intervals
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-primary ring-1 ring-primary-foreground/70" /> Mixed
+        </span>
       </div>
 
       <Dialog open={!!selectedDayKey} onOpenChange={(open) => !open && setSelectedDayKey(null)}>
@@ -199,14 +227,32 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
           <div className="flex flex-col gap-3">
             {selectedDayKey &&
               workoutsByDay.get(selectedDayKey)?.map((w) => {
+                const display = computeWorkoutDisplayStats(w.exercises);
                 const { totalSets, totalVolume } = computeWorkoutStats(w.exercises);
+                const cardioSummary = display.cardioActivities
+                  .map(formatCardioActivity)
+                  .filter(Boolean)
+                  .join(" · ");
+                const intervalSummary = display.intervalActivities.length > 0
+                  ? `${display.intervalActivities.reduce((sum, activity) => sum + activity.rounds, 0)} rounds`
+                  : "";
                 return (
                   <div key={w.id ?? w.startedAt} className="rounded-2xl bg-card p-4">
-                    <p className="font-semibold">{w.name}</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-semibold">{w.name}</p>
+                      <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium capitalize text-muted-foreground">
+                        {display.mode}
+                      </span>
+                    </div>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {Math.max(1, Math.round((w.durationSec ?? 0) / 60))} min ·{" "}
-                      {w.exercises.length} ex · {totalSets} sets
-                      {totalVolume > 0 && ` · ${totalVolume.toLocaleString()} kg`}
+                      {display.mode === "cardio" && cardioSummary
+                        ? cardioSummary
+                        : display.mode === "interval" && intervalSummary
+                          ? intervalSummary
+                          : `${w.exercises.length} ex · ${totalSets} sets${
+                              totalVolume > 0 ? ` · ${totalVolume.toLocaleString()} kg` : ""
+                            }`}
                     </p>
                     <Button
                       size="sm"
@@ -233,6 +279,17 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
       </Dialog>
     </div>
   );
+}
+
+function getDayMode(workouts: Workout[]): WorkoutMode {
+  const modes = new Set<WorkoutMode>();
+  for (const workout of workouts) {
+    modes.add(computeWorkoutDisplayStats(workout.exercises).mode);
+  }
+
+  if (modes.size === 0) return "strength";
+  if (modes.size > 1 || modes.has("mixed")) return "mixed";
+  return modes.values().next().value ?? "strength";
 }
 
 /** e.g. "2026-07-15" -> "Wednesday, July 15" */
