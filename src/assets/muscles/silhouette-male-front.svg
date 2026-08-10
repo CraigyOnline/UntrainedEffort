@@ -1,4 +1,3 @@
-<!-- fill #2e343a mirrors the app's --border token (oklch(0.32 0.014 250)); resolved to a literal hex since this SVG is loaded via <img> and cannot see the page's CSS custom properties. Was #020303 (near-invisible against the #05080c app background). -->
 <svg xmlns="http://www.w3.org/2000/svg" width="330" height="735" viewBox="0 0 330 735">
   <g fill="#2e343a" stroke="none" transform="translate(-22.963,764) scale(0.1,-0.1)">
     <path d="M1755 7536 c-75 -31 -136 -95
