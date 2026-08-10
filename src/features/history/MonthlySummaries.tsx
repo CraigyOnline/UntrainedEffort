@@ -131,10 +131,7 @@ function groupByMonth(workouts: Workout[]): MonthGroup[] {
           }
 
           existing.durationSec += activity.durationSec;
-          if (
-            activity.distance != null &&
-            activity.distanceUnit === existing.distanceUnit
-          ) {
+          if (activity.distance != null && activity.distanceUnit === existing.distanceUnit) {
             existing.distance = (existing.distance ?? 0) + activity.distance;
           }
         }

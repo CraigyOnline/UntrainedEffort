@@ -105,10 +105,7 @@ export function formatMetricValue(
  * chunk (e.g. seconds per km or per 500m). For speed/rate it is the numeric
  * units used by the convention (distance/hour or distance/minute).
  */
-export function getCardioRate(
-  schema: ExerciseLoggingSchema,
-  sets: WorkoutSet[],
-): number | null {
+export function getCardioRate(schema: ExerciseLoggingSchema, sets: WorkoutSet[]): number | null {
   if (!schema.distance || !schema.distanceUnit || !schema.paceConvention) return null;
 
   let distance = 0;
@@ -139,10 +136,7 @@ export function getCardioRate(
 /** Formats the numeric result returned by getCardioRate using the exercise's
  * actual convention, so running, rowing, cycling and stair climbing all get
  * their familiar units instead of a generic decimal. */
-export function formatCardioRate(
-  schema: ExerciseLoggingSchema,
-  value: number,
-): string {
+export function formatCardioRate(schema: ExerciseLoggingSchema, value: number): string {
   const convention = schema.paceConvention;
   if (!convention) return "—";
   if (convention.style === "pace") {
@@ -171,7 +165,8 @@ export function formatPRValue(
   if (type === "reps") return `${value}`;
   if (schema.paceConvention && schema.distanceUnit) {
     if (type === "pace" && schema.paceConvention.style === "pace") {
-      const unit = schema.distanceUnit === "km" ? "km" : schema.distanceUnit === "m" ? "m" : "floors";
+      const unit =
+        schema.distanceUnit === "km" ? "km" : schema.distanceUnit === "m" ? "m" : "floors";
       const per = schema.paceConvention.per === 1 ? unit : `${schema.paceConvention.per}${unit}`;
       return `${formatDuration(Math.round(value))}/${per}`;
     }
@@ -245,10 +240,7 @@ export function getCardioTrend(
  * sessions. The percentage is intentionally rounded to one decimal place;
  * no comparison is shown when there is only one session.
  */
-export function formatCardioInsight(
-  schema: ExerciseLoggingSchema,
-  trend: CardioTrend,
-): string {
+export function formatCardioInsight(schema: ExerciseLoggingSchema, trend: CardioTrend): string {
   const metric =
     schema.paceConvention?.style === "pace"
       ? "pace"

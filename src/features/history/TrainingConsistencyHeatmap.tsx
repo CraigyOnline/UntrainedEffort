@@ -214,7 +214,8 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
           <span className="h-2.5 w-2.5 rounded-sm bg-intensity" /> Intervals
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-chart-4 ring-1 ring-primary-foreground/70" /> Mixed
+          <span className="h-2.5 w-2.5 rounded-sm bg-chart-4 ring-1 ring-primary-foreground/70" />{" "}
+          Mixed
         </span>
       </div>
 
@@ -233,9 +234,10 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
                   .map(formatCardioActivity)
                   .filter(Boolean)
                   .join(" · ");
-                const intervalSummary = display.intervalActivities.length > 0
-                  ? `${display.intervalActivities.reduce((sum, activity) => sum + activity.rounds, 0)} rounds`
-                  : "";
+                const intervalSummary =
+                  display.intervalActivities.length > 0
+                    ? `${display.intervalActivities.reduce((sum, activity) => sum + activity.rounds, 0)} rounds`
+                    : "";
                 return (
                   <div key={w.id ?? w.startedAt} className="rounded-2xl bg-card p-4">
                     <div className="flex items-center justify-between gap-3">

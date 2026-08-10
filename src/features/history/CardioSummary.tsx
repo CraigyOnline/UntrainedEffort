@@ -94,7 +94,10 @@ function computeCardioSummary(workouts: Workout[]) {
     if (display.cardioActivities.length === 0) continue;
 
     sessions += 1;
-    durationSec += display.cardioActivities.reduce((sum, activity) => sum + activity.durationSec, 0);
+    durationSec += display.cardioActivities.reduce(
+      (sum, activity) => sum + activity.durationSec,
+      0,
+    );
 
     for (const activity of display.cardioActivities) {
       const existing = activities.get(activity.exerciseId);

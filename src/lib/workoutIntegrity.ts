@@ -234,10 +234,7 @@ export async function recordNewWorkoutPRs(workout: Workout & { id: number }): Pr
         const existing = await db.prHistory.where({ exerciseId: ex.exerciseId, type }).toArray();
         const previousBest = existing
           .filter((p) => p.side === side)
-          .reduce(
-            (m, p) => (m <= 0 || isBetterPR(type, p.value, m) ? p.value : m),
-            0,
-          );
+          .reduce((m, p) => (m <= 0 || isBetterPR(type, p.value, m) ? p.value : m), 0);
 
         if (isBetterPR(type, value, previousBest)) {
           await db.prHistory.add({
@@ -306,10 +303,7 @@ export async function checkLivePRs(
     const existing = await db.prHistory.where({ exerciseId, type }).toArray();
     const previousBest = existing
       .filter((p) => p.side === side)
-      .reduce(
-        (m, p) => (m <= 0 || isBetterPR(type, p.value, m) ? p.value : m),
-        0,
-      );
+      .reduce((m, p) => (m <= 0 || isBetterPR(type, p.value, m) ? p.value : m), 0);
 
     if (isBetterPR(type, value, previousBest)) {
       hits.push({ type, value, side, previousBest });

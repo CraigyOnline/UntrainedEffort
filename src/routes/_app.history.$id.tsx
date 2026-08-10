@@ -319,10 +319,10 @@ function HistoryDetailPage() {
                     : pr.type === "distance"
                       ? "Distance"
                       : pr.type === "pace"
-                      ? "Pace"
-                      : schema.paceConvention?.style === "rate"
-                        ? "Rate"
-                        : "Speed";
+                        ? "Pace"
+                        : schema.paceConvention?.style === "rate"
+                          ? "Rate"
+                          : "Speed";
             const fmt = (v: number) => formatPRValue(pr.type, v, schema);
             const isFirst = (pr.previousBest ?? 0) === 0;
             return (

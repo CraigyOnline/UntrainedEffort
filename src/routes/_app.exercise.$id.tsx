@@ -108,14 +108,16 @@ function ExerciseProgressPage() {
     .filter((p): p is { date: number; value: number } => p.value !== null)
     .reverse();
 
-  const cardioBestRate = isCardioProgress && chartData.length > 0
-    ? chartData.reduce((best, point) =>
-        schema.paceConvention?.style === "pace"
-          ? Math.min(best, point.value)
-          : Math.max(best, point.value),
-        chartData[0].value,
-      )
-    : null;
+  const cardioBestRate =
+    isCardioProgress && chartData.length > 0
+      ? chartData.reduce(
+          (best, point) =>
+            schema.paceConvention?.style === "pace"
+              ? Math.min(best, point.value)
+              : Math.max(best, point.value),
+          chartData[0].value,
+        )
+      : null;
   const cardioBestDistance = isCardioProgress
     ? getPrimaryMetric("distance", recentSessions?.flatMap((s) => s.sets) ?? [])
     : null;
@@ -301,7 +303,11 @@ function ExerciseProgressPage() {
                       </div>
                       {!isFirst && (
                         <span className="shrink-0 text-xs font-semibold text-primary">
-                          {formatPRDelta(pr.type, pr.delta ?? pr.value - (pr.previousBest ?? 0), schema)}
+                          {formatPRDelta(
+                            pr.type,
+                            pr.delta ?? pr.value - (pr.previousBest ?? 0),
+                            schema,
+                          )}
                         </span>
                       )}
                     </div>
@@ -345,7 +351,9 @@ function ExerciseProgressPage() {
                       ? formatCardioRate(schema, value)
                       : formatMetricValue(metricKind, value, schema.distanceUnit),
                     isCardioProgress
-                      ? schema.paceConvention?.style === "pace" ? "Pace" : "Speed"
+                      ? schema.paceConvention?.style === "pace"
+                        ? "Pace"
+                        : "Speed"
                       : metricLabel(metricKind),
                   ]}
                   contentStyle={{

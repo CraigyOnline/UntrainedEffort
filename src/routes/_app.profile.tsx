@@ -274,7 +274,10 @@ function ProfilePage() {
             <p className="text-xs font-medium text-muted-foreground">Recent activities</p>
             <div className="mt-3 flex flex-col gap-2.5">
               {stats.cardio.activities.slice(0, 3).map((activity) => (
-                <div key={activity.exerciseId} className="flex items-baseline justify-between gap-3">
+                <div
+                  key={activity.exerciseId}
+                  className="flex items-baseline justify-between gap-3"
+                >
                   <span className="truncate text-sm font-medium">{activity.name}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {formatProfileCardioActivity(activity)}
@@ -662,10 +665,7 @@ function computeStats(workouts: Workout[]) {
       }
 
       existing.durationSec += activity.durationSec;
-      if (
-        activity.distance != null &&
-        activity.distanceUnit === existing.distanceUnit
-      ) {
+      if (activity.distance != null && activity.distanceUnit === existing.distanceUnit) {
         existing.distance = (existing.distance ?? 0) + activity.distance;
       }
     }

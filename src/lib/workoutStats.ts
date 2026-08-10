@@ -58,9 +58,7 @@ export interface WorkoutDisplayStats extends WorkoutStats {
  * distinction implicit while giving every UI surface one consistent answer
  * to the question: "how should this workout be presented?"
  */
-export function computeWorkoutDisplayStats(
-  exercises: Workout["exercises"],
-): WorkoutDisplayStats {
+export function computeWorkoutDisplayStats(exercises: Workout["exercises"]): WorkoutDisplayStats {
   const base = computeWorkoutStats(exercises);
   let hasStrength = false;
   let hasCardio = false;
@@ -73,7 +71,9 @@ export function computeWorkoutDisplayStats(
     const intervalConfig = getIntervalConfig(def);
     if (intervalConfig) {
       hasInterval = true;
-      const recordedConfig = ex.sets.find((set) => set.completed && set.intervalConfig)?.intervalConfig;
+      const recordedConfig = ex.sets.find(
+        (set) => set.completed && set.intervalConfig,
+      )?.intervalConfig;
       const config = recordedConfig ?? intervalConfig;
       const durationSec = ex.sets.reduce(
         (sum, set) => sum + (set.completed ? (set.duration ?? 0) : 0),
@@ -131,13 +131,7 @@ export function computeWorkoutDisplayStats(
 
   const modalityCount = Number(hasStrength) + Number(hasCardio) + Number(hasInterval);
   const mode: WorkoutMode =
-    modalityCount > 1
-      ? "mixed"
-      : hasCardio
-        ? "cardio"
-        : hasInterval
-          ? "interval"
-          : "strength";
+    modalityCount > 1 ? "mixed" : hasCardio ? "cardio" : hasInterval ? "interval" : "strength";
 
   return {
     ...base,

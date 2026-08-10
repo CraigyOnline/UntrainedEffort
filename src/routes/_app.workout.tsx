@@ -11,12 +11,21 @@ import {
   type WorkoutExerciseLog,
   type PRRecord,
 } from "@/lib/db";
-import { getExercise, getExerciseLoggingSchema, formatCompletedSet, seedUnilateralSide } from "@/lib/exercises";
+import {
+  getExercise,
+  getExerciseLoggingSchema,
+  formatCompletedSet,
+  seedUnilateralSide,
+} from "@/lib/exercises";
 import { formatPRValue, formatPRDelta } from "@/lib/exerciseProgress";
 import { ExercisePicker } from "@/components/forms/ExercisePicker";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
-import { CardioPerformanceCard, IntervalPerformanceCard, WorkoutStatsRow } from "@/components/WorkoutSummary";
+import {
+  CardioPerformanceCard,
+  IntervalPerformanceCard,
+  WorkoutStatsRow,
+} from "@/components/WorkoutSummary";
 import { computeIntensity } from "@/lib/muscles";
 import { computeWorkoutDisplayStats } from "@/lib/workoutStats";
 import {
@@ -438,16 +447,23 @@ function WorkoutPage() {
         )}
 
         {stage >= 1 && computeWorkoutDisplayStats(summary.exercises).mode === "cardio" && (
-          <div className="animate-[fade-in-soft_320ms_ease-out_forwards]" style={{ animationDelay: "140ms" }}>
+          <div
+            className="animate-[fade-in-soft_320ms_ease-out_forwards]"
+            style={{ animationDelay: "140ms" }}
+          >
             <CardioPerformanceCard exercises={summary.exercises} />
           </div>
         )}
 
-        {stage >= 1 && computeWorkoutDisplayStats(summary.exercises).intervalActivities.length > 0 && (
-          <div className="animate-[fade-in-soft_320ms_ease-out_forwards]" style={{ animationDelay: "200ms" }}>
-            <IntervalPerformanceCard exercises={summary.exercises} />
-          </div>
-        )}
+        {stage >= 1 &&
+          computeWorkoutDisplayStats(summary.exercises).intervalActivities.length > 0 && (
+            <div
+              className="animate-[fade-in-soft_320ms_ease-out_forwards]"
+              style={{ animationDelay: "200ms" }}
+            >
+              <IntervalPerformanceCard exercises={summary.exercises} />
+            </div>
+          )}
 
         {/* The Personal Record moment — its own beat, not bundled into
             stage 2's calm supporting content. pr-impact is the one
@@ -478,9 +494,9 @@ function WorkoutPage() {
                           ? "Distance"
                           : pr.type === "pace"
                             ? "Pace"
-                          : schema.paceConvention?.style === "rate"
-                            ? "Rate"
-                            : "Speed";
+                            : schema.paceConvention?.style === "rate"
+                              ? "Rate"
+                              : "Speed";
                 const fmt = (v: number) => formatPRValue(pr.type, v, schema);
                 const isFirst = (pr.previousBest ?? 0) === 0;
                 return (

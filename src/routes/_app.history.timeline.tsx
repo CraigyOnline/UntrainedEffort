@@ -210,12 +210,16 @@ function WorkoutTimeline() {
                             : "bg-secondary text-muted-foreground"
                       }`}
                     >
-                      {stats.mode === "cardio" ? "Cardio" : stats.mode === "mixed" ? "Mixed" : stats.mode}
+                      {stats.mode === "cardio"
+                        ? "Cardio"
+                        : stats.mode === "mixed"
+                          ? "Mixed"
+                          : stats.mode}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(w.startedAt).toLocaleDateString()} · {" "}
-                    {Math.max(1, Math.round((w.durationSec ?? 0) / 60))} min · {w.exercises.length} {" "}
+                    {new Date(w.startedAt).toLocaleDateString()} ·{" "}
+                    {Math.max(1, Math.round((w.durationSec ?? 0) / 60))} min · {w.exercises.length}{" "}
                     ex
                     {stats.mode !== "cardio" && ` · ${totalSets} sets`}
                   </p>
@@ -226,11 +230,13 @@ function WorkoutTimeline() {
                     </p>
                   )}
 
-                  {stats.mode === "cardio" && !stats.primaryCardio && stats.cardioActivities.length > 0 && (
-                    <p className="mt-1 text-sm font-semibold">
-                      {stats.cardioActivities.length} cardio activities
-                    </p>
-                  )}
+                  {stats.mode === "cardio" &&
+                    !stats.primaryCardio &&
+                    stats.cardioActivities.length > 0 && (
+                      <p className="mt-1 text-sm font-semibold">
+                        {stats.cardioActivities.length} cardio activities
+                      </p>
+                    )}
 
                   {stats.mode === "mixed" && stats.cardioActivities.length > 0 && (
                     <p className="mt-1 text-xs text-muted-foreground">

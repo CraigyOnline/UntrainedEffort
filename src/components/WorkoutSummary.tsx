@@ -50,7 +50,10 @@ export function WorkoutStatsRow({ durationSec, exercises, revealed }: StatsRowPr
             label: stats.primaryCardio ? "Distance" : "Activities",
             value: stats.primaryCardio
               ? stats.primaryCardio.distance != null && stats.primaryCardio.distanceUnit
-                ? formatDistanceValue(stats.primaryCardio.distanceUnit, stats.primaryCardio.distance)
+                ? formatDistanceValue(
+                    stats.primaryCardio.distanceUnit,
+                    stats.primaryCardio.distance,
+                  )
                 : "—"
               : String(stats.cardioActivities.length),
           },
@@ -94,9 +97,7 @@ export function WorkoutStatsRow({ durationSec, exercises, revealed }: StatsRowPr
       </div>
 
       {stats.mode === "cardio" && stats.primaryCardio && (
-        <p className="text-center text-xs text-muted-foreground">
-          {stats.primaryCardio.name}
-        </p>
+        <p className="text-center text-xs text-muted-foreground">{stats.primaryCardio.name}</p>
       )}
 
       {stats.mode === "cardio" && !stats.primaryCardio && stats.cardioActivities.length > 0 && (
