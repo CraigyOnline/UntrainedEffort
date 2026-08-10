@@ -1,16 +1,27 @@
 import { useState } from "react";
 import { X, Check, Dumbbell, HeartPulse, Timer } from "lucide-react";
-import { EXERCISES, matchesExerciseQuery, type MuscleGroup } from "@/lib/exercises";
+import { EXERCISES, matchesExerciseQuery, type MuscleGroup, type Equipment } from "@/lib/exercises";
 import { BOTTOM_NAV_HEIGHT } from "@/components/BottomTabs";
 import { useDismissOnBack } from "@/lib/backHandler";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ExercisePicker
 //
-// Full-screen overlay for selecting an exercise. Supports:
-//   - free-text search
-//   - muscle-group chip filtering
-//   - grouped-by-muscle browsing when no filter is active
+// Full-screen overlay for selecting an exercise. Three independent (AND'd)
+// filter facets, plus free-text search:
+//   - Category: Strength / Cardio / Intervals — the one place "cardio" is
+//     ever a selectable value. Every exercise is tagged `muscle: "Cardio"`
+//     and `equipment: "Cardio"` in the data too, purely as an internal
+//     grouping key (see MuscleMap etc.) — those values are deliberately
+//     never surfaced as Muscle or Equipment chips, so "Cardio" can't appear
+//     as a choice in more than one row with a different meaning each time.
+//   - Muscle group and Equipment: both only meaningful for Strength (every
+//     cardio/interval exercise shares the same placeholder muscle/equipment
+//     value, so filtering by either would just return everything-or-nothing
+//     for them) — hidden while Category is Cardio or Interval.
+//   - grouped-by-muscle browsing when no filter/search is active. Cardio
+//     and Interval exercises get their own two sections here (Category
+//     "all" only) rather than being lumped under one "Cardio" heading.
 //   - already-added exercises shown dimmed with a checkmark
 //
 // Previously exported from _app.routines.tsx. Moved here so no route file
@@ -32,19 +43,27 @@ const MUSCLE_GROUPS: MuscleGroup[] = [
   "Quads",
   "Hamstrings",
   "Calves",
-  "Cardio",
 ];
 
-// "Cardio" is a single muscle-group chip above, but it covers two distinct
-// exercise types (plain cardio and interval/HIIT) that the muscle chip
-// alone can't tell apart — this is a second, independent filter dimension
-// for that, matching the type filter on the Progress → Exercises list.
-const TYPE_FILTERS = [
+const EQUIPMENT_GROUPS: Equipment[] = [
+  "Barbell",
+  "Dumbbell",
+  "Machine",
+  "Cable",
+  "Bodyweight",
+  "Kettlebell",
+  "Band",
+  "Other",
+];
+
+const CATEGORY_FILTERS = [
   { id: "all" as const, label: "All", icon: null },
   { id: "strength" as const, label: "Strength", icon: Dumbbell },
   { id: "cardio" as const, label: "Cardio", icon: HeartPulse },
   { id: "interval" as const, label: "Intervals", icon: Timer },
 ];
+
+type Category = (typeof CATEGORY_FILTERS)[number]["id"];
 
 export function ExercisePicker({
   onClose,
@@ -57,32 +76,50 @@ export function ExercisePicker({
 }) {
   const [q, setQ] = useState("");
   const [muscle, setMuscle] = useState<MuscleGroup | null>(null);
-  const [type, setType] = useState<"all" | "strength" | "cardio" | "interval">("all");
+  const [equipment, setEquipment] = useState<Equipment | null>(null);
+  const [category, setCategory] = useState<Category>("all");
 
   // ExercisePicker is a full-screen overlay, not a route — without this,
   // Android back would fall through to route history instead of closing it.
   useDismissOnBack(true, onClose);
 
+  // Muscle/equipment only apply within Strength — every cardio/interval
+  // exercise shares one placeholder value for each, so the rows are hidden
+  // rather than left visible and silently unable to match anything.
+  const showBodyFacets = category === "all" || category === "strength";
+
   const filtered = EXERCISES.filter((e) => {
     const matchesQ = matchesExerciseQuery(e, q);
     const matchesMuscle = muscle === null || e.muscle === muscle;
-    const matchesType =
-      type === "cardio"
+    const matchesEquipment = equipment === null || e.equipment === equipment;
+    const matchesCategory =
+      category === "cardio"
         ? Boolean(e.cardio) && !e.interval
-        : type === "interval"
+        : category === "interval"
           ? Boolean(e.interval)
-          : type === "strength"
+          : category === "strength"
             ? !e.cardio && !e.interval
             : true;
-    return matchesQ && matchesMuscle && matchesType;
+    return matchesQ && matchesMuscle && matchesEquipment && matchesCategory;
   });
 
-  const showGrouped = q === "" && muscle === null;
+  const showGrouped =
+    q === "" &&
+    muscle === null &&
+    equipment === null &&
+    category !== "cardio" &&
+    category !== "interval";
   const groups: { label: string; exercises: typeof filtered }[] = [];
   if (showGrouped) {
     for (const mg of MUSCLE_GROUPS) {
       const exs = filtered.filter((e) => e.muscle === mg);
       if (exs.length > 0) groups.push({ label: mg, exercises: exs });
+    }
+    if (category === "all") {
+      const cardioExs = filtered.filter((e) => e.cardio && !e.interval);
+      if (cardioExs.length > 0) groups.push({ label: "Cardio", exercises: cardioExs });
+      const intervalExs = filtered.filter((e) => e.interval);
+      if (intervalExs.length > 0) groups.push({ label: "Intervals", exercises: intervalExs });
     }
   }
 
@@ -108,20 +145,31 @@ export function ExercisePicker({
             onChange={(e) => {
               setQ(e.target.value);
               setMuscle(null);
+              setEquipment(null);
             }}
             placeholder="Search exercises…"
             className="flex-1 rounded-lg bg-card px-3 py-2 text-sm outline-none"
           />
         </header>
 
-        <div className="flex gap-2 overflow-x-auto px-4 pt-2 scrollbar-none">
-          {TYPE_FILTERS.map(({ id, label, icon: Icon }) => (
+        <div
+          className={`flex gap-2 overflow-x-auto px-4 pt-2 pb-2 scrollbar-none ${
+            showBodyFacets ? "" : "border-b border-border"
+          }`}
+        >
+          {CATEGORY_FILTERS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
-              onClick={() => setType(id)}
+              onClick={() => {
+                setCategory(id);
+                if (id === "cardio" || id === "interval") {
+                  setMuscle(null);
+                  setEquipment(null);
+                }
+              }}
               className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                type === id
+                category === id
                   ? "bg-primary text-primary-foreground"
                   : "bg-secondary text-muted-foreground active:bg-secondary/70"
               }`}
@@ -132,34 +180,67 @@ export function ExercisePicker({
           ))}
         </div>
 
-        <div className="flex gap-2 overflow-x-auto px-4 py-2 border-b border-border scrollbar-none">
-          <button
-            onClick={() => setMuscle(null)}
-            className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-              muscle === null
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-muted-foreground"
-            }`}
-          >
-            All
-          </button>
-          {MUSCLE_GROUPS.map((mg) => (
-            <button
-              key={mg}
-              onClick={() => {
-                setMuscle(mg === muscle ? null : mg);
-                setQ("");
-              }}
-              className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                muscle === mg
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground"
-              }`}
-            >
-              {formatMuscle(mg)}
-            </button>
-          ))}
-        </div>
+        {showBodyFacets && (
+          <>
+            <div className="flex gap-2 overflow-x-auto px-4 pt-2 scrollbar-none">
+              <button
+                onClick={() => setMuscle(null)}
+                className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  muscle === null
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-muted-foreground"
+                }`}
+              >
+                All Muscles
+              </button>
+              {MUSCLE_GROUPS.map((mg) => (
+                <button
+                  key={mg}
+                  onClick={() => {
+                    setMuscle(mg === muscle ? null : mg);
+                    setQ("");
+                  }}
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                    muscle === mg
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground"
+                  }`}
+                >
+                  {formatMuscle(mg)}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto px-4 py-2 border-b border-border scrollbar-none">
+              <button
+                onClick={() => setEquipment(null)}
+                className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                  equipment === null
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-muted-foreground"
+                }`}
+              >
+                All Equipment
+              </button>
+              {EQUIPMENT_GROUPS.map((eq) => (
+                <button
+                  key={eq}
+                  onClick={() => {
+                    setEquipment(eq === equipment ? null : eq);
+                    setQ("");
+                  }}
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                    equipment === eq
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground"
+                  }`}
+                >
+                  {eq}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="flex-1 overflow-y-auto">
           {filtered.length === 0 && (
