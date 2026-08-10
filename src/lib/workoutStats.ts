@@ -33,11 +33,23 @@ export interface CardioActivityStats {
   pace?: string;
 }
 
+export interface IntervalActivityStats {
+  exerciseId: string;
+  name: string;
+  rounds: number;
+  workSeconds: number;
+  restSeconds: number;
+  durationSec: number;
+}
+
 export interface WorkoutDisplayStats extends WorkoutStats {
   mode: WorkoutMode;
   cardioActivities: CardioActivityStats[];
   /** The primary cardio activity when the workout contains exactly one. */
   primaryCardio?: CardioActivityStats;
+  intervalActivities: IntervalActivityStats[];
+  /** The primary interval activity when the workout contains exactly one. */
+  primaryInterval?: IntervalActivityStats;
 }
 
 /**
@@ -54,11 +66,27 @@ export function computeWorkoutDisplayStats(
   let hasCardio = false;
   let hasInterval = false;
   const cardioActivities: CardioActivityStats[] = [];
+  const intervalActivities: IntervalActivityStats[] = [];
 
   for (const ex of exercises) {
     const def = getExercise(ex.exerciseId);
-    if (getIntervalConfig(def)) {
+    const intervalConfig = getIntervalConfig(def);
+    if (intervalConfig) {
       hasInterval = true;
+      const recordedConfig = ex.sets.find((set) => set.completed && set.intervalConfig)?.intervalConfig;
+      const config = recordedConfig ?? intervalConfig;
+      const durationSec = ex.sets.reduce(
+        (sum, set) => sum + (set.completed ? (set.duration ?? 0) : 0),
+        0,
+      );
+      intervalActivities.push({
+        exerciseId: ex.exerciseId,
+        name: def?.name ?? ex.exerciseId,
+        rounds: config.rounds,
+        workSeconds: config.workSeconds,
+        restSeconds: config.restSeconds,
+        durationSec,
+      });
       continue;
     }
     if (!isCardio(def)) {
@@ -115,6 +143,8 @@ export function computeWorkoutDisplayStats(
     mode,
     cardioActivities,
     primaryCardio: cardioActivities.length === 1 ? cardioActivities[0] : undefined,
+    intervalActivities,
+    primaryInterval: intervalActivities.length === 1 ? intervalActivities[0] : undefined,
   };
 }
 

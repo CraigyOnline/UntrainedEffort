@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { ArrowLeft, Search } from "lucide-react";
+import { ArrowLeft, Dumbbell, HeartPulse, Search, Timer } from "lucide-react";
 import { getDb, type Workout } from "@/lib/db";
 import { EXERCISES, matchesExerciseQuery } from "@/lib/exercises";
 import { computeLastTrainedAt } from "@/lib/exerciseProgress";
@@ -39,6 +39,7 @@ function formatMuscle(mg: string) {
 function ExercisesListPage() {
   const router = useRouter();
   const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<"all" | "strength" | "cardio" | "interval">("all");
 
   const workouts = useLiveQuery(
     () =>
@@ -50,7 +51,20 @@ function ExercisesListPage() {
 
   const lastTrainedAt = useMemo(() => computeLastTrainedAt(workouts ?? []), [workouts]);
 
-  const filtered = EXERCISES.filter((e) => matchesExerciseQuery(e, q));
+  const filtered = EXERCISES.filter((e) => {
+    if (!matchesExerciseQuery(e, q)) return false;
+    if (filter === "cardio") return Boolean(e.cardio) && !e.interval;
+    if (filter === "interval") return Boolean(e.interval);
+    if (filter === "strength") return !e.cardio && !e.interval;
+    return true;
+  });
+
+  const filters = [
+    { id: "all" as const, label: "All", icon: null },
+    { id: "strength" as const, label: "Strength", icon: Dumbbell },
+    { id: "cardio" as const, label: "Cardio", icon: HeartPulse },
+    { id: "interval" as const, label: "Intervals", icon: Timer },
+  ];
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-6 pb-8">
@@ -74,9 +88,29 @@ function ExercisesListPage() {
         />
       </div>
 
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {filters.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setFilter(id)}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+              filter === id
+                ? "bg-primary text-primary-foreground"
+                : "bg-secondary text-muted-foreground active:bg-secondary/70"
+            }`}
+          >
+            {Icon && <Icon className="h-3.5 w-3.5" />}
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="overflow-hidden rounded-2xl border border-border/50 bg-card">
         {filtered.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-muted-foreground">No exercises found</p>
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+            No {filter === "all" ? "" : `${filter} `}exercises found
+          </p>
         )}
         {filtered.map((e, i) => {
           const trainedAt = lastTrainedAt.get(e.id);

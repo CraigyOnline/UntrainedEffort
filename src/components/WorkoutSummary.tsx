@@ -65,10 +65,27 @@ export function WorkoutStatsRow({ durationSec, exercises, revealed }: StatsRowPr
           { label: "Volume", value: `${Math.round(stats.totalVolume)} kg` },
         ];
 
+  const intervalCells = stats.primaryInterval
+    ? [
+        { label: "Duration", value: formatDuration(durationSec) },
+        { label: "Rounds", value: String(stats.primaryInterval.rounds) },
+        {
+          label: "Work / Rest",
+          value: `${formatDuration(stats.primaryInterval.workSeconds)} / ${formatDuration(stats.primaryInterval.restSeconds)}`,
+        },
+      ]
+    : [
+        { label: "Duration", value: formatDuration(durationSec) },
+        { label: "Intervals", value: String(stats.intervalActivities.length) },
+        { label: "Training", value: "Intervals" },
+      ];
+
+  const displayCells = stats.mode === "interval" ? intervalCells : cells;
+
   return (
     <div className="flex flex-col gap-2">
       <div className="grid grid-cols-3 gap-2 text-center">
-        {cells.map((cell, index) => (
+        {displayCells.map((cell, index) => (
           <div key={cell.label} {...statClass(index * 70)}>
             <p className="text-xs text-muted-foreground">{cell.label}</p>
             <p className="font-bold">{cell.value}</p>
@@ -160,6 +177,36 @@ export function CardioPerformanceCard({ exercises }: { exercises: Workout["exerc
             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
               {formatCardioActivity(activity)}
             </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function IntervalPerformanceCard({ exercises }: { exercises: Workout["exercises"] }) {
+  const stats = computeWorkoutDisplayStats(exercises);
+  if (stats.intervalActivities.length === 0) return null;
+
+  return (
+    <div className="rounded-xl bg-card px-4 py-4 ring-1 ring-border/60">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Interval Performance
+      </p>
+      <div className="mt-2 flex flex-col gap-2">
+        {stats.intervalActivities.map((activity) => (
+          <div key={activity.exerciseId} className="rounded-lg bg-muted/50 px-3 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="min-w-0 truncate text-sm font-medium">{activity.name}</span>
+              <span className="shrink-0 text-xs font-semibold tabular-nums">
+                {activity.rounds} rounds
+              </span>
+            </div>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums text-muted-foreground">
+              <span>{formatDuration(activity.durationSec)}</span>
+              <span>{formatDuration(activity.workSeconds)} work</span>
+              <span>{formatDuration(activity.restSeconds)} rest</span>
+            </div>
           </div>
         ))}
       </div>
