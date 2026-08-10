@@ -124,29 +124,49 @@ const MUSCLE_COLOR = "var(--primary)";
 // bunched in the low-to-mid range and become hard to tell apart. Named,
 // stepped bands give the eye an actual jump to notice between "barely
 // worked" and "worked a lot", and only the top tier gets the glow.
-const INTENSITY_TIERS: { upTo: number; opacity: number; glow: boolean }[] = [
-  { upTo: 0.15, opacity: 0.32, glow: false }, // light
-  { upTo: 0.35, opacity: 0.55, glow: false }, // moderate
-  { upTo: 0.6, opacity: 0.8, glow: false }, // heavy
-  { upTo: Infinity, opacity: 1, glow: true }, // max — the only tier with a glow
+//
+// Each tier also shifts lightness/chroma (not just fill-opacity) up the
+// same hue as --primary. Opacity alone, blended onto the app's near-black
+// background, compresses perceptually — two adjacent alpha values read as
+// "similarly faint" even when the numbers are meaningfully different,
+// which is exactly the range most real workout data lands in. Pairing the
+// opacity step with an actual brightness/vividness step gives the eye a
+// second, stronger cue: low tiers render as a dull, dark green and high
+// tiers as a genuinely bright, saturated one.
+const INTENSITY_TIERS: { upTo: number; opacity: number; color: string; glow: boolean }[] = [
+  { upTo: 0.15, opacity: 0.55, color: "oklch(0.42 0.09 145)", glow: false }, // light
+  { upTo: 0.35, opacity: 0.72, color: "oklch(0.55 0.13 145)", glow: false }, // moderate
+  { upTo: 0.6, opacity: 0.88, color: "oklch(0.68 0.17 145)", glow: false }, // heavy
+  { upTo: Infinity, opacity: 1, color: "oklch(0.8 0.2 145)", glow: true }, // max — the only tier with a glow
 ];
 
-const GLOW_FILTER = `drop-shadow(0 0 6px ${MUSCLE_COLOR})`;
+// Glow uses the max tier's own (brighter) colour rather than the base
+// --primary, so the glow reads as an extension of the max-tier fill
+// instead of a slightly duller colour haloing a brighter one.
+const GLOW_FILTER = `drop-shadow(0 0 6px ${INTENSITY_TIERS[INTENSITY_TIERS.length - 1].color})`;
 
 function regionStyle(
   rawIntensity: number | undefined,
   dimmed: boolean,
-): { opacity: number; glow: boolean } {
+): { opacity: number; color: string | null; glow: boolean } {
   const v = Math.max(0, Math.min(1, rawIntensity ?? 0));
   if (v <= 0)
-    return { opacity: dimmed ? REST_OPACITY * DIMMED_MULTIPLIER : REST_OPACITY, glow: false };
+    return {
+      opacity: dimmed ? REST_OPACITY * DIMMED_MULTIPLIER : REST_OPACITY,
+      // No colour override at rest — inherits the baseline --primary fill
+      // `prepareSvg` bakes onto the root <g>, same as before this change.
+      color: null,
+      glow: false,
+    };
   const tier =
     INTENSITY_TIERS.find((t) => v <= t.upTo) ?? INTENSITY_TIERS[INTENSITY_TIERS.length - 1];
   // A dimmed-but-trained region (another muscle is selected) still reads at
-  // its tier's relative opacity, just scaled down — but never glows, since
-  // the glow is meant to draw the eye to what's currently highlighted.
+  // its tier's relative opacity and colour, just scaled down — but never
+  // glows, since the glow is meant to draw the eye to what's currently
+  // highlighted.
   return {
     opacity: dimmed ? tier.opacity * DIMMED_MULTIPLIER : tier.opacity,
+    color: tier.color,
     glow: dimmed ? false : tier.glow,
   };
 }
@@ -206,11 +226,12 @@ function Panel({
       const dimmed = activeMuscle != null && activeMuscle !== group;
       const raw = intensity[group];
       if (!dimmed && !(typeof raw === "number" && raw > 0)) continue;
-      const { opacity, glow } = regionStyle(raw, dimmed);
+      const { opacity, color, glow } = regionStyle(raw, dimmed);
       const filterRule = glow ? ` filter: ${GLOW_FILTER};` : "";
+      const colorRule = color ? ` fill: ${color};` : "";
       for (const region of regions) {
         rules.push(
-          `#${prefix}-${region}-l, #${prefix}-${region}-r { fill-opacity: ${opacity};${filterRule} }`,
+          `#${prefix}-${region}-l, #${prefix}-${region}-r { fill-opacity: ${opacity};${colorRule}${filterRule} }`,
         );
       }
     }
