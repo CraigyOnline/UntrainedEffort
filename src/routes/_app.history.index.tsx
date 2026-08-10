@@ -8,6 +8,7 @@ import { LifetimeSummary } from "@/features/history/LifetimeSummary";
 import { CurrentYearSummary } from "@/features/history/CurrentYearSummary";
 import { MonthlySummaries } from "@/features/history/MonthlySummaries";
 import { Milestones } from "@/features/history/Milestones";
+import { CardioSummary } from "@/features/history/CardioSummary";
 import { EmptyState } from "@/components/EmptyState";
 
 // Kept for symmetry with the old combined route — no search UI lives here
@@ -70,6 +71,8 @@ function ProgressPage() {
       <TrainingConsistencyHeatmap workouts={workouts ?? []} />
 
       {!!workouts?.length && <LifetimeSummary workouts={workouts} />}
+
+      <CardioSummary workouts={workouts ?? []} />
 
       <CurrentYearSummary workouts={workouts ?? []} />
 
