@@ -1,6 +1,12 @@
 import { useMemo, useState } from "react";
 import type { Workout } from "@/lib/db";
-import { computeWorkoutStats } from "@/lib/workoutStats";
+import {
+  computeWorkoutDisplayStats,
+  computeWorkoutStats,
+  formatCardioActivity,
+  type CardioActivityStats,
+} from "@/lib/workoutStats";
+import { formatTimeTrained } from "@/features/history/duration";
 
 const DEFAULT_VISIBLE_MONTHS = 3;
 
@@ -14,6 +20,9 @@ interface MonthGroup {
   sessionCount: number;
   activeDays: number;
   volume: number;
+  cardioSessions: number;
+  cardioDurationSec: number;
+  cardioActivities: CardioActivityStats[];
 }
 
 /**
@@ -48,8 +57,16 @@ export function MonthlySummaries({ workouts }: MonthlySummariesProps) {
             <p className="mt-1 text-xs text-muted-foreground">
               {m.sessionCount} {m.sessionCount === 1 ? "workout" : "workouts"} · {m.activeDays}{" "}
               active {m.activeDays === 1 ? "day" : "days"}
-              {m.volume > 0 && ` · ${Math.round(m.volume).toLocaleString()} kg`}
+              {m.volume > 0 && ` · ${Math.round(m.volume).toLocaleString()} kg lifted`}
+              {m.cardioSessions > 0 && ` · ${formatTimeTrained(m.cardioDurationSec)} cardio`}
             </p>
+            {m.cardioActivities.length > 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Cardio:</span>{" "}
+                {m.cardioActivities.slice(0, 3).map(formatMonthlyCardioActivity).join(" · ")}
+                {m.cardioActivities.length > 3 && ` · +${m.cardioActivities.length - 3} more`}
+              </p>
+            )}
           </div>
         ))}
       </div>
@@ -95,6 +112,39 @@ function groupByMonth(workouts: Workout[]): MonthGroup[] {
         0,
       );
 
+      const cardioByExercise = new Map<string, CardioActivityStats>();
+      let cardioSessions = 0;
+      let cardioDurationSec = 0;
+
+      for (const w of monthWorkouts) {
+        const display = computeWorkoutDisplayStats(w.exercises);
+        if (display.cardioActivities.length === 0) continue;
+        cardioSessions += 1;
+
+        for (const activity of display.cardioActivities) {
+          cardioDurationSec += activity.durationSec;
+          const existing = cardioByExercise.get(activity.exerciseId);
+
+          if (!existing) {
+            cardioByExercise.set(activity.exerciseId, { ...activity });
+            continue;
+          }
+
+          existing.durationSec += activity.durationSec;
+          if (
+            activity.distance != null &&
+            activity.distanceUnit === existing.distanceUnit
+          ) {
+            existing.distance = (existing.distance ?? 0) + activity.distance;
+          }
+        }
+      }
+
+      const cardioActivities = Array.from(cardioByExercise.values()).sort((a, b) => {
+        if (b.durationSec !== a.durationSec) return b.durationSec - a.durationSec;
+        return a.name.localeCompare(b.name);
+      });
+
       return {
         key,
         label: new Date(year, month, 1).toLocaleDateString(undefined, {
@@ -104,6 +154,18 @@ function groupByMonth(workouts: Workout[]): MonthGroup[] {
         sessionCount: monthWorkouts.length,
         activeDays,
         volume,
+        cardioSessions,
+        cardioDurationSec,
+        cardioActivities,
       };
     });
+}
+
+function formatMonthlyCardioActivity(activity: CardioActivityStats): string {
+  if (activity.distance != null && activity.distanceUnit) {
+    const parts = formatCardioActivity(activity).split(" · ");
+    return `${activity.name} ${parts.join(" · ")}`;
+  }
+
+  return `${activity.name} ${formatTimeTrained(activity.durationSec)}`;
 }
