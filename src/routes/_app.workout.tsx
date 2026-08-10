@@ -16,7 +16,7 @@ import { formatPRValue, formatPRDelta } from "@/lib/exerciseProgress";
 import { ExercisePicker } from "@/components/forms/ExercisePicker";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
-import { WorkoutStatsRow } from "@/components/WorkoutSummary";
+import { CardioPerformanceCard, WorkoutStatsRow } from "@/components/WorkoutSummary";
 import { computeIntensity } from "@/lib/muscles";
 import {
   AlertDialog,
@@ -433,6 +433,12 @@ function WorkoutPage() {
               exercises={summary.exercises}
               revealed={stage >= 1}
             />
+          </div>
+        )}
+
+        {stage >= 1 && computeWorkoutDisplayStats(summary.exercises).mode === "cardio" && (
+          <div className="animate-[fade-in-soft_320ms_ease-out_forwards]" style={{ animationDelay: "140ms" }}>
+            <CardioPerformanceCard exercises={summary.exercises} />
           </div>
         )}
 

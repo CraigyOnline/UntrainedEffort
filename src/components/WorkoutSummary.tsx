@@ -2,7 +2,7 @@ import type { Workout } from "@/lib/db";
 import { formatDuration } from "@/lib/format";
 import { computeIntensity } from "@/lib/muscles";
 import { formatDistanceValue } from "@/lib/exercises";
-import { computeWorkoutDisplayStats } from "@/lib/workoutStats";
+import { computeWorkoutDisplayStats, formatCardioActivity } from "@/lib/workoutStats";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
 
 interface StatsRowProps {
@@ -112,6 +112,59 @@ interface Props {
   exercises: Workout["exercises"];
   showName?: boolean;
   revealed?: boolean;
+}
+
+export function CardioPerformanceCard({ exercises }: { exercises: Workout["exercises"] }) {
+  const stats = computeWorkoutDisplayStats(exercises);
+  if (stats.mode !== "cardio" || stats.cardioActivities.length === 0) return null;
+
+  if (stats.primaryCardio) {
+    const activity = stats.primaryCardio;
+    const hasPrimaryMetric = Boolean(activity.pace);
+
+    return (
+      <div className="rounded-xl bg-card px-4 py-4 ring-1 ring-border/60">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Cardio Performance
+        </p>
+        <p className="mt-1 text-sm font-medium">{activity.name}</p>
+        {hasPrimaryMetric ? (
+          <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight">{activity.pace}</p>
+        ) : (
+          <p className="mt-2 text-3xl font-bold tabular-nums tracking-tight">
+            {formatDuration(activity.durationSec)}
+          </p>
+        )}
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground tabular-nums">
+          {activity.distance != null && activity.distanceUnit && (
+            <span>{formatDistanceValue(activity.distanceUnit, activity.distance)}</span>
+          )}
+          {activity.durationSec > 0 && <span>{formatDuration(activity.durationSec)}</span>}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl bg-card px-4 py-4 ring-1 ring-border/60">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Cardio Performance
+      </p>
+      <div className="mt-2 flex flex-col gap-2">
+        {stats.cardioActivities.map((activity) => (
+          <div
+            key={activity.exerciseId}
+            className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2"
+          >
+            <span className="min-w-0 truncate text-sm font-medium">{activity.name}</span>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+              {formatCardioActivity(activity)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function WorkoutSummary({ name, durationSec, exercises, showName, revealed }: Props) {
