@@ -1,7 +1,6 @@
 import type { Workout } from "@/lib/db";
 import {
   formatDistanceValue,
-  formatDuration,
   formatPace,
   getExercise,
   getExerciseLoggingSchema,
@@ -10,6 +9,7 @@ import {
   setPerformances,
   type DistanceUnit,
 } from "@/lib/exercises";
+import { formatDuration } from "@/lib/format";
 
 export interface WorkoutStats {
   totalSets: number;
