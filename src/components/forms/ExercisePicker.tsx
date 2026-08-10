@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Check } from "lucide-react";
+import { X, Check, Dumbbell, HeartPulse, Timer } from "lucide-react";
 import { EXERCISES, matchesExerciseQuery, type MuscleGroup } from "@/lib/exercises";
 import { BOTTOM_NAV_HEIGHT } from "@/components/BottomTabs";
 import { useDismissOnBack } from "@/lib/backHandler";
@@ -35,6 +35,17 @@ const MUSCLE_GROUPS: MuscleGroup[] = [
   "Cardio",
 ];
 
+// "Cardio" is a single muscle-group chip above, but it covers two distinct
+// exercise types (plain cardio and interval/HIIT) that the muscle chip
+// alone can't tell apart — this is a second, independent filter dimension
+// for that, matching the type filter on the Progress → Exercises list.
+const TYPE_FILTERS = [
+  { id: "all" as const, label: "All", icon: null },
+  { id: "strength" as const, label: "Strength", icon: Dumbbell },
+  { id: "cardio" as const, label: "Cardio", icon: HeartPulse },
+  { id: "interval" as const, label: "Intervals", icon: Timer },
+];
+
 export function ExercisePicker({
   onClose,
   onPick,
@@ -46,6 +57,7 @@ export function ExercisePicker({
 }) {
   const [q, setQ] = useState("");
   const [muscle, setMuscle] = useState<MuscleGroup | null>(null);
+  const [type, setType] = useState<"all" | "strength" | "cardio" | "interval">("all");
 
   // ExercisePicker is a full-screen overlay, not a route — without this,
   // Android back would fall through to route history instead of closing it.
@@ -54,7 +66,15 @@ export function ExercisePicker({
   const filtered = EXERCISES.filter((e) => {
     const matchesQ = matchesExerciseQuery(e, q);
     const matchesMuscle = muscle === null || e.muscle === muscle;
-    return matchesQ && matchesMuscle;
+    const matchesType =
+      type === "cardio"
+        ? Boolean(e.cardio) && !e.interval
+        : type === "interval"
+          ? Boolean(e.interval)
+          : type === "strength"
+            ? !e.cardio && !e.interval
+            : true;
+    return matchesQ && matchesMuscle && matchesType;
   });
 
   const showGrouped = q === "" && muscle === null;
@@ -93,6 +113,24 @@ export function ExercisePicker({
             className="flex-1 rounded-lg bg-card px-3 py-2 text-sm outline-none"
           />
         </header>
+
+        <div className="flex gap-2 overflow-x-auto px-4 pt-2 scrollbar-none">
+          {TYPE_FILTERS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setType(id)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                type === id
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground active:bg-secondary/70"
+              }`}
+            >
+              {Icon && <Icon className="h-3.5 w-3.5" />}
+              {label}
+            </button>
+          ))}
+        </div>
 
         <div className="flex gap-2 overflow-x-auto px-4 py-2 border-b border-border scrollbar-none">
           <button

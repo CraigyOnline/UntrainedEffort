@@ -190,11 +190,11 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
                     : !day.trained
                       ? "bg-secondary"
                       : day.mode === "cardio"
-                        ? "bg-primary/60 active:scale-90"
+                        ? "bg-chart-2 active:scale-90"
                         : day.mode === "interval"
-                          ? "bg-primary/40 active:scale-90"
+                          ? "bg-intensity active:scale-90"
                           : day.mode === "mixed"
-                            ? "bg-primary ring-1 ring-primary-foreground/70 active:scale-90"
+                            ? "bg-chart-4 ring-1 ring-primary-foreground/70 active:scale-90"
                             : "bg-primary active:scale-90"
                 }`}
               />
@@ -208,13 +208,13 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
           <span className="h-2.5 w-2.5 rounded-sm bg-primary" /> Strength
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-primary/60" /> Cardio
+          <span className="h-2.5 w-2.5 rounded-sm bg-chart-2" /> Cardio
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-primary/40" /> Intervals
+          <span className="h-2.5 w-2.5 rounded-sm bg-intensity" /> Intervals
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-primary ring-1 ring-primary-foreground/70" /> Mixed
+          <span className="h-2.5 w-2.5 rounded-sm bg-chart-4 ring-1 ring-primary-foreground/70" /> Mixed
         </span>
       </div>
 
