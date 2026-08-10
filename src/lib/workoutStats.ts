@@ -1,5 +1,15 @@
 import type { Workout } from "@/lib/db";
-import { getExercise, getExerciseLoggingSchema, setPerformances } from "@/lib/exercises";
+import {
+  formatDistanceValue,
+  formatDuration,
+  formatPace,
+  getExercise,
+  getExerciseLoggingSchema,
+  getIntervalConfig,
+  isCardio,
+  setPerformances,
+  type DistanceUnit,
+} from "@/lib/exercises";
 
 export interface WorkoutStats {
   totalSets: number;
@@ -10,6 +20,113 @@ export interface WorkoutStats {
    *  a plain count of rows, since "how many sets exist" has no notion of
    *  hidden weight or unperformed work to exclude. */
   loggedSets: number;
+}
+
+export type WorkoutMode = "strength" | "cardio" | "interval" | "mixed";
+
+export interface CardioActivityStats {
+  exerciseId: string;
+  name: string;
+  durationSec: number;
+  distance?: number;
+  distanceUnit?: DistanceUnit;
+  pace?: string;
+}
+
+export interface WorkoutDisplayStats extends WorkoutStats {
+  mode: WorkoutMode;
+  cardioActivities: CardioActivityStats[];
+  /** The primary cardio activity when the workout contains exactly one. */
+  primaryCardio?: CardioActivityStats;
+}
+
+/**
+ * Derives the workout's presentation mode and cardio metrics without changing
+ * the persisted workout model. This keeps the database strength/cardio
+ * distinction implicit while giving every UI surface one consistent answer
+ * to the question: "how should this workout be presented?"
+ */
+export function computeWorkoutDisplayStats(
+  exercises: Workout["exercises"],
+): WorkoutDisplayStats {
+  const base = computeWorkoutStats(exercises);
+  let hasStrength = false;
+  let hasCardio = false;
+  let hasInterval = false;
+  const cardioActivities: CardioActivityStats[] = [];
+
+  for (const ex of exercises) {
+    const def = getExercise(ex.exerciseId);
+    if (getIntervalConfig(def)) {
+      hasInterval = true;
+      continue;
+    }
+    if (!isCardio(def)) {
+      hasStrength = true;
+      continue;
+    }
+
+    hasCardio = true;
+    const schema = getExerciseLoggingSchema(def);
+    let durationSec = 0;
+    let distance = 0;
+    let hasCompletedDistance = false;
+
+    for (const set of ex.sets) {
+      if (!set.completed) continue;
+      durationSec += set.duration ?? 0;
+      if (schema.distance && schema.distanceUnit) {
+        for (const performance of setPerformances(set)) {
+          distance += performance.weight;
+          hasCompletedDistance = true;
+        }
+      }
+    }
+
+    const activity: CardioActivityStats = {
+      exerciseId: ex.exerciseId,
+      name: def?.name ?? ex.exerciseId,
+      durationSec,
+      ...(schema.distance && schema.distanceUnit && hasCompletedDistance
+        ? {
+            distance,
+            distanceUnit: schema.distanceUnit,
+            pace: schema.paceConvention
+              ? formatPace(schema.paceConvention, schema.distanceUnit, distance, durationSec)
+              : undefined,
+          }
+        : {}),
+    };
+
+    cardioActivities.push(activity);
+  }
+
+  const mode: WorkoutMode =
+    hasStrength && (hasCardio || hasInterval)
+      ? "mixed"
+      : hasCardio && !hasStrength && !hasInterval
+        ? "cardio"
+        : hasInterval && !hasStrength && !hasCardio
+          ? "interval"
+          : "strength";
+
+  return {
+    ...base,
+    mode,
+    cardioActivities,
+    primaryCardio: cardioActivities.length === 1 ? cardioActivities[0] : undefined,
+  };
+}
+
+/** Compact secondary line used by history cards and similar surfaces. */
+export function formatCardioActivity(activity: CardioActivityStats): string {
+  const parts: string[] = [];
+  if (activity.distance != null && activity.distanceUnit) {
+    parts.push(formatDistanceValue(activity.distanceUnit, activity.distance));
+  }
+  if (activity.durationSec > 0) parts.push(formatDuration(activity.durationSec));
+  if (activity.pace) parts.push(activity.pace);
+  return parts.join(" · ");
 }
 
 /**

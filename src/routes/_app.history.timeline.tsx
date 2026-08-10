@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { z } from "zod";
 import { getDb, type Workout, type PRRecord } from "@/lib/db";
 import { getExercise } from "@/lib/exercises";
-import { computeWorkoutStats } from "@/lib/workoutStats";
+import { computeWorkoutDisplayStats, formatCardioActivity } from "@/lib/workoutStats";
 import { computeIntensity } from "@/lib/muscles";
 import { syncWorkoutIntegrity } from "@/lib/workoutIntegrity";
 import { filterWorkouts, hasActiveFilters } from "@/lib/historyFilters";
@@ -184,7 +184,8 @@ function WorkoutTimeline() {
 
       <ul className="flex flex-col gap-3">
         {displayedWorkouts?.map((w) => {
-          const { totalSets, totalVolume } = computeWorkoutStats(w.exercises);
+          const stats = computeWorkoutDisplayStats(w.exercises);
+          const { totalSets, totalVolume } = stats;
           const intensity = computeIntensity(w.exercises);
           const hasMuscleData = Object.keys(intensity).length > 0;
 
@@ -198,12 +199,45 @@ function WorkoutTimeline() {
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate font-semibold">{w.name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="truncate font-semibold">{w.name}</p>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                        stats.mode === "cardio"
+                          ? "bg-primary/15 text-primary"
+                          : stats.mode === "mixed"
+                            ? "bg-secondary text-foreground"
+                            : "bg-secondary text-muted-foreground"
+                      }`}
+                    >
+                      {stats.mode === "cardio" ? "Cardio" : stats.mode === "mixed" ? "Mixed" : stats.mode}
+                    </span>
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(w.startedAt).toLocaleDateString()} ·{" "}
-                    {Math.max(1, Math.round((w.durationSec ?? 0) / 60))} min · {w.exercises.length}{" "}
-                    ex · {totalSets} sets
+                    {new Date(w.startedAt).toLocaleDateString()} · {" "}
+                    {Math.max(1, Math.round((w.durationSec ?? 0) / 60))} min · {w.exercises.length} {" "}
+                    ex
+                    {stats.mode !== "cardio" && ` · ${totalSets} sets`}
                   </p>
+
+                  {stats.mode === "cardio" && stats.primaryCardio && (
+                    <p className="mt-1 text-sm font-semibold">
+                      {formatCardioActivity(stats.primaryCardio)}
+                    </p>
+                  )}
+
+                  {stats.mode === "cardio" && !stats.primaryCardio && stats.cardioActivities.length > 0 && (
+                    <p className="mt-1 text-sm font-semibold">
+                      {stats.cardioActivities.length} cardio activities
+                    </p>
+                  )}
+
+                  {stats.mode === "mixed" && stats.cardioActivities.length > 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">Cardio:</span>{" "}
+                      {stats.cardioActivities.map(formatCardioActivity).filter(Boolean).join(" · ")}
+                    </p>
+                  )}
 
                   {totalVolume > 0 && (
                     <p className="mt-1 text-xs text-muted-foreground">
