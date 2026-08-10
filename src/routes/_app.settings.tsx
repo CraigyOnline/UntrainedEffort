@@ -489,47 +489,24 @@ function SettingsPage() {
         </dl>
       </section>
 
-      {/* Licenses */}
+      {/* License */}
       <section className="rounded-2xl border border-border/50 bg-card p-5">
         <div className="mb-4 flex items-center gap-2">
           <FileText className="h-4 w-4 text-primary" />
-          <h2 className="text-base font-semibold">Open Source Licenses</h2>
+          <h2 className="text-base font-semibold">License</h2>
         </div>
-        <div className="space-y-3 text-xs leading-relaxed text-muted-foreground">
-          <p>
-            Portions of this application use assets, logos, or icons from{" "}
-            <a
-              href="https://github.com/wger-project/wger"
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary underline"
-            >
-              wger
-            </a>
-            .
-          </p>
-          <p>
-            <span className="font-medium text-foreground">Software / Branding Assets:</span>{" "}
-            Licensed under the GNU Affero General Public License v3.0 or later (AGPL-3.0+).
-          </p>
-          <p>
-            <span className="font-medium text-foreground">Exercise Data and Media:</span> Licensed
-            under Creative Commons Attribution-ShareAlike (CC-BY-SA).
-          </p>
-          <p>Copyright © wger Team and contributors.</p>
-          <p>
-            A copy of the AGPL-3.0 License is available at{" "}
-            <a
-              href="https://www.gnu.org/licenses/agpl-3.0.html"
-              target="_blank"
-              rel="noreferrer"
-              className="break-all text-primary underline"
-            >
-              https://www.gnu.org/licenses/agpl-3.0.html
-            </a>
-            .
-          </p>
-        </div>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Untrained Effort is licensed under the{" "}
+          <a
+            href="https://www.gnu.org/licenses/gpl-3.0.html"
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary underline"
+          >
+            GNU General Public License v3.0
+          </a>{" "}
+          (GPL-3.0).
+        </p>
       </section>
 
       {/* Export selection dialog */}

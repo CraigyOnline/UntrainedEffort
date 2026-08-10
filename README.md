@@ -78,7 +78,6 @@ Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownershi
 - Goal tracking
 - Optional cloud sync
 - Wear OS support
-- Original muscle-map artwork (replacing wger-sourced assets)
 - Illustrated exercise form guidance (start/end position art)
 
 ---
@@ -91,6 +90,4 @@ This project is developed primarily for personal use, but ideas, bug reports and
 
 ## License
 
-Untrained Effort's own code is licensed under MIT.
-
-Some exercise data and muscle-map artwork are sourced from the [wger project](https://github.com/wger-project/wger) and carry their own licensing — wger's software under AGPL-3.0+, and its exercise data/media under CC-BY-SA. Full attribution and license text are available in-app under **Settings → Open Source Licenses**.
+Untrained Effort is licensed under the GNU General Public License v3.0 (GPL-3.0).
