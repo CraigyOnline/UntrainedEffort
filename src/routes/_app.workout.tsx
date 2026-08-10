@@ -43,7 +43,6 @@ import { RoutineEditor } from "@/features/workout/RoutineEditor";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
 import icon from "@/assets/brand/icon.png";
 import { type MuscleGroup } from "@/lib/exercises";
-import { BOTTOM_NAV_HEIGHT } from "@/components/BottomTabs";
 import { haptics } from "@/lib/haptics";
 
 const searchSchema = z.object({
