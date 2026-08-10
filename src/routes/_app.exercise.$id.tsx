@@ -13,6 +13,8 @@ import {
   formatCardioRate,
   formatPRValue,
   formatPRDelta,
+  getCardioTrend,
+  formatCardioInsight,
   type DisplayPRType,
 } from "@/lib/exerciseProgress";
 import { formatDate } from "@/lib/format";
@@ -118,6 +120,15 @@ function ExerciseProgressPage() {
     ? getPrimaryMetric("distance", recentSessions?.flatMap((s) => s.sets) ?? [])
     : null;
 
+  const cardioTrend =
+    isCardioProgress && chartData.length >= 2
+      ? getCardioTrend(
+          schema,
+          chartData[chartData.length - 2].value,
+          chartData[chartData.length - 1].value,
+        )
+      : null;
+
   // Latest PR per type — derived directly from stored records
   const latest: Partial<Record<DisplayPRType, PRRecord>> = {};
   if (prs) {
@@ -202,6 +213,49 @@ function ExerciseProgressPage() {
           </div>
         </div>
       ) : null}
+
+      {/* Cardio trend */}
+      {cardioTrend && (
+        <div className="rounded-xl bg-card p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold">Recent Trend</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {formatCardioInsight(schema, cardioTrend)}
+              </p>
+            </div>
+            <span
+              className={`shrink-0 text-sm font-semibold ${
+                cardioTrend.direction === "improving"
+                  ? "text-primary"
+                  : cardioTrend.direction === "declining"
+                    ? "text-destructive"
+                    : "text-muted-foreground"
+              }`}
+            >
+              {cardioTrend.direction === "improving"
+                ? "Improving"
+                : cardioTrend.direction === "declining"
+                  ? "Slower"
+                  : "Steady"}
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Previous</p>
+              <p className="text-base font-bold">
+                {formatCardioRate(schema, cardioTrend.previous)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Latest</p>
+              <p className="text-base font-bold text-primary">
+                {formatCardioRate(schema, cardioTrend.latest)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Progression by type */}
       {prs && prs.length === 0 && (

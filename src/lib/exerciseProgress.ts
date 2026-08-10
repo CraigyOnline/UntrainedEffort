@@ -207,6 +207,63 @@ export function compareTrend(previous: number, latest: number): Trend {
   return "flat";
 }
 
+export interface CardioTrend {
+  direction: "improving" | "declining" | "steady";
+  previous: number;
+  latest: number;
+  changePercent: number;
+}
+
+/**
+ * Compares the two most recent cardio rate values using the convention's
+ * meaning of "better": lower is better for pace, higher is better for speed
+ * and rate.
+ */
+export function getCardioTrend(
+  schema: ExerciseLoggingSchema,
+  previous: number,
+  latest: number,
+): CardioTrend {
+  const lowerIsBetter = schema.paceConvention?.style === "pace";
+  const changePercent = previous === 0 ? 0 : ((latest - previous) / previous) * 100;
+
+  if (latest === previous) {
+    return { direction: "steady", previous, latest, changePercent: 0 };
+  }
+
+  const improved = lowerIsBetter ? latest < previous : latest > previous;
+  return {
+    direction: improved ? "improving" : "declining",
+    previous,
+    latest,
+    changePercent: Math.abs(changePercent),
+  };
+}
+
+/**
+ * Returns a concise, user-facing insight from the two most recent cardio
+ * sessions. The percentage is intentionally rounded to one decimal place;
+ * no comparison is shown when there is only one session.
+ */
+export function formatCardioInsight(
+  schema: ExerciseLoggingSchema,
+  trend: CardioTrend,
+): string {
+  const metric =
+    schema.paceConvention?.style === "pace"
+      ? "pace"
+      : schema.paceConvention?.style === "rate"
+        ? "rate"
+        : "speed";
+
+  if (trend.direction === "steady") {
+    return `Your ${metric} is unchanged from your previous session.`;
+  }
+
+  const verb = trend.direction === "improving" ? "faster" : "slower";
+  return `Your ${metric} is ${trend.changePercent.toFixed(1)}% ${verb} than your previous session.`;
+}
+
 /**
  * When each exercise was last actually trained (a session with at least
  * one completed set of it) — one pass over all workouts, most-recent-first
