@@ -9,6 +9,8 @@ import {
   getPrimaryMetric,
   metricLabel,
   formatMetricValue,
+  getCardioRate,
+  formatCardioRate,
 } from "@/lib/exerciseProgress";
 import { formatDate } from "@/lib/format";
 import { EmptyState } from "@/components/EmptyState";
@@ -87,16 +89,31 @@ function ExerciseProgressPage() {
 
   const schema = getExerciseLoggingSchema(def);
   const metricKind = getPrimaryMetricKind(schema);
+  const isCardioProgress = schema.distance && !!schema.paceConvention;
 
   // Chronological (oldest first) for the chart's x-axis — recentSessions
   // itself stays most-recent-first, since that's what the list below wants.
   const chartData = (recentSessions ?? [])
     .map((session) => ({
       date: session.startedAt,
-      value: getPrimaryMetric(metricKind, session.sets),
+      value: isCardioProgress
+        ? getCardioRate(schema, session.sets)
+        : getPrimaryMetric(metricKind, session.sets),
     }))
     .filter((p): p is { date: number; value: number } => p.value !== null)
     .reverse();
+
+  const cardioBestRate = isCardioProgress && chartData.length > 0
+    ? chartData.reduce((best, point) =>
+        schema.paceConvention?.style === "pace"
+          ? Math.min(best, point.value)
+          : Math.max(best, point.value),
+        chartData[0].value,
+      )
+    : null;
+  const cardioBestDistance = isCardioProgress
+    ? getPrimaryMetric("distance", recentSessions?.flatMap((s) => s.sets) ?? [])
+    : null;
 
   // Latest PR per type — derived directly from stored records
   const latest: Partial<Record<"weight" | "reps" | "time", PRRecord>> = {};
@@ -144,8 +161,32 @@ function ExerciseProgressPage() {
         </div>
       </header>
 
-      {/* Current PRs */}
-      {prs && prs.length > 0 && (
+      {/* Current bests */}
+      {isCardioProgress && chartData.length > 0 ? (
+        <div className="rounded-xl bg-card p-4">
+          <h2 className="mb-3 text-sm font-semibold">Current Bests</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Best Distance</p>
+              <p className="text-base font-bold text-primary">
+                {cardioBestDistance != null
+                  ? formatMetricValue("distance", cardioBestDistance, schema.distanceUnit)
+                  : "—"}
+              </p>
+            </div>
+            {cardioBestRate != null && (
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Best {schema.paceConvention?.style === "pace" ? "Pace" : "Speed"}
+                </p>
+                <p className="text-base font-bold text-primary">
+                  {formatCardioRate(schema, cardioBestRate)}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : prs && prs.length > 0 ? (
         <div className="rounded-xl bg-card p-4">
           <h2 className="mb-3 text-sm font-semibold">Current Personal Bests</h2>
           <div className="flex flex-wrap gap-4">
@@ -161,7 +202,7 @@ function ExerciseProgressPage() {
             })}
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Progression by type */}
       {prs && prs.length === 0 && (
@@ -221,7 +262,11 @@ function ExerciseProgressPage() {
       {/* Progress chart */}
       {chartData.length >= 2 && (
         <div className="rounded-xl bg-card p-4">
-          <h2 className="mb-3 text-sm font-semibold">{metricLabel(metricKind)} Over Time</h2>
+          <h2 className="mb-3 text-sm font-semibold">
+            {isCardioProgress
+              ? `${schema.paceConvention?.style === "pace" ? "Pace" : "Speed"} Over Time`
+              : `${metricLabel(metricKind)} Over Time`}
+          </h2>
           <div className="h-44 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
@@ -243,8 +288,12 @@ function ExerciseProgressPage() {
                 <Tooltip
                   labelFormatter={(ts) => formatDate(ts as number)}
                   formatter={(value: number) => [
-                    formatMetricValue(metricKind, value, schema.distanceUnit),
-                    metricLabel(metricKind),
+                    isCardioProgress
+                      ? formatCardioRate(schema, value)
+                      : formatMetricValue(metricKind, value, schema.distanceUnit),
+                    isCardioProgress
+                      ? schema.paceConvention?.style === "pace" ? "Pace" : "Speed"
+                      : metricLabel(metricKind),
                   ]}
                   contentStyle={{
                     background: "var(--card)",

@@ -95,6 +95,69 @@ export function formatMetricValue(
   return `${value} reps`;
 }
 
+/**
+ * Returns the session-level cardio pace/speed/rate from completed sets.
+ * Distances and durations are aggregated before calculating the rate so a
+ * workout containing multiple logged cardio sets is represented as one
+ * coherent session rather than an average of already-averaged set rates.
+ *
+ * For pace, the result is seconds per the convention's configured distance
+ * chunk (e.g. seconds per km or per 500m). For speed/rate it is the numeric
+ * units used by the convention (distance/hour or distance/minute).
+ */
+export function getCardioRate(
+  schema: ExerciseLoggingSchema,
+  sets: WorkoutSet[],
+): number | null {
+  if (!schema.distance || !schema.distanceUnit || !schema.paceConvention) return null;
+
+  let distance = 0;
+  let durationSec = 0;
+  for (const set of sets) {
+    if (!set.completed) continue;
+    for (const perf of setPerformances(set)) {
+      const d = perf.weight ?? 0;
+      const t = perf.duration ?? 0;
+      if (d > 0 && t > 0) {
+        distance += d;
+        durationSec += t;
+      }
+    }
+  }
+  if (distance <= 0 || durationSec <= 0) return null;
+
+  const convention = schema.paceConvention;
+  if (convention.style === "pace") {
+    return durationSec / (distance / convention.per);
+  }
+  if (convention.style === "speed") {
+    return (distance / durationSec) * 3600;
+  }
+  return (distance / durationSec) * 60;
+}
+
+/** Formats the numeric result returned by getCardioRate using the exercise's
+ * actual convention, so running, rowing, cycling and stair climbing all get
+ * their familiar units instead of a generic decimal. */
+export function formatCardioRate(
+  schema: ExerciseLoggingSchema,
+  value: number,
+): string {
+  const convention = schema.paceConvention;
+  if (!convention) return "—";
+  if (convention.style === "pace") {
+    const unit = schema.distanceUnit === "km" ? "km" : schema.distanceUnit === "m" ? "m" : "floors";
+    const per = convention.per === 1 ? unit : `${convention.per}${unit}`;
+    return `${formatDuration(Math.round(value))}/${per}`;
+  }
+  if (convention.style === "speed") {
+    const unit = schema.distanceUnit === "km" ? "km" : schema.distanceUnit === "m" ? "m" : "floors";
+    return `${value.toFixed(1)} ${unit}/h`;
+  }
+  const unit = schema.distanceUnit === "km" ? "km" : schema.distanceUnit === "m" ? "m" : "floors";
+  return `${value.toFixed(1)} ${unit}/min`;
+}
+
 export type Trend = "up" | "down" | "flat";
 
 /**
