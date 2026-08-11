@@ -10,6 +10,7 @@ import {
   type Workout,
   type WorkoutExerciseLog,
   type PRRecord,
+  type CircuitConfig,
 } from "@/lib/db";
 import {
   getExercise,
@@ -51,6 +52,8 @@ import { getRoutineUpdatePromptEnabled } from "@/lib/routineUpdatePrompt";
 import type { CompletionMessage } from "@/lib/completionMessages";
 import { useActiveWorkoutDraft } from "@/features/workout/useActiveWorkoutDraft";
 import { LiveSession } from "@/features/workout/LiveSession";
+import { CircuitLiveSession } from "@/features/workout/CircuitLiveSession";
+import { QuickCircuitSetup } from "@/features/workout/QuickCircuitSetup";
 import { RoutineEditor } from "@/features/workout/RoutineEditor";
 import { CircuitRoutineEditor } from "@/features/workout/CircuitRoutineEditor";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
@@ -199,6 +202,14 @@ function WorkoutPage() {
     Routine | "new-standard" | "new-circuit" | null
   >(null);
   const [routineTypePickerOpen, setRoutineTypePickerOpen] = useState(false);
+  // Same "how do I start" choice as routineTypePickerOpen, but for the
+  // Quick Workout button — a standard quick workout starts immediately
+  // (as it always has), while circuit needs its stations/timing decided
+  // first, since there's no routine to supply them. See
+  // QuickCircuitSetup for why that's a separate ephemeral flow rather
+  // than reusing CircuitRoutineEditor.
+  const [quickWorkoutTypePickerOpen, setQuickWorkoutTypePickerOpen] = useState(false);
+  const [quickCircuitSetupOpen, setQuickCircuitSetupOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Routine | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   useDismissOnBack(menuOpenId !== null, () => setMenuOpenId(null));
@@ -263,6 +274,16 @@ function WorkoutPage() {
   }, [active, routineId, routines]);
 
   function startWorkout(r: Routine | null) {
+    if (r?.type === "circuit" && r.circuit) {
+      setActive({
+        routine: r,
+        name: r.name,
+        startedAt: Date.now(),
+        exercises: [],
+        circuit: { config: r.circuit, state: undefined },
+      });
+      return;
+    }
     setActive({
       routine: r,
       name: r?.name ?? "Quick Workout",
@@ -282,6 +303,20 @@ function WorkoutPage() {
             ),
           };
         }) ?? [],
+    });
+  }
+
+  // The ad-hoc counterpart to startWorkout's circuit branch — no Routine
+  // exists yet (and, per "fire and forget," never will), so this builds
+  // the same ActiveWorkoutDraft shape directly from a QuickCircuitSetup
+  // config instead of reading one off r.circuit.
+  function startCircuitWorkout(config: CircuitConfig) {
+    setActive({
+      routine: null,
+      name: "Quick Circuit",
+      startedAt: Date.now(),
+      exercises: [],
+      circuit: { config, state: undefined },
     });
   }
 
@@ -605,14 +640,18 @@ function WorkoutPage() {
   if (active) {
     return (
       <>
-        <LiveSession
-          session={active}
-          setSession={setActive}
-          onAddExercise={() => setPicking(true)}
-          onFinish={handleFinish}
-        />
+        {active.circuit ? (
+          <CircuitLiveSession session={active} setSession={setActive} onFinish={handleFinish} />
+        ) : (
+          <LiveSession
+            session={active}
+            setSession={setActive}
+            onAddExercise={() => setPicking(true)}
+            onFinish={handleFinish}
+          />
+        )}
 
-        {picking && (
+        {picking && !active.circuit && (
           <ExercisePicker
             onClose={() => setPicking(false)}
             onPick={(id) => {
@@ -709,10 +748,7 @@ function WorkoutPage() {
       </header>
 
       <button
-        onClick={() => {
-          haptics.workoutStart();
-          startWorkout(null);
-        }}
+        onClick={() => setQuickWorkoutTypePickerOpen(true)}
         className="flex items-center gap-3 rounded-2xl bg-primary px-5 py-4 text-primary-foreground active:opacity-90"
       >
         <Dumbbell className="h-5 w-5 shrink-0" />
@@ -721,6 +757,48 @@ function WorkoutPage() {
           <p className="text-xs text-primary-foreground/70">Start an empty session</p>
         </div>
       </button>
+
+      <Dialog open={quickWorkoutTypePickerOpen} onOpenChange={setQuickWorkoutTypePickerOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>What kind of workout?</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-2">
+            <button
+              onClick={() => {
+                setQuickWorkoutTypePickerOpen(false);
+                haptics.workoutStart();
+                startWorkout(null);
+              }}
+              className="rounded-xl bg-card px-4 py-3 text-left active:bg-secondary/70"
+            >
+              <p className="font-semibold">Standard</p>
+              <p className="text-xs text-muted-foreground">Start an empty session</p>
+            </button>
+            <button
+              onClick={() => {
+                setQuickWorkoutTypePickerOpen(false);
+                setQuickCircuitSetupOpen(true);
+              }}
+              className="rounded-xl bg-card px-4 py-3 text-left active:bg-secondary/70"
+            >
+              <p className="font-semibold">Circuit / HIIT</p>
+              <p className="text-xs text-muted-foreground">Pick stations and timing, then go</p>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {quickCircuitSetupOpen && (
+        <QuickCircuitSetup
+          onClose={() => setQuickCircuitSetupOpen(false)}
+          onStart={(config) => {
+            setQuickCircuitSetupOpen(false);
+            haptics.workoutStart();
+            startCircuitWorkout(config);
+          }}
+        />
+      )}
 
       <div>
         <p className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -765,14 +843,6 @@ function WorkoutPage() {
                   <div className="flex items-stretch rounded-2xl bg-card overflow-hidden">
                     <button
                       onClick={() => {
-                        if (isCircuit) {
-                          // Starting a live circuit session isn't built yet
-                          // (no circuit-aware timer/session — see roadmap);
-                          // route into editing instead of starting a
-                          // session with zero exercises.
-                          setEditingRoutine(r);
-                          return;
-                        }
                         haptics.workoutStart();
                         startWorkout(r);
                       }}
@@ -791,11 +861,7 @@ function WorkoutPage() {
                           {muscles.join(" • ")}
                         </p>
                       )}
-                      <p className="mt-1 text-xs text-muted-foreground/60">
-                        {isCircuit
-                          ? "Starting a circuit is coming soon — tap to edit"
-                          : lastUsedLabel}
-                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground/60">{lastUsedLabel}</p>
                     </button>
 
                     {/* Muscle map thumbnail */}

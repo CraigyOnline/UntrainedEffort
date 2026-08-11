@@ -84,6 +84,7 @@ export function startRestTimer(durationSec: number = DEFAULT_REST_DURATION_SEC):
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function sessionHasData(active: ActiveSession): boolean {
+  if (active.circuit) return active.circuit.state !== undefined;
   return active.exercises.some((e) =>
     e.sets.some(
       (s) =>
@@ -161,6 +162,21 @@ export async function doSaveWorkout(
     endedAt,
     durationSec: Math.max(1, Math.round((endedAt - active.startedAt) / 1000)),
     exercises,
+    circuit: active.circuit
+      ? {
+          config: active.circuit.config,
+          // "Fully completed" rounds only — round N isn't counted until
+          // its last station's rest has actually finished (see
+          // CircuitTimer's advance()), so a session stopped mid-round
+          // reports the last round it *finished*, not the one it was in
+          // the middle of. Clamped to config.rounds for the done case,
+          // where state.round is deliberately left one past the max.
+          roundsCompleted: Math.min(
+            active.circuit.config.rounds,
+            Math.max(0, (active.circuit.state?.round ?? 1) - 1),
+          ),
+        }
+      : undefined,
   };
   try {
     const db = getDb();

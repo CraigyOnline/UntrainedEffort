@@ -106,6 +106,20 @@ export interface Workout {
   endedAt: number;
   durationSec: number;
   exercises: WorkoutExerciseLog[];
+  /** Present only for a circuit/HIIT workout — exercises stays [] for
+   *  these (see Routine.circuit for why), so this is where what was
+   *  actually done lives instead. `config` is the config as it stood at
+   *  the end of the session (a quick/ad-hoc circuit has no routine to
+   *  diverge from; a routine-based one could in principle differ from
+   *  the routine's current config if edited elsewhere mid-session, so
+   *  this always records what was actually run, same reasoning as
+   *  ActiveSessionExercise.intervalConfig). `roundsCompleted` is derived
+   *  from the final CircuitTimerState at finish time, not tracked
+   *  separately. */
+  circuit?: {
+    config: CircuitConfig;
+    roundsCompleted: number;
+  };
 }
 
 /**
@@ -250,6 +264,19 @@ export interface ActiveWorkoutDraft {
   name: string;
   startedAt: number;
   exercises: ActiveSessionExercise[];
+  /** Present for a circuit/HIIT session — set once at start (from a
+   *  circuit routine, or an ephemeral config for a quick/ad-hoc circuit
+   *  that's never saved as a routine) and never re-derived from
+   *  `routine.circuit` afterward, so editing the source routine mid-
+   *  session can't retroactively change a session already running.
+   *  `exercises` stays [] for the whole session when this is present —
+   *  a circuit session drives CircuitLiveSession/CircuitTimer instead of
+   *  LiveSession's per-exercise UI. `state` is absent until the timer is
+   *  first started, same convention as ActiveSessionExercise.intervalState. */
+  circuit?: {
+    config: CircuitConfig;
+    state?: CircuitTimerState;
+  };
   /** Absent until the first set of the workout is completed. See
    *  RestTimerState for lifecycle. */
   restTimer?: RestTimerState;
