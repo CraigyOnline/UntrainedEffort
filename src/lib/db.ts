@@ -153,6 +153,23 @@ export interface IntervalTimerState {
 }
 
 /**
+ * Same shape/semantics as IntervalTimerState, generalized from one
+ * exercise's work/rest cycle to a whole circuit's station-by-station,
+ * round-by-round sequence. `stationIndex` is 0-indexed into
+ * CircuitConfig.stations; "roundRest" is a phase distinct from "work"/
+ * "rest" since it belongs to the round as a whole rather than to any one
+ * station (stationIndex is left at the last station's index during it —
+ * see CircuitTimer's advance()). Not yet embedded in ActiveWorkoutDraft;
+ * added here ahead of that wiring the same way CircuitConfig itself was.
+ */
+export interface CircuitTimerState {
+  round: number;
+  stationIndex: number;
+  phase: "work" | "rest" | "roundRest";
+  status: { kind: "running"; endsAt: number } | { kind: "paused"; remaining: number };
+}
+
+/**
  * A WorkoutSet as it exists during a live, in-progress workout — adds an
  * ephemeral `timerStart` (an absolute epoch timestamp, or null/absent
  * when not running) that a timed exercise's set uses while its timer is
