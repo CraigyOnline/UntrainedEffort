@@ -38,6 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ArrowDown, ArrowUp, Dumbbell, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
 import { useDismissOnBack } from "@/lib/backHandler";
 import {
@@ -51,6 +52,7 @@ import type { CompletionMessage } from "@/lib/completionMessages";
 import { useActiveWorkoutDraft } from "@/features/workout/useActiveWorkoutDraft";
 import { LiveSession } from "@/features/workout/LiveSession";
 import { RoutineEditor } from "@/features/workout/RoutineEditor";
+import { CircuitRoutineEditor } from "@/features/workout/CircuitRoutineEditor";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
 import icon from "@/assets/brand/icon.png";
 import { type MuscleGroup } from "@/lib/exercises";
@@ -69,8 +71,14 @@ const searchSchema = z.object({
  */
 function routineIntensity(r: Routine): Partial<Record<MuscleGroup, number>> {
   const out: Partial<Record<MuscleGroup, number>> = {};
-  for (const ex of r.exercises) {
-    const def = getExercise(ex.exerciseId);
+  // Circuit routines keep their exercises in `circuit.stations` instead of
+  // `exercises` (which is always empty for them — see Routine in db.ts).
+  const exerciseIds =
+    r.type === "circuit"
+      ? (r.circuit?.stations.map((s) => s.exerciseId) ?? [])
+      : r.exercises.map((e) => e.exerciseId);
+  for (const exerciseId of exerciseIds) {
+    const def = getExercise(exerciseId);
     if (!def) continue;
     out[def.muscle] = 1;
     for (const sec of def.secondary ?? []) {
@@ -184,7 +192,13 @@ function WorkoutPage() {
       clearTimeout(toStage2);
     };
   }, [summary, completionMessage]);
-  const [editingRoutine, setEditingRoutine] = useState<Routine | "new" | null>(null);
+  // "new-standard"/"new-circuit" distinguish which editor a brand-new
+  // routine should open in (chosen via routineTypePickerOpen below) from
+  // editing an existing Routine, which already carries its own `type`.
+  const [editingRoutine, setEditingRoutine] = useState<
+    Routine | "new-standard" | "new-circuit" | null
+  >(null);
+  const [routineTypePickerOpen, setRoutineTypePickerOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Routine | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<number | null>(null);
   useDismissOnBack(menuOpenId !== null, () => setMenuOpenId(null));
@@ -716,7 +730,10 @@ function WorkoutPage() {
         {routines && sortedRoutines.length === 0 ? (
           <EmptyState
             message="No routines yet"
-            action={{ label: "Create your first routine", onClick: () => setEditingRoutine("new") }}
+            action={{
+              label: "Create your first routine",
+              onClick: () => setRoutineTypePickerOpen(true),
+            }}
           />
         ) : (
           <ul className="flex flex-col gap-2">
@@ -740,12 +757,22 @@ function WorkoutPage() {
                 : "Never used";
 
               const menuOpen = menuOpenId === r.id;
+              const isCircuit = r.type === "circuit";
+              const stationCount = r.circuit?.stations.length ?? 0;
 
               return (
                 <li key={r.id} className="relative">
                   <div className="flex items-stretch rounded-2xl bg-card overflow-hidden">
                     <button
                       onClick={() => {
+                        if (isCircuit) {
+                          // Starting a live circuit session isn't built yet
+                          // (no circuit-aware timer/session — see roadmap);
+                          // route into editing instead of starting a
+                          // session with zero exercises.
+                          setEditingRoutine(r);
+                          return;
+                        }
                         haptics.workoutStart();
                         startWorkout(r);
                       }}
@@ -755,14 +782,20 @@ function WorkoutPage() {
                         <p className="font-semibold truncate">{r.name}</p>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {r.exercises.length} exercise{r.exercises.length === 1 ? "" : "s"}
+                        {isCircuit
+                          ? `${stationCount} station${stationCount === 1 ? "" : "s"}`
+                          : `${r.exercises.length} exercise${r.exercises.length === 1 ? "" : "s"}`}
                       </p>
                       {muscles.length > 0 && (
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {muscles.join(" • ")}
                         </p>
                       )}
-                      <p className="mt-1 text-xs text-muted-foreground/60">{lastUsedLabel}</p>
+                      <p className="mt-1 text-xs text-muted-foreground/60">
+                        {isCircuit
+                          ? "Starting a circuit is coming soon — tap to edit"
+                          : lastUsedLabel}
+                      </p>
                     </button>
 
                     {/* Muscle map thumbnail */}
@@ -835,18 +868,57 @@ function WorkoutPage() {
       </div>
 
       <button
-        onClick={() => setEditingRoutine("new")}
+        onClick={() => setRoutineTypePickerOpen(true)}
         className="flex items-center justify-center gap-2 rounded-2xl bg-primary py-3 text-sm font-medium text-primary-foreground active:opacity-90"
       >
         <Plus className="h-4 w-4" /> Create New Routine
       </button>
 
-      {editingRoutine !== null && (
-        <RoutineEditor
-          initial={editingRoutine === "new" ? null : editingRoutine}
-          onClose={() => setEditingRoutine(null)}
-        />
-      )}
+      <Dialog open={routineTypePickerOpen} onOpenChange={setRoutineTypePickerOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>What kind of routine?</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-2">
+            <button
+              onClick={() => {
+                setRoutineTypePickerOpen(false);
+                setEditingRoutine("new-standard");
+              }}
+              className="rounded-xl bg-card px-4 py-3 text-left active:bg-secondary/70"
+            >
+              <p className="font-semibold">Standard</p>
+              <p className="text-xs text-muted-foreground">Sets, reps, and weight</p>
+            </button>
+            <button
+              onClick={() => {
+                setRoutineTypePickerOpen(false);
+                setEditingRoutine("new-circuit");
+              }}
+              className="rounded-xl bg-card px-4 py-3 text-left active:bg-secondary/70"
+            >
+              <p className="font-semibold">Circuit / HIIT</p>
+              <p className="text-xs text-muted-foreground">
+                Stations on a work/rest timer, for rounds
+              </p>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {editingRoutine !== null &&
+        (editingRoutine === "new-circuit" ||
+        (typeof editingRoutine === "object" && editingRoutine.type === "circuit") ? (
+          <CircuitRoutineEditor
+            initial={editingRoutine === "new-circuit" ? null : editingRoutine}
+            onClose={() => setEditingRoutine(null)}
+          />
+        ) : (
+          <RoutineEditor
+            initial={editingRoutine === "new-standard" ? null : editingRoutine}
+            onClose={() => setEditingRoutine(null)}
+          />
+        ))}
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
