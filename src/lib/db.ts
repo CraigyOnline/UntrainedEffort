@@ -16,10 +16,50 @@ export interface RoutineExercise {
   sets: RoutineSet[];
 }
 
+/**
+ * One station in a circuit/HIIT routine — an exercise plus its own
+ * work/rest duration. Unlike interval exercises (IntervalConfig), timing
+ * is per-station rather than shared across the whole routine, since
+ * different stations (e.g. burpees vs. plank) commonly want different
+ * durations.
+ */
+export interface CircuitStation {
+  exerciseId: string;
+  workSeconds: number;
+  restSeconds: number;
+}
+
+/**
+ * Circuit-specific configuration for a Routine with type "circuit". Kept
+ * as its own grouped object (mirroring RestTimerState/IntervalTimerState
+ * elsewhere in this file) rather than flattened onto Routine, so it reads
+ * as one cohesive "this is the circuit" unit and is trivially absent for
+ * every standard routine.
+ */
+export interface CircuitConfig {
+  stations: CircuitStation[];
+  /** How many full laps through `stations` make up the workout. */
+  rounds: number;
+  /** Rest inserted after finishing a full lap, before round 2's first
+   *  station. Kept even when roundRestEnabled is false so a user
+   *  toggling it back on doesn't lose their configured value. */
+  roundRestSeconds: number;
+  roundRestEnabled: boolean;
+}
+
 export interface Routine {
   id?: number;
   name: string;
+  /** Absent or "standard" means the existing sets/reps/weight routine
+   *  shape below (`exercises`) applies. "circuit" means `circuit` applies
+   *  instead — see CircuitConfig. Absence defaults to "standard" so every
+   *  routine that existed before this field was added keeps behaving
+   *  exactly as it did. */
+  type?: "standard" | "circuit";
+  /** Only meaningful when type is absent or "standard". */
   exercises: RoutineExercise[];
+  /** Only present when type is "circuit". */
+  circuit?: CircuitConfig;
   createdAt: number;
   /** Manual display order — lower sorts first. The sole canonical ordering
    *  for routine lists. */
