@@ -50,6 +50,11 @@ export interface WorkoutDisplayStats extends WorkoutStats {
   intervalActivities: IntervalActivityStats[];
   /** The primary interval activity when the workout contains exactly one. */
   primaryInterval?: IntervalActivityStats;
+  /** Count of exercises classified as strength (not cardio, not interval).
+   *  Exists alongside cardioActivities.length/intervalActivities.length so
+   *  a "mixed" workout's dominant modality can be resolved by exercise
+   *  count — see computeDominantSignature. */
+  strengthExerciseCount: number;
 }
 
 /**
@@ -63,6 +68,7 @@ export function computeWorkoutDisplayStats(exercises: Workout["exercises"]): Wor
   let hasStrength = false;
   let hasCardio = false;
   let hasInterval = false;
+  let strengthExerciseCount = 0;
   const cardioActivities: CardioActivityStats[] = [];
   const intervalActivities: IntervalActivityStats[] = [];
 
@@ -91,6 +97,7 @@ export function computeWorkoutDisplayStats(exercises: Workout["exercises"]): Wor
     }
     if (!isCardio(def)) {
       hasStrength = true;
+      strengthExerciseCount += 1;
       continue;
     }
 
@@ -140,7 +147,30 @@ export function computeWorkoutDisplayStats(exercises: Workout["exercises"]): Wor
     primaryCardio: cardioActivities.length === 1 ? cardioActivities[0] : undefined,
     intervalActivities,
     primaryInterval: intervalActivities.length === 1 ? intervalActivities[0] : undefined,
+    strengthExerciseCount,
   };
+}
+
+/**
+ * Resolves which visual signature (muscle map vs. cardio signature) should
+ * represent a workout in compact UI slots (history card thumbnail, workout
+ * summary). Only meaningful for "mixed" workouts — pure strength/cardio/
+ * interval workouts already know their own answer from `mode` — but this
+ * accepts any WorkoutDisplayStats so call sites don't need a branch before
+ * calling it.
+ *
+ * Dominance is decided by exercise/station count (strengthExerciseCount vs.
+ * cardioActivities.length + intervalActivities.length) rather than duration
+ * or volume: strength exercises have no per-exercise duration tracked
+ * today, and lifted volume (kg) isn't comparable to cardio's distance/
+ * duration on the same axis. Ties favor strength.
+ */
+export function computeDominantSignature(stats: WorkoutDisplayStats): "strength" | "cardio" {
+  if (stats.mode === "strength") return "strength";
+  if (stats.mode === "cardio" || stats.mode === "interval") return "cardio";
+
+  const cardioCount = stats.cardioActivities.length + stats.intervalActivities.length;
+  return stats.strengthExerciseCount >= cardioCount ? "strength" : "cardio";
 }
 
 /** Compact secondary line used by history cards and similar surfaces. */
