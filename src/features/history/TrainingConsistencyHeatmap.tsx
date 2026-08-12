@@ -52,13 +52,28 @@ function toDayKey(d: Date): string {
   ).padStart(2, "0")}`;
 }
 
+/**
+ * WorkoutMode plus "circuit" — computeWorkoutDisplayStats (imported
+ * above) has no concept of a circuit workout, since it only looks at
+ * w.exercises (always [] for one — see Workout in db.ts) and falls
+ * through every check to its "strength" default. Rather than extend
+ * WorkoutMode itself, which would mean threading "circuit" through
+ * computeWorkoutDisplayStats and its ~9 other call sites across the app,
+ * this stays local to the heatmap the same way the history timeline
+ * card's identical fix did — see workoutMode() below. */
+type DayMode = WorkoutMode | "circuit";
+
+function workoutMode(w: Workout): DayMode {
+  return w.circuit ? "circuit" : computeWorkoutDisplayStats(w.exercises).mode;
+}
+
 interface DayCell {
   key: string;
   trained: boolean;
   isFuture: boolean;
   isFirstOfMonth: boolean;
   monthLabel: string;
-  mode: WorkoutMode;
+  mode: DayMode;
 }
 
 interface TrainingConsistencyHeatmapProps {
@@ -189,13 +204,15 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
                     ? "invisible"
                     : !day.trained
                       ? "bg-secondary"
-                      : day.mode === "cardio"
-                        ? "bg-chart-2 active:scale-90"
-                        : day.mode === "interval"
-                          ? "bg-intensity active:scale-90"
-                          : day.mode === "mixed"
-                            ? "bg-chart-4 ring-1 ring-primary-foreground/70 active:scale-90"
-                            : "bg-primary active:scale-90"
+                      : day.mode === "circuit"
+                        ? "bg-circuit-rest active:scale-90"
+                        : day.mode === "cardio"
+                          ? "bg-chart-2 active:scale-90"
+                          : day.mode === "interval"
+                            ? "bg-intensity active:scale-90"
+                            : day.mode === "mixed"
+                              ? "bg-chart-4 ring-1 ring-primary-foreground/70 active:scale-90"
+                              : "bg-primary active:scale-90"
                 }`}
               />
             ))}
@@ -214,6 +231,9 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
           <span className="h-2.5 w-2.5 rounded-sm bg-intensity" /> Intervals
         </span>
         <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-circuit-rest" /> Circuit
+        </span>
+        <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-chart-4 ring-1 ring-primary-foreground/70" />{" "}
           Mixed
         </span>
@@ -230,6 +250,7 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
               workoutsByDay.get(selectedDayKey)?.map((w) => {
                 const display = computeWorkoutDisplayStats(w.exercises);
                 const { totalSets, totalVolume } = computeWorkoutStats(w.exercises);
+                const mode = workoutMode(w);
                 const cardioSummary = display.cardioActivities
                   .map(formatCardioActivity)
                   .filter(Boolean)
@@ -243,18 +264,20 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
                     <div className="flex items-center justify-between gap-3">
                       <p className="font-semibold">{w.name}</p>
                       <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium capitalize text-muted-foreground">
-                        {display.mode}
+                        {mode}
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {Math.max(1, Math.round((w.durationSec ?? 0) / 60))} min ·{" "}
-                      {display.mode === "cardio" && cardioSummary
-                        ? cardioSummary
-                        : display.mode === "interval" && intervalSummary
-                          ? intervalSummary
-                          : `${w.exercises.length} ex · ${totalSets} sets${
-                              totalVolume > 0 ? ` · ${totalVolume.toLocaleString()} kg` : ""
-                            }`}
+                      {mode === "circuit" && w.circuit
+                        ? `${w.circuit.config.stations.length} stations · ${w.circuit.roundsCompleted}/${w.circuit.config.rounds} rounds`
+                        : mode === "cardio" && cardioSummary
+                          ? cardioSummary
+                          : mode === "interval" && intervalSummary
+                            ? intervalSummary
+                            : `${w.exercises.length} ex · ${totalSets} sets${
+                                totalVolume > 0 ? ` · ${totalVolume.toLocaleString()} kg` : ""
+                              }`}
                     </p>
                     <Button
                       size="sm"
@@ -283,10 +306,10 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
   );
 }
 
-function getDayMode(workouts: Workout[]): WorkoutMode {
-  const modes = new Set<WorkoutMode>();
+function getDayMode(workouts: Workout[]): DayMode {
+  const modes = new Set<DayMode>();
   for (const workout of workouts) {
-    modes.add(computeWorkoutDisplayStats(workout.exercises).mode);
+    modes.add(workoutMode(workout));
   }
 
   if (modes.size === 0) return "strength";
