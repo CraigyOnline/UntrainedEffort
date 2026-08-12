@@ -1,5 +1,5 @@
 import { getExercise } from "@/lib/exercises";
-import { WorkoutHUD, WORKOUT_HUD_HEIGHT } from "./WorkoutHUD";
+import { CircuitHUD, CIRCUIT_HUD_HEIGHT } from "./CircuitHUD";
 import { CircuitTimer } from "./CircuitTimer";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -18,19 +18,19 @@ export interface CircuitLiveSessionProps {
  * branch inside LiveSession: a circuit session has no per-set logging, no
  * rest timer (CircuitTimer's own rest phases replace it), no PR tracking,
  * and a fixed station list decided at start — none of the machinery
- * LiveSession carries for those applies here, and threading a second mode
- * through that already-large component would cost more than reusing its
- * two genuinely shared pieces (WorkoutHUD for the name/timer/Finish
- * button, and the same Cancel affordance) directly.
+ * LiveSession carries for those applies here. Uses CircuitHUD rather than
+ * WorkoutHUD for the same reason — see CircuitHUD's doc comment.
  */
 export function CircuitLiveSession({ session, setSession, onFinish }: CircuitLiveSessionProps) {
-  const [hudHeight, setHudHeight] = useState(WORKOUT_HUD_HEIGHT);
+  const [hudHeight, setHudHeight] = useState(CIRCUIT_HUD_HEIGHT);
   const circuit = session.circuit;
   if (!circuit) return null;
 
+  const isRest = circuit.state?.phase === "rest" || circuit.state?.phase === "roundRest";
+
   return (
     <div className="flex flex-col gap-4 px-4 pb-8" style={{ paddingTop: hudHeight + 16 }}>
-      <WorkoutHUD
+      <CircuitHUD
         session={session}
         setSession={setSession}
         onFinish={onFinish}
@@ -57,7 +57,7 @@ export function CircuitLiveSession({ session, setSession, onFinish }: CircuitLiv
             <li
               key={i}
               className={`flex items-center justify-between rounded-xl px-4 py-2.5 ${
-                isCurrent ? "bg-primary/15" : "bg-card"
+                isCurrent ? (isRest ? "bg-circuit-rest/15" : "bg-intensity/15") : "bg-card"
               }`}
             >
               <span className="truncate text-sm font-medium">

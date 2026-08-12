@@ -1,7 +1,17 @@
 import { useEffect, useRef, useState } from "react";
+import { Pause, Play, RotateCcw, SkipBack, SkipForward } from "lucide-react";
 import type { CircuitConfig, CircuitTimerState } from "@/lib/db";
 import { getExercise } from "@/lib/exercises";
-import { isCircuitDone } from "@/features/workout/circuitTimer";
+import { formatTime } from "@/lib/format";
+import {
+  isCircuitDone,
+  peekNextStationIndex,
+  phaseSeconds,
+  skipBack,
+  skipForward,
+  stepForward,
+  type CircuitStep,
+} from "@/features/workout/circuitTimer";
 
 export interface CircuitTimerProps {
   config: CircuitConfig;
@@ -12,73 +22,40 @@ export interface CircuitTimerProps {
   onComplete: () => void;
 }
 
-function phaseSeconds(
-  config: CircuitConfig,
-  stationIndex: number,
-  phase: "work" | "rest" | "roundRest",
-): number {
-  if (phase === "roundRest") return config.roundRestSeconds;
-  const station = config.stations[stationIndex];
-  return phase === "work" ? station.workSeconds : station.restSeconds;
-}
-
 /**
  * Walks a running timer forward past any station/phase/round boundaries
  * that have already elapsed in real time — the circuit counterpart of
- * IntervalTimer's advance(), generalized from a fixed two-phase cycle to
- * an arbitrary sequence: each station's work → rest, stepping to the next
- * station's work after that, until the last station's rest ends a lap —
- * at which point it's the final round (done), a round rest (if enabled),
- * or straight into round 2's first station. Each new deadline is chained
- * off the previous one (never off "now"), so it can't drift, and the loop
- * can cross several boundaries at once if the app was closed through
- * more than one.
+ * IntervalTimer's advance(). The actual sequence logic (what phase comes
+ * next) lives in circuitTimer.ts's stepForward, shared with skipForward;
+ * this just calls it in a loop until the deadline is back in the future,
+ * so it can cross several boundaries at once if the app was closed
+ * through more than one. Each new deadline is chained off the previous
+ * one (never off "now"), so it can't drift.
  */
 function advance(state: CircuitTimerState, config: CircuitConfig, now: number): CircuitTimerState {
   if (state.status.kind !== "running") return state;
 
-  let { round, stationIndex, phase } = state;
+  let step: CircuitStep = {
+    round: state.round,
+    stationIndex: state.stationIndex,
+    phase: state.phase,
+  };
   let endsAt = state.status.endsAt;
 
-  while (endsAt <= now && round <= config.rounds) {
-    const isLastStation = stationIndex >= config.stations.length - 1;
-
-    if (phase === "work") {
-      phase = "rest";
-      endsAt += phaseSeconds(config, stationIndex, phase) * 1000;
-    } else if (phase === "rest" && !isLastStation) {
-      stationIndex += 1;
-      phase = "work";
-      endsAt += phaseSeconds(config, stationIndex, phase) * 1000;
-    } else if (phase === "rest" && isLastStation) {
-      // A full lap through every station just finished.
-      if (round >= config.rounds) {
-        // Bump round past the max so isCircuitDone reads true, rather
-        // than a separate flag — same trick IntervalTimer uses.
-        round += 1;
-        break;
-      } else if (config.roundRestEnabled) {
-        phase = "roundRest";
-        endsAt += config.roundRestSeconds * 1000;
-      } else {
-        round += 1;
-        stationIndex = 0;
-        phase = "work";
-        endsAt += phaseSeconds(config, stationIndex, phase) * 1000;
-      }
-    } else {
-      // phase === "roundRest"
-      round += 1;
-      stationIndex = 0;
-      phase = "work";
-      endsAt += phaseSeconds(config, stationIndex, phase) * 1000;
+  while (endsAt <= now && step.round <= config.rounds) {
+    const next = stepForward(step, config);
+    if (next.round > config.rounds) {
+      step = next;
+      break;
     }
+    endsAt += phaseSeconds(config, next.stationIndex, next.phase) * 1000;
+    step = next;
   }
 
-  if (round > config.rounds) {
-    return { round, stationIndex, phase, status: { kind: "paused", remaining: 0 } };
+  if (step.round > config.rounds) {
+    return { ...step, status: { kind: "paused", remaining: 0 } };
   }
-  return { round, stationIndex, phase, status: { kind: "running", endsAt } };
+  return { ...step, status: { kind: "running", endsAt } };
 }
 
 export function CircuitTimer({ config, state, onChange, onComplete }: CircuitTimerProps) {
@@ -116,13 +93,17 @@ export function CircuitTimer({ config, state, onChange, onComplete }: CircuitTim
   const round = state?.round ?? 1;
   const stationIndex = state?.stationIndex ?? 0;
   const phase = state?.phase ?? "work";
+  const isRest = phase === "rest" || phase === "roundRest";
 
   const currentStation = config.stations[Math.min(stationIndex, config.stations.length - 1)];
   const currentStationName =
     getExercise(currentStation?.exerciseId)?.name ?? currentStation?.exerciseId;
+
+  const nextIndex = peekNextStationIndex(state, config);
   const nextStationName =
-    phase === "roundRest"
-      ? (getExercise(config.stations[0]?.exerciseId)?.name ?? config.stations[0]?.exerciseId)
+    nextIndex !== undefined
+      ? (getExercise(config.stations[nextIndex]?.exerciseId)?.name ??
+        config.stations[nextIndex]?.exerciseId)
       : undefined;
 
   const remaining = !state
@@ -162,8 +143,14 @@ export function CircuitTimer({ config, state, onChange, onComplete }: CircuitTim
     onChange(undefined);
   }
 
-  const mm = Math.floor(Math.max(0, remaining) / 60);
-  const ss = Math.max(0, remaining) % 60;
+  function handleSkipForward() {
+    if (done) return;
+    onChange(skipForward(state, config, Date.now()));
+  }
+
+  function handleSkipBack() {
+    onChange(skipBack(state, config, Date.now()));
+  }
 
   const phaseLabel = done
     ? "Complete"
@@ -175,71 +162,90 @@ export function CircuitTimer({ config, state, onChange, onComplete }: CircuitTim
           ? "REST"
           : "ROUND REST";
 
-  return (
-    <div className="mt-3 space-y-2">
-      <div className="rounded-lg bg-secondary/50 px-3 py-2 text-xs">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Circuit
-        </p>
-        <div className="mt-1 flex gap-4 tabular-nums">
-          <span>
-            Rounds: <b>{config.rounds}</b>
-          </span>
-          <span>
-            Stations: <b>{config.stations.length}</b>
-          </span>
-        </div>
-      </div>
+  // Work uses --intensity (amber/orange, "active exertion" — see
+  // styles.css), rest and round rest share --circuit-rest (blue/cyan).
+  // Both were chosen specifically to avoid colliding with --destructive
+  // (red = delete/cancel/error elsewhere in the app) — see styles.css's
+  // comments on both tokens. Full literal class strings on purpose —
+  // Tailwind can't resolve a dynamically-interpolated class name like
+  // `text-${x}` at build time, so this has to be an explicit ternary per
+  // element rather than one shared "color class" variable.
+  const textColorClass =
+    done || !started ? "text-foreground" : isRest ? "text-circuit-rest" : "text-intensity";
+  const labelColorClass =
+    done || !started ? "text-muted-foreground" : isRest ? "text-circuit-rest" : "text-intensity";
 
+  return (
+    <div className="mt-3">
       <div
-        className={`rounded-lg px-3 py-2 ${
+        className={`rounded-2xl border-2 px-4 py-6 text-center transition-colors ${
           done
-            ? "bg-primary/10"
+            ? "border-primary/40 bg-primary/10"
             : !started
-              ? "bg-secondary"
-              : phase === "work"
-                ? "bg-intensity/15"
-                : "bg-primary/15"
+              ? "border-border bg-secondary/50"
+              : isRest
+                ? "border-circuit-rest bg-circuit-rest/20"
+                : "border-intensity bg-intensity/20"
         }`}
       >
-        {/* Same colour reasoning as IntervalTimer: work uses --intensity
-            (amber, reads as exertion), rest and round rest reuse primary
-            (green, reads as recovery) rather than --destructive. */}
-        <div className="flex items-center justify-between">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Circuit Timer
-            </p>
-            <p className="text-sm font-semibold">
-              {phaseLabel} · Round {Math.min(round, config.rounds)}/{config.rounds}
-            </p>
-            {!done && (phase === "work" || phase === "rest") && currentStationName && (
-              <p className="truncate text-xs text-muted-foreground">{currentStationName}</p>
-            )}
-            {!done && phase === "roundRest" && nextStationName && (
-              <p className="truncate text-xs text-muted-foreground">Up next: {nextStationName}</p>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="tabular-nums text-2xl font-bold">
-              {mm}:{String(ss).padStart(2, "0")}
-            </span>
-            {!done && (
-              <button
-                onClick={toggle}
-                className="min-w-[64px] rounded-lg bg-primary px-2 py-1 text-center text-xs text-primary-foreground"
-              >
-                {running ? "Pause" : started ? "Resume" : "Start"}
-              </button>
-            )}
+        <p className={`text-xs font-bold uppercase tracking-widest ${labelColorClass}`}>
+          {phaseLabel} · Round {Math.min(round, config.rounds)}/{config.rounds}
+        </p>
+
+        {!done && currentStationName && (
+          <p className={`mt-2 truncate text-2xl font-extrabold ${textColorClass}`}>
+            {currentStationName}
+          </p>
+        )}
+        {done && <p className="mt-2 text-2xl font-extrabold text-primary">Circuit complete!</p>}
+
+        {!done && (
+          <p className={`mt-4 tabular-nums text-6xl font-black leading-none ${textColorClass}`}>
+            {formatTime(Math.max(0, remaining))}
+          </p>
+        )}
+
+        {!done && nextStationName && (
+          <p className="mt-3 truncate text-sm text-muted-foreground">Up next: {nextStationName}</p>
+        )}
+
+        {!done && (
+          <div className="mt-5 flex items-center justify-center gap-4">
             <button
-              onClick={reset}
-              className="min-w-[56px] rounded-lg bg-secondary px-2 py-1 text-center text-xs"
+              onClick={handleSkipBack}
+              disabled={!started}
+              aria-label="Previous phase"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-foreground disabled:opacity-30"
             >
-              Reset
+              <SkipBack className="h-4 w-4 fill-current" />
+            </button>
+            <button
+              onClick={toggle}
+              aria-label={running ? "Pause" : started ? "Resume" : "Start"}
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground"
+            >
+              {running ? (
+                <Pause className="h-6 w-6 fill-current" />
+              ) : (
+                <Play className="h-6 w-6 fill-current" />
+              )}
+            </button>
+            <button
+              onClick={handleSkipForward}
+              aria-label="Next phase"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-foreground"
+            >
+              <SkipForward className="h-4 w-4 fill-current" />
             </button>
           </div>
-        </div>
+        )}
+
+        <button
+          onClick={reset}
+          className="mt-4 inline-flex items-center gap-1 text-xs text-muted-foreground active:text-foreground"
+        >
+          <RotateCcw className="h-3 w-3" /> Reset
+        </button>
       </div>
     </div>
   );

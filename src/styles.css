@@ -38,6 +38,7 @@
   --color-chart-5: var(--chart-5);
   --color-pr-gold: var(--pr-gold);
   --color-intensity: var(--intensity);
+  --color-circuit-rest: var(--circuit-rest);
   --color-muscle-silhouette: var(--muscle-silhouette);
   --font-display: "Inter", system-ui, -apple-system, sans-serif;
 }
@@ -81,6 +82,15 @@
    *  A dedicated amber token (same pattern as --pr-gold above) reads as
    *  "active exertion" without colliding with that learned meaning. */
   --intensity: oklch(0.75 0.17 55);
+  /** Circuit timer's REST/ROUND REST phases — same reasoning and pattern
+   *  as --intensity above (a dedicated token rather than reaching for an
+   *  existing blue-ish one like --chart-2, which is scoped to chart
+   *  palettes and free to change independently of this feature). Paired
+   *  with --intensity for WORK: red/orange-vs-blue is the work/rest
+   *  convention this was modeled on, and --intensity already covers the
+   *  orange half without colliding with --destructive the same way this
+   *  avoids colliding with --chart-2. */
+  --circuit-rest: oklch(0.72 0.15 220);
   /** Muscle map body-outline fill. Previously hardcoded as #2e343a inside
    *  each silhouette-*.svg asset, which happened to land at almost the
    *  same lightness as --card/--secondary behind it — the outline read as
@@ -95,7 +105,8 @@
   * {
     border-color: var(--color-border);
   }
-  html, body {
+  html,
+  body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-display);
@@ -108,8 +119,13 @@
 }
 
 /* Hide scrollbar but allow scroll */
-.scrollbar-hide::-webkit-scrollbar { display: none; }
-.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
 /* ───────────────────────────────────────────────────────────────────────────
  * Workout Complete — weighted entrance keyframes
