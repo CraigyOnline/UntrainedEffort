@@ -21,6 +21,7 @@ import { StepperInput } from "@/components/forms/NumberInput";
 import { UnilateralSetInputs } from "@/components/forms/UnilateralSetInputs";
 import { Button } from "@/components/ui/button";
 import { WorkoutSummary } from "@/components/WorkoutSummary";
+import { CircuitSummary } from "@/components/CircuitSummary";
 import { formatDuration } from "@/lib/format";
 import { formatPRValue, formatPRDelta } from "@/lib/exerciseProgress";
 import { haptics } from "@/lib/haptics";
@@ -300,7 +301,11 @@ function HistoryDetailPage() {
         )}
       </header>
 
-      <WorkoutSummary durationSec={view.durationSec} exercises={view.exercises} />
+      {view.circuit ? (
+        <CircuitSummary durationSec={view.durationSec} circuit={view.circuit} />
+      ) : (
+        <WorkoutSummary durationSec={view.durationSec} exercises={view.exercises} />
+      )}
 
       {workoutPRs && workoutPRs.length > 0 && (
         <div className="rounded-xl bg-card p-4 flex flex-col gap-2">
