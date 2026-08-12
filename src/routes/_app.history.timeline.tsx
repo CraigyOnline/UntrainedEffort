@@ -186,6 +186,7 @@ function WorkoutTimeline() {
         {displayedWorkouts?.map((w) => {
           const stats = computeWorkoutDisplayStats(w.exercises);
           const { totalSets, totalVolume } = stats;
+          const isCircuit = !!w.circuit;
           // A circuit workout keeps its exercises in w.circuit.config.stations
           // instead of w.exercises (always [] for one — see Workout in
           // db.ts), so computeIntensity — which weights by completed sets,
@@ -209,25 +210,30 @@ function WorkoutTimeline() {
                     <p className="truncate font-semibold">{w.name}</p>
                     <span
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                        stats.mode === "cardio"
-                          ? "bg-primary/15 text-primary"
-                          : stats.mode === "mixed"
-                            ? "bg-secondary text-foreground"
-                            : "bg-secondary text-muted-foreground"
+                        isCircuit
+                          ? "bg-intensity/15 text-intensity"
+                          : stats.mode === "cardio"
+                            ? "bg-primary/15 text-primary"
+                            : stats.mode === "mixed"
+                              ? "bg-secondary text-foreground"
+                              : "bg-secondary text-muted-foreground"
                       }`}
                     >
-                      {stats.mode === "cardio"
-                        ? "Cardio"
-                        : stats.mode === "mixed"
-                          ? "Mixed"
-                          : stats.mode}
+                      {isCircuit
+                        ? "Circuit"
+                        : stats.mode === "cardio"
+                          ? "Cardio"
+                          : stats.mode === "mixed"
+                            ? "Mixed"
+                            : stats.mode}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {new Date(w.startedAt).toLocaleDateString()} ·{" "}
-                    {Math.max(1, Math.round((w.durationSec ?? 0) / 60))} min · {w.exercises.length}{" "}
-                    ex
-                    {stats.mode !== "cardio" && ` · ${totalSets} sets`}
+                    {Math.max(1, Math.round((w.durationSec ?? 0) / 60))} min ·{" "}
+                    {isCircuit
+                      ? `${w.circuit!.config.stations.length} stations · ${w.circuit!.roundsCompleted}/${w.circuit!.config.rounds} rounds`
+                      : `${w.exercises.length} ex${stats.mode !== "cardio" ? ` · ${totalSets} sets` : ""}`}
                   </p>
 
                   {stats.mode === "cardio" && stats.primaryCardio && (
