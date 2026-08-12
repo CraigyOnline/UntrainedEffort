@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getDb, type Workout, type PRRecord } from "@/lib/db";
 import { getExercise } from "@/lib/exercises";
 import { computeWorkoutDisplayStats, formatCardioActivity } from "@/lib/workoutStats";
-import { computeIntensity } from "@/lib/muscles";
+import { computeIntensity, intensityFromExerciseIds } from "@/lib/muscles";
 import { syncWorkoutIntegrity } from "@/lib/workoutIntegrity";
 import { filterWorkouts, hasActiveFilters } from "@/lib/historyFilters";
 import { EmptyState } from "@/components/EmptyState";
@@ -186,7 +186,13 @@ function WorkoutTimeline() {
         {displayedWorkouts?.map((w) => {
           const stats = computeWorkoutDisplayStats(w.exercises);
           const { totalSets, totalVolume } = stats;
-          const intensity = computeIntensity(w.exercises);
+          // A circuit workout keeps its exercises in w.circuit.config.stations
+          // instead of w.exercises (always [] for one — see Workout in
+          // db.ts), so computeIntensity — which weights by completed sets,
+          // a concept circuits don't have — can't apply here regardless.
+          const intensity = w.circuit
+            ? intensityFromExerciseIds(w.circuit.config.stations.map((s) => s.exerciseId))
+            : computeIntensity(w.exercises);
           const hasMuscleData = Object.keys(intensity).length > 0;
 
           const prCount = w.id != null ? (prCountByWorkout.get(w.id) ?? 0) : 0;

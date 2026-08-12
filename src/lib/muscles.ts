@@ -95,3 +95,29 @@ export function computeIntensity(
   }
   return out;
 }
+
+/**
+ * Equal-weight muscle intensity from a flat list of exercise IDs — for
+ * contexts with no set-completion or volume signal to weight by (a
+ * routine's planned exercises, or a circuit workout/routine's stations,
+ * neither of which carry sets). Primary muscle counts full weight,
+ * secondary muscles half — same 0.5 factor computeIntensity uses, just
+ * without the completed-sets weighting since there's nothing here to
+ * weight by. Shared by routineIntensity (_app.workout.tsx, both standard
+ * and circuit routines) and the history timeline's circuit-workout case,
+ * rather than three near-identical copies of this loop.
+ */
+export function intensityFromExerciseIds(
+  exerciseIds: string[],
+): Partial<Record<MuscleGroup, number>> {
+  const out: Partial<Record<MuscleGroup, number>> = {};
+  for (const exerciseId of exerciseIds) {
+    const def = getExercise(exerciseId);
+    if (!def) continue;
+    out[def.muscle] = 1;
+    for (const sec of def.secondary ?? []) {
+      out[sec] = Math.max(out[sec] ?? 0, 0.5);
+    }
+  }
+  return out;
+}

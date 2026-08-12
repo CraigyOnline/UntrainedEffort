@@ -27,7 +27,7 @@ import {
   IntervalPerformanceCard,
   WorkoutStatsRow,
 } from "@/components/WorkoutSummary";
-import { computeIntensity } from "@/lib/muscles";
+import { computeIntensity, intensityFromExerciseIds } from "@/lib/muscles";
 import { computeWorkoutDisplayStats } from "@/lib/workoutStats";
 import {
   AlertDialog,
@@ -69,26 +69,20 @@ const searchSchema = z.object({
  * Which muscles a routine trains, and how prominently — for the small
  * MuscleMap thumbnail on each routine card. Routine exercises don't have
  * "completed" sets like a finished workout does, so this can't reuse
- * computeIntensity (which is typed against Workout["exercises"]); it mirrors
- * the same primary=full/secondary=half convention instead.
+ * computeIntensity (which is typed against Workout["exercises"]) — uses
+ * the shared equal-weight helper instead, fed by routineExerciseIds so
+ * the muscle-name list just below stays in sync with it.
  */
-function routineIntensity(r: Routine): Partial<Record<MuscleGroup, number>> {
-  const out: Partial<Record<MuscleGroup, number>> = {};
+function routineExerciseIds(r: Routine): string[] {
   // Circuit routines keep their exercises in `circuit.stations` instead of
   // `exercises` (which is always empty for them — see Routine in db.ts).
-  const exerciseIds =
-    r.type === "circuit"
-      ? (r.circuit?.stations.map((s) => s.exerciseId) ?? [])
-      : r.exercises.map((e) => e.exerciseId);
-  for (const exerciseId of exerciseIds) {
-    const def = getExercise(exerciseId);
-    if (!def) continue;
-    out[def.muscle] = 1;
-    for (const sec of def.secondary ?? []) {
-      out[sec] = Math.max(out[sec] ?? 0, 0.5);
-    }
-  }
-  return out;
+  return r.type === "circuit"
+    ? (r.circuit?.stations.map((s) => s.exerciseId) ?? [])
+    : r.exercises.map((e) => e.exerciseId);
+}
+
+function routineIntensity(r: Routine): Partial<Record<MuscleGroup, number>> {
+  return intensityFromExerciseIds(routineExerciseIds(r));
 }
 
 export const Route = createFileRoute("/_app/workout")({
@@ -818,8 +812,8 @@ function WorkoutPage() {
             {sortedRoutines.map((r, index) => {
               const muscles = Array.from(
                 new Set(
-                  r.exercises
-                    .map((e) => getExercise(e.exerciseId)?.muscle)
+                  routineExerciseIds(r)
+                    .map((id) => getExercise(id)?.muscle)
                     .filter((m): m is MuscleGroup => !!m),
                 ),
               ).slice(0, 4);
