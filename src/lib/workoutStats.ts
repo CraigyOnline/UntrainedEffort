@@ -173,6 +173,22 @@ export function computeDominantSignature(stats: WorkoutDisplayStats): "strength"
   return stats.strengthExerciseCount >= cardioCount ? "strength" : "cardio";
 }
 
+/**
+ * Chooses which CardioSignature pattern ("steady" vs "interval") best
+ * represents a workout once computeDominantSignature has resolved to
+ * "cardio". Pure "cardio" and "interval" modes already know their answer
+ * from mode alone; this only does real work for "mixed" workouts that
+ * turn out to be cardio-dominant while containing a combination of plain
+ * cardio and interval activities (hasCardio + hasInterval, no strength —
+ * still classified "mixed" since modalityCount > 1 counts any two of the
+ * three). Ties favor "steady" as the more common case.
+ */
+export function resolveCardioPattern(stats: WorkoutDisplayStats): "steady" | "interval" {
+  if (stats.mode === "interval") return "interval";
+  if (stats.mode === "cardio") return "steady";
+  return stats.intervalActivities.length > stats.cardioActivities.length ? "interval" : "steady";
+}
+
 /** Compact secondary line used by history cards and similar surfaces. */
 export function formatCardioActivity(activity: CardioActivityStats): string {
   const parts: string[] = [];

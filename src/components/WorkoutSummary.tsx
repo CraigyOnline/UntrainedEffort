@@ -2,8 +2,14 @@ import type { Workout } from "@/lib/db";
 import { formatDuration } from "@/lib/format";
 import { computeIntensity } from "@/lib/muscles";
 import { formatDistanceValue } from "@/lib/exercises";
-import { computeWorkoutDisplayStats, formatCardioActivity } from "@/lib/workoutStats";
+import {
+  computeDominantSignature,
+  computeWorkoutDisplayStats,
+  formatCardioActivity,
+  resolveCardioPattern,
+} from "@/lib/workoutStats";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
+import { CardioSignature } from "@/components/CardioSignature";
 
 interface StatsRowProps {
   durationSec: number;
@@ -216,13 +222,18 @@ export function IntervalPerformanceCard({ exercises }: { exercises: Workout["exe
 }
 
 export function WorkoutSummary({ name, durationSec, exercises, showName, revealed }: Props) {
-  const intensity = computeIntensity(exercises);
+  const stats = computeWorkoutDisplayStats(exercises);
+  const dominant = computeDominantSignature(stats);
 
   return (
     <div className="flex flex-col gap-3 rounded-xl bg-card p-3">
       {showName && name && <h2 className="text-lg font-bold">{name}</h2>}
       <WorkoutStatsRow durationSec={durationSec} exercises={exercises} revealed={revealed} />
-      <ExpandableMuscleMap intensity={intensity} />
+      {dominant === "strength" ? (
+        <ExpandableMuscleMap intensity={computeIntensity(exercises)} />
+      ) : (
+        <CardioSignature pattern={resolveCardioPattern(stats)} className="mx-auto" />
+      )}
     </div>
   );
 }

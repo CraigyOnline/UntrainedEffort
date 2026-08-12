@@ -4,12 +4,18 @@ import { useMemo, useState } from "react";
 import { z } from "zod";
 import { getDb, type Workout, type PRRecord } from "@/lib/db";
 import { getExercise } from "@/lib/exercises";
-import { computeWorkoutDisplayStats, formatCardioActivity } from "@/lib/workoutStats";
+import {
+  computeDominantSignature,
+  computeWorkoutDisplayStats,
+  formatCardioActivity,
+  resolveCardioPattern,
+} from "@/lib/workoutStats";
 import { computeIntensity, intensityFromExerciseIds } from "@/lib/muscles";
 import { syncWorkoutIntegrity } from "@/lib/workoutIntegrity";
 import { filterWorkouts, hasActiveFilters } from "@/lib/historyFilters";
 import { EmptyState } from "@/components/EmptyState";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
+import { CardioSignature } from "@/components/CardioSignature";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -195,6 +201,12 @@ function WorkoutTimeline() {
             ? intensityFromExerciseIds(w.circuit.config.stations.map((s) => s.exerciseId))
             : computeIntensity(w.exercises);
           const hasMuscleData = Object.keys(intensity).length > 0;
+          // Circuits keep today's behavior (muscle map or nothing) — their
+          // stations aren't run through computeWorkoutDisplayStats, so
+          // computeDominantSignature has nothing meaningful to resolve for
+          // them yet. A dominant-type fix for circuits is a separate,
+          // follow-up change.
+          const dominantSignature = isCircuit ? "strength" : computeDominantSignature(stats);
 
           const prCount = w.id != null ? (prCountByWorkout.get(w.id) ?? 0) : 0;
 
@@ -286,14 +298,22 @@ function WorkoutTimeline() {
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
-                  {/* Muscle map thumbnail — same size/styling as the Workout/Routine cards */}
+                  {/* Muscle map / cardio signature thumbnail — same size/styling as the Workout/Routine cards */}
                   <div className="w-16 shrink-0 flex items-center justify-center px-1">
-                    {hasMuscleData && (
-                      <ExpandableMuscleMap
-                        intensity={intensity}
+                    {dominantSignature === "strength" ? (
+                      hasMuscleData && (
+                        <ExpandableMuscleMap
+                          intensity={intensity}
+                          compact
+                          className="max-h-16"
+                          onTriggerClick={(e) => e.stopPropagation()}
+                        />
+                      )
+                    ) : (
+                      <CardioSignature
+                        pattern={resolveCardioPattern(stats)}
                         compact
                         className="max-h-16"
-                        onTriggerClick={(e) => e.stopPropagation()}
                       />
                     )}
                   </div>
