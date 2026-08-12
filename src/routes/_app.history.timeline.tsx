@@ -276,19 +276,28 @@ function WorkoutTimeline() {
                   )}
 
                   <div className="mt-2 flex flex-wrap items-center gap-1">
-                    {w.exercises.slice(0, 5).map((e, i) => (
+                    {(isCircuit
+                      ? w.circuit!.config.stations.slice(0, 5).map((s) => s.exerciseId)
+                      : w.exercises.slice(0, 5).map((e) => e.exerciseId)
+                    ).map((exerciseId, i) => (
                       <span
                         key={i}
                         className="rounded bg-secondary px-2 py-0.5 text-xs text-muted-foreground"
                       >
-                        {getExercise(e.exerciseId)?.name ?? e.exerciseId}
+                        {getExercise(exerciseId)?.name ?? exerciseId}
                       </span>
                     ))}
-                    {w.exercises.length > 5 && (
-                      <span className="text-xs text-muted-foreground">
-                        +{w.exercises.length - 5}
-                      </span>
-                    )}
+                    {isCircuit
+                      ? w.circuit!.config.stations.length > 5 && (
+                          <span className="text-xs text-muted-foreground">
+                            +{w.circuit!.config.stations.length - 5}
+                          </span>
+                        )
+                      : w.exercises.length > 5 && (
+                          <span className="text-xs text-muted-foreground">
+                            +{w.exercises.length - 5}
+                          </span>
+                        )}
                     {prCount > 0 && (
                       <span className="rounded bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                         🏆 {prCount} {prCount === 1 ? "PR" : "PRs"}

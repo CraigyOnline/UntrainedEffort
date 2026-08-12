@@ -27,6 +27,11 @@ import {
   IntervalPerformanceCard,
   WorkoutStatsRow,
 } from "@/components/WorkoutSummary";
+import {
+  CircuitStatsRow,
+  CircuitSignatureIcon,
+  CircuitStationList,
+} from "@/components/CircuitSummary";
 import { computeIntensity, intensityFromExerciseIds } from "@/lib/muscles";
 import { computeWorkoutDisplayStats } from "@/lib/workoutStats";
 import {
@@ -481,24 +486,31 @@ function WorkoutPage() {
         {/* Stage 1: today's numbers. */}
         {stage >= 1 && (
           <div className={`rounded-xl bg-card p-3 ${hasPRs ? "ring-2 ring-pr-gold/50" : ""}`}>
-            <WorkoutStatsRow
-              durationSec={summary.durationSec}
-              exercises={summary.exercises}
-              revealed={stage >= 1}
-            />
-          </div>
-        )}
-
-        {stage >= 1 && computeWorkoutDisplayStats(summary.exercises).mode === "cardio" && (
-          <div
-            className="animate-[fade-in-soft_320ms_ease-out_forwards]"
-            style={{ animationDelay: "140ms" }}
-          >
-            <CardioPerformanceCard exercises={summary.exercises} />
+            {summary.circuit ? (
+              <CircuitStatsRow durationSec={summary.durationSec} circuit={summary.circuit} />
+            ) : (
+              <WorkoutStatsRow
+                durationSec={summary.durationSec}
+                exercises={summary.exercises}
+                revealed={stage >= 1}
+              />
+            )}
           </div>
         )}
 
         {stage >= 1 &&
+          !summary.circuit &&
+          computeWorkoutDisplayStats(summary.exercises).mode === "cardio" && (
+            <div
+              className="animate-[fade-in-soft_320ms_ease-out_forwards]"
+              style={{ animationDelay: "140ms" }}
+            >
+              <CardioPerformanceCard exercises={summary.exercises} />
+            </div>
+          )}
+
+        {stage >= 1 &&
+          !summary.circuit &&
           computeWorkoutDisplayStats(summary.exercises).intervalActivities.length > 0 && (
             <div
               className="animate-[fade-in-soft_320ms_ease-out_forwards]"
@@ -585,7 +597,11 @@ function WorkoutPage() {
             by extra per-element delay here. */}
         {stage >= 2 && (
           <div className="animate-[fade-in-soft_320ms_ease-out_forwards]">
-            <ExpandableMuscleMap intensity={intensity} />
+            {summary.circuit ? (
+              <CircuitSignatureIcon circuit={summary.circuit} className="mx-auto" />
+            ) : (
+              <ExpandableMuscleMap intensity={intensity} />
+            )}
           </div>
         )}
 
@@ -597,23 +613,27 @@ function WorkoutPage() {
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
               What you did
             </h2>
-            {summary.exercises.map((ex, ei) => {
-              const def = getExercise(ex.exerciseId);
-              const completedSets = ex.sets.filter((s) => s.completed);
-              if (completedSets.length === 0) return null;
-              return (
-                <div key={ei} className="rounded-xl bg-muted px-4 py-3">
-                  <p className="font-semibold text-sm">{def?.name ?? ex.exerciseId}</p>
-                  <ul className="mt-1 flex flex-col gap-0.5">
-                    {completedSets.map((s, si) => (
-                      <li key={si} className="text-xs text-muted-foreground tabular-nums">
-                        Set {si + 1}: {formatCompletedSet(def, s)}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
+            {summary.circuit ? (
+              <CircuitStationList circuit={summary.circuit} />
+            ) : (
+              summary.exercises.map((ex, ei) => {
+                const def = getExercise(ex.exerciseId);
+                const completedSets = ex.sets.filter((s) => s.completed);
+                if (completedSets.length === 0) return null;
+                return (
+                  <div key={ei} className="rounded-xl bg-muted px-4 py-3">
+                    <p className="font-semibold text-sm">{def?.name ?? ex.exerciseId}</p>
+                    <ul className="mt-1 flex flex-col gap-0.5">
+                      {completedSets.map((s, si) => (
+                        <li key={si} className="text-xs text-muted-foreground tabular-nums">
+                          Set {si + 1}: {formatCompletedSet(def, s)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
 

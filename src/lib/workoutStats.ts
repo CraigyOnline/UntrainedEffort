@@ -1,4 +1,4 @@
-import type { Workout } from "@/lib/db";
+import type { CircuitStation, Workout } from "@/lib/db";
 import {
   formatDistanceValue,
   formatPace,
@@ -187,6 +187,24 @@ export function resolveCardioPattern(stats: WorkoutDisplayStats): "steady" | "in
   if (stats.mode === "interval") return "interval";
   if (stats.mode === "cardio") return "steady";
   return stats.intervalActivities.length > stats.cardioActivities.length ? "interval" : "steady";
+}
+
+/**
+ * The circuit counterpart to computeDominantSignature — resolves which
+ * signature (muscle map vs. cardio) represents a circuit by station
+ * composition, same tie-breaking (favors strength) as the regular-workout
+ * version. Circuits have no WorkoutDisplayStats of their own (stations,
+ * not exercises), hence a separate function rather than an overload.
+ * Shared by CircuitSummary (history detail screen) and the workout-complete
+ * screen so neither carries its own copy of this logic.
+ */
+export function computeDominantCircuitSignature(stations: CircuitStation[]): "strength" | "cardio" {
+  const cardioCount = stations.filter((s) => {
+    const def = getExercise(s.exerciseId);
+    return def ? isCardio(def) : false;
+  }).length;
+  const strengthCount = stations.length - cardioCount;
+  return cardioCount > strengthCount ? "cardio" : "strength";
 }
 
 /** Compact secondary line used by history cards and similar surfaces. */
