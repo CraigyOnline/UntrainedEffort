@@ -10,6 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "assets:build": "capacitor-assets generate --android --assetPath src/assets/brand"
   },
   "dependencies": {
@@ -92,6 +94,7 @@
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "vitest": "^4.1.10"
   }
 }
