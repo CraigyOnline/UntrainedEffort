@@ -9,13 +9,13 @@ interface CardioSignatureProps {
   /** "cardio" (default) for a plain cardio/interval workout — always
    *  --cardio regardless of pattern, so the icon reads as "this is a
    *  cardio workout" first and "steady vs interval" second. "circuit" is
-   *  for CircuitSignatureIcon's cardio-dominant case — --intensity,
-   *  matching the Circuit badge's existing color, so a circuit reads as
-   *  a circuit even though it also happens to render the "interval"
-   *  shape. Also deliberately not heart-rate/EKG imagery either way: the
-   *  app has no HR data yet, and that visual language should stay
-   *  reserved for when real HR support ships, rather than being spent
-   *  early as a generic cardio glyph. */
+   *  for CircuitSignatureIcon's cardio-dominant case — --circuit, a
+   *  dedicated token matching the Circuit badge's color, so a circuit
+   *  reads as a circuit even though it also happens to render the
+   *  "interval" shape. Also deliberately not heart-rate/EKG imagery
+   *  either way: the app has no HR data yet, and that visual language
+   *  should stay reserved for when real HR support ships, rather than
+   *  being spent early as a generic cardio glyph. */
   tone?: "cardio" | "circuit";
   className?: string;
   /** Shrinks the icon for thumbnail-sized usage (history card, list rows).
@@ -58,7 +58,7 @@ export function CardioSignature({
   height,
 }: CardioSignatureProps) {
   const resolvedHeight = height ?? (compact ? 72 : 160);
-  const color = tone === "circuit" ? "var(--intensity)" : "var(--cardio)";
+  const color = tone === "circuit" ? "var(--circuit)" : "var(--cardio)";
   const path = pattern === "interval" ? INTERVAL_PATH : STEADY_PATH;
 
   return (

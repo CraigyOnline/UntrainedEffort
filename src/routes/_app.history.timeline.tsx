@@ -223,7 +223,7 @@ function WorkoutTimeline() {
                     <span
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                         isCircuit
-                          ? "bg-intensity/15 text-intensity"
+                          ? "bg-circuit/15 text-circuit"
                           : dominantSignature === "strength"
                             ? "bg-primary/15 text-primary"
                             : "bg-cardio/15 text-cardio"

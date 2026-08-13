@@ -40,6 +40,7 @@
   --color-intensity: var(--intensity);
   --color-circuit-rest: var(--circuit-rest);
   --color-cardio: var(--cardio);
+  --color-circuit: var(--circuit);
   --color-muscle-silhouette: var(--muscle-silhouette);
   --font-display: "Inter", system-ui, -apple-system, sans-serif;
 }
@@ -105,6 +106,20 @@
    *  glance since a circuit and a cardio workout can appear side by side
    *  in the same list. */
   --cardio: oklch(0.75 0.15 195);
+  /** Circuit badge, CircuitSignatureIcon, and the training-consistency
+   *  heatmap's Circuit day color — previously borrowed --intensity
+   *  (amber) for this, which is documented above as the interval timer's
+   *  WORK-phase color and was never meant to represent "this workout was
+   *  a circuit" as a category. That reuse collided with plain interval-
+   *  mode cardio workouts, which also read as --intensity. A dedicated
+   *  magenta keeps Circuit its own consistent identity everywhere it
+   *  appears, distinct from Strength (green), Cardio (cyan, including
+   *  interval-pattern cardio — see --cardio above), and Mixed (chart-4
+   *  purple in the heatmap) — and leaves --intensity/--circuit-rest free
+   *  to keep meaning exactly what their own comments say: live WORK/REST
+   *  phase colors during an active interval or circuit timer, nothing
+   *  more. */
+  --circuit: oklch(0.7 0.19 335);
   /** Muscle map body-outline fill. Previously hardcoded as #2e343a inside
    *  each silhouette-*.svg asset, which happened to land at almost the
    *  same lightness as --card/--secondary behind it — the outline read as

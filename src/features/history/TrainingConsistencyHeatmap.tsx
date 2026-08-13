@@ -205,14 +205,12 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
                     : !day.trained
                       ? "bg-secondary"
                       : day.mode === "circuit"
-                        ? "bg-circuit-rest active:scale-90"
-                        : day.mode === "cardio"
-                          ? "bg-chart-2 active:scale-90"
-                          : day.mode === "interval"
-                            ? "bg-intensity active:scale-90"
-                            : day.mode === "mixed"
-                              ? "bg-chart-4 ring-1 ring-primary-foreground/70 active:scale-90"
-                              : "bg-primary active:scale-90"
+                        ? "bg-circuit active:scale-90"
+                        : day.mode === "cardio" || day.mode === "interval"
+                          ? "bg-cardio active:scale-90"
+                          : day.mode === "mixed"
+                            ? "bg-chart-4 ring-1 ring-primary-foreground/70 active:scale-90"
+                            : "bg-primary active:scale-90"
                 }`}
               />
             ))}
@@ -225,13 +223,10 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
           <span className="h-2.5 w-2.5 rounded-sm bg-primary" /> Strength
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-chart-2" /> Cardio
+          <span className="h-2.5 w-2.5 rounded-sm bg-cardio" /> Cardio
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-intensity" /> Intervals
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-circuit-rest" /> Circuit
+          <span className="h-2.5 w-2.5 rounded-sm bg-circuit" /> Circuit
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-chart-4 ring-1 ring-primary-foreground/70" />{" "}
