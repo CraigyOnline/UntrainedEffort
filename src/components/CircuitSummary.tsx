@@ -57,7 +57,7 @@ export function CircuitSignatureIcon({ circuit, className }: SignatureIconProps)
     return <ExpandableMuscleMap intensity={intensity} className={className} />;
   }
 
-  return <CardioSignature pattern="interval" className={className} />;
+  return <CardioSignature pattern="interval" tone="circuit" className={className} />;
 }
 
 interface StationListProps {

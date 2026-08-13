@@ -39,6 +39,7 @@
   --color-pr-gold: var(--pr-gold);
   --color-intensity: var(--intensity);
   --color-circuit-rest: var(--circuit-rest);
+  --color-cardio: var(--cardio);
   --color-muscle-silhouette: var(--muscle-silhouette);
   --font-display: "Inter", system-ui, -apple-system, sans-serif;
 }
@@ -91,6 +92,19 @@
    *  orange half without colliding with --destructive the same way this
    *  avoids colliding with --chart-2. */
   --circuit-rest: oklch(0.72 0.15 220);
+  /** Cardio badge + CardioSignature icon (both steady and interval
+   *  patterns) — previously borrowed --primary for "steady" and
+   *  --intensity for "interval", which meant a steady-cardio icon read as
+   *  the same green as the strength muscle map, and an interval-cardio
+   *  icon read as the same amber as a circuit's icon (--intensity is
+   *  circuit's WORK-phase color, reused there for a genuinely different
+   *  reason). A dedicated cyan keeps cardio visually its own category
+   *  regardless of pattern, and stops colliding with both neighbors.
+   *  Deliberately not near --circuit-rest's blue (220) despite both
+   *  being "cool" colors — the two need to stay distinguishable at a
+   *  glance since a circuit and a cardio workout can appear side by side
+   *  in the same list. */
+  --cardio: oklch(0.75 0.15 195);
   /** Muscle map body-outline fill. Previously hardcoded as #2e343a inside
    *  each silhouette-*.svg asset, which happened to land at almost the
    *  same lightness as --card/--secondary behind it — the outline read as
