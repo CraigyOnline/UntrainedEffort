@@ -43,6 +43,15 @@ export const Route = createFileRoute("/_app/profile")({
   component: ProfilePage,
 });
 
+type HeatmapRange = 7 | 30 | 90 | null;
+
+const HEATMAP_RANGES: { label: string; value: HeatmapRange }[] = [
+  { label: "7D", value: 7 },
+  { label: "30D", value: 30 },
+  { label: "90D", value: 90 },
+  { label: "All", value: null },
+];
+
 function ProfilePage() {
   const navigate = useNavigate();
 
@@ -59,9 +68,21 @@ function ProfilePage() {
 
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
   const [drilldownMuscle, setDrilldownMuscle] = useState<MuscleGroup | null>(null);
+  const [heatmapRange, setHeatmapRange] = useState<HeatmapRange>(30);
 
   const stats = useMemo(() => computeStats(workouts ?? []), [workouts]);
-  const intensity = useMemo(() => computeMuscleIntensity(workouts ?? []), [workouts]);
+
+  // The muscle heatmap and everything derived from it (balance snapshot,
+  // muscle list, drilldown) use this range-filtered set rather than
+  // `workouts` directly — Sessions/Volume/Active days above stay all-time,
+  // a separate stat, untouched by this filter.
+  const heatmapWorkouts = useMemo(() => {
+    if (!workouts || heatmapRange === null) return workouts;
+    const since = Date.now() - heatmapRange * 86400000;
+    return workouts.filter((w) => w.startedAt >= since);
+  }, [workouts, heatmapRange]);
+
+  const intensity = useMemo(() => computeMuscleIntensity(heatmapWorkouts ?? []), [heatmapWorkouts]);
 
   const greeting = useLiveQuery(() => selectHomeGreeting(), []);
 
@@ -169,8 +190,8 @@ function ProfilePage() {
 
   const muscleContributions = useMemo(() => {
     if (!drilldownMuscle) return [];
-    return computeMuscleContributions(workouts ?? [], drilldownMuscle, 5);
-  }, [drilldownMuscle, workouts]);
+    return computeMuscleContributions(heatmapWorkouts ?? [], drilldownMuscle, 5);
+  }, [drilldownMuscle, heatmapWorkouts]);
 
   function closeDrilldown() {
     setDrilldownMuscle(null);
@@ -379,7 +400,27 @@ function ProfilePage() {
       <section className="rounded-2xl border border-border/50 bg-card p-5">
         <div className="mb-4">
           <h2 className="text-base font-semibold">Muscle Activity</h2>
-          <p className="text-xs text-muted-foreground">Based on completed sets • Tap to explore</p>
+          <p className="text-xs text-muted-foreground">
+            Based on completed sets
+            {heatmapRange !== null ? ` in the last ${heatmapRange} days` : ""} • Tap to explore
+          </p>
+        </div>
+
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+          {HEATMAP_RANGES.map(({ label, value }) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setHeatmapRange(value)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                heatmapRange === value
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground active:bg-secondary/70"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         <div
@@ -397,7 +438,9 @@ function ProfilePage() {
 
           {balance.hasData === undefined ? null : !balance.hasData ? (
             <p className="py-2 text-center text-xs text-muted-foreground">
-              No training data yet. Start a workout to see muscle insights.
+              {heatmapRange !== null
+                ? `No training data in the last ${heatmapRange} days.`
+                : "No training data yet. Start a workout to see muscle insights."}
             </p>
           ) : (
             <div className="space-y-1 text-xs text-muted-foreground">
