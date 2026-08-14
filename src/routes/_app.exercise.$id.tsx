@@ -150,9 +150,18 @@ function ExerciseProgressPage() {
     }
   }
 
-  const typeOrder: DisplayPRType[] = ["weight", "reps", "time", "distance", "pace", "speed"];
+  const typeOrder: DisplayPRType[] = [
+    "weight",
+    "volume",
+    "reps",
+    "time",
+    "distance",
+    "pace",
+    "speed",
+  ];
   const typeLabel: Record<string, string> = {
     weight: "Weight",
+    volume: "Volume",
     reps: "Reps",
     time: "Duration",
     distance: "Distance",

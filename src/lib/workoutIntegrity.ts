@@ -93,6 +93,33 @@ function relevantPRValues(def: ReturnType<typeof getExercise>, set: SetLike): PR
   return out;
 }
 
+/**
+ * Total volume (Σ weight×reps across every completed set/side) for one
+ * exercise — the same per-exercise rule computeWorkoutStats uses, applied
+ * here to feed the "volume" PR type. This is deliberately NOT folded into
+ * relevantPRValues: every other PR type is decided per completed set, but
+ * volume only means anything summed across a whole exercise, so it needs
+ * its own pass over an exercise's sets rather than a per-set candidate.
+ * Exercises with no weight tracked at all (cardio) never register —
+ * schema.weight === "hidden" means the field holds something else
+ * (distance) — and a pure-bodyweight exercise's weight is 0 for every set
+ * so its sum is 0 too, same as computeWorkoutStats' own volume figure.
+ */
+function computeExerciseVolume(def: ReturnType<typeof getExercise>, sets: SetLike[]): number {
+  if (!def) return 0;
+  const schema = getExerciseLoggingSchema(def);
+  if (schema.weight === "hidden") return 0;
+
+  let total = 0;
+  for (const s of sets) {
+    if (!s.completed) continue;
+    for (const perf of setPerformances(s)) {
+      total += perf.weight * perf.reps;
+    }
+  }
+  return total;
+}
+
 /** exerciseId can't itself contain ":" (the catalog only uses plain
  *  slugs), but this pops from the end regardless so that assumption isn't
  *  load-bearing. "agg" marks a non-unilateral (no side) PR track. */
@@ -149,6 +176,11 @@ async function rebuildPersonalRecords(): Promise<void> {
     // one new PR row per exercise+type+side, matching the incremental
     // save's behaviour.
     const withinWorkout = new Map<string, number>();
+    // Volume sums across every occurrence of an exerciseId in this
+    // workout (an exercise can appear more than once), so it's tracked
+    // separately and only folded into withinWorkout once the whole
+    // workout has been walked.
+    const exerciseVolume = new Map<string, number>();
 
     for (const ex of workout.exercises) {
       const def = getExercise(ex.exerciseId);
@@ -162,6 +194,14 @@ async function rebuildPersonalRecords(): Promise<void> {
           }
         }
       }
+      const volume = computeExerciseVolume(def, ex.sets);
+      if (volume > 0) {
+        exerciseVolume.set(ex.exerciseId, (exerciseVolume.get(ex.exerciseId) ?? 0) + volume);
+      }
+    }
+
+    for (const [exerciseId, volume] of exerciseVolume) {
+      withinWorkout.set(prKey(exerciseId, "volume", undefined), volume);
     }
 
     for (const [key, value] of withinWorkout) {
@@ -219,6 +259,7 @@ export async function syncWorkoutIntegrity(): Promise<void> {
 export async function recordNewWorkoutPRs(workout: Workout & { id: number }): Promise<void> {
   const db = getDb();
   const written = new Set<string>();
+  const exerciseVolume = new Map<string, number>();
 
   for (const ex of workout.exercises) {
     const def = getExercise(ex.exerciseId);
@@ -250,6 +291,35 @@ export async function recordNewWorkoutPRs(workout: Workout & { id: number }): Pr
           written.add(key);
         }
       }
+    }
+    const volume = computeExerciseVolume(def, ex.sets);
+    if (volume > 0) {
+      exerciseVolume.set(ex.exerciseId, (exerciseVolume.get(ex.exerciseId) ?? 0) + volume);
+    }
+  }
+
+  // Deferred to its own pass: an exerciseId can appear more than once in
+  // workout.exercises, so the total needs the whole workout walked first
+  // — checking against previousBest after only the first occurrence would
+  // miss volume added by a later occurrence of the same exercise.
+  for (const [exerciseId, value] of exerciseVolume) {
+    const type: PRType = "volume";
+    const existing = await db.prHistory.where({ exerciseId, type }).toArray();
+    const previousBest = existing.reduce(
+      (m, p) => (m <= 0 || isBetterPR(type, p.value, m) ? p.value : m),
+      0,
+    );
+
+    if (isBetterPR(type, value, previousBest)) {
+      await db.prHistory.add({
+        exerciseId,
+        type,
+        value,
+        previousBest,
+        delta: prDelta(type, value, previousBest),
+        workoutId: workout.id,
+        createdAt: Date.now(),
+      });
     }
   }
 }

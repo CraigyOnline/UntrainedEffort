@@ -152,7 +152,7 @@ export function formatCardioRate(schema: ExerciseLoggingSchema, value: number): 
   return `${value.toFixed(1)} ${unit}/min`;
 }
 
-export type DisplayPRType = "weight" | "reps" | "time" | "distance" | "pace" | "speed";
+export type DisplayPRType = "weight" | "reps" | "time" | "distance" | "pace" | "speed" | "volume";
 
 export function formatPRValue(
   type: DisplayPRType,
@@ -161,6 +161,7 @@ export function formatPRValue(
 ): string {
   if (type === "time") return formatMetricValue("duration", value);
   if (type === "weight") return `${value}kg`;
+  if (type === "volume") return `${Math.round(value)}kg`;
   if (type === "distance") return formatDistanceValue(schema.distanceUnit ?? "km", value);
   if (type === "reps") return `${value}`;
   if (schema.paceConvention && schema.distanceUnit) {

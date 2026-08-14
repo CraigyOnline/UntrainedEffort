@@ -128,7 +128,10 @@ export interface Workout {
 export interface PRRecord {
   id?: number;
   exerciseId: string;
-  type: "weight" | "reps" | "time" | "distance" | "pace" | "speed";
+  /** "volume" is the only type computed by summing across a whole
+   *  exercise's completed sets within one workout, rather than from a
+   *  single set — see computeExerciseVolumePRs in workoutIntegrity.ts. */
+  type: "weight" | "reps" | "time" | "distance" | "pace" | "speed" | "volume";
   value: number;
   /** Which side this PR belongs to, for a unilateral exercise — a
    *  positional index matching setPerformances (0 = first/left, 1 =

@@ -325,9 +325,11 @@ function HistoryDetailPage() {
                       ? "Distance"
                       : pr.type === "pace"
                         ? "Pace"
-                        : schema.paceConvention?.style === "rate"
-                          ? "Rate"
-                          : "Speed";
+                        : pr.type === "volume"
+                          ? "Volume"
+                          : schema.paceConvention?.style === "rate"
+                            ? "Rate"
+                            : "Speed";
             const fmt = (v: number) => formatPRValue(pr.type, v, schema);
             const isFirst = (pr.previousBest ?? 0) === 0;
             return (

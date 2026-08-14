@@ -55,6 +55,13 @@ function prTypeLabel(type: PRType): string {
       return "Pace";
     case "speed":
       return "Speed";
+    case "volume":
+      // Not currently reachable: checkLivePRs only ever emits hits from
+      // relevantPRValues, which volume deliberately isn't part of (it's a
+      // whole-exercise aggregate, decided at save time — see
+      // computeExerciseVolume in workoutIntegrity.ts). Handled here only
+      // so this switch stays exhaustive over PRType.
+      return "Volume";
   }
 }
 
