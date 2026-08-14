@@ -106,6 +106,11 @@ export function computeIntensity(
  * weight by. Shared by routineIntensity (_app.workout.tsx, both standard
  * and circuit routines) and the history timeline's circuit-workout case,
  * rather than three near-identical copies of this loop.
+ *
+ * "Cardio" is excluded from the result, same as computeIntensity and for
+ * the same reason — no SVG body-map region, never anatomically meaningful.
+ * A circuit station can be cardio-primary (e.g. a treadmill station), so
+ * without this a stray "Cardio" key would otherwise leak into the output.
  */
 export function intensityFromExerciseIds(
   exerciseIds: string[],
@@ -114,7 +119,9 @@ export function intensityFromExerciseIds(
   for (const exerciseId of exerciseIds) {
     const def = getExercise(exerciseId);
     if (!def) continue;
-    out[def.muscle] = 1;
+    if (def.muscle !== "Cardio") {
+      out[def.muscle] = 1;
+    }
     for (const sec of def.secondary ?? []) {
       out[sec] = Math.max(out[sec] ?? 0, 0.5);
     }

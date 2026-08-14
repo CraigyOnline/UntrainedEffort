@@ -92,12 +92,13 @@ describe("intensityFromExerciseIds", () => {
     expect(intensity.Chest).toBe(1);
   });
 
-  it("does not exclude Cardio the way computeIntensity does", () => {
-    // Documents current behavior: unlike computeIntensity, this helper has
-    // no Cardio filter, so a cardio-primary exercise id still produces a
-    // "Cardio" key in the output.
+  it("excludes Cardio from the output, same as computeIntensity", () => {
     const intensity = intensityFromExerciseIds(["treadmill"]);
-    expect(intensity.Cardio).toBe(1);
+    expect(intensity.Cardio).toBeUndefined();
+    expect("Cardio" in intensity).toBe(false);
+    // secondary muscles from the cardio exercise still register
+    expect(intensity.Quads).toBe(0.5);
+    expect(intensity.Hamstrings).toBe(0.5);
   });
 
   it("skips unrecognized exercise ids", () => {
