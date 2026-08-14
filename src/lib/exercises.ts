@@ -77,7 +77,9 @@ export type DistanceUnit = "km" | "m" | "floors";
  * See formatPace below for how each is actually computed and displayed.
  */
 export type PaceConvention =
-  { style: "pace"; per: number } | { style: "speed" } | { style: "rate" };
+  | { style: "pace"; per: number }
+  | { style: "speed" }
+  | { style: "rate" };
 
 /** One side's performance values — see setPerformances below for why this
  *  exists and where "left"/"right" actually come from (nowhere in here). */
