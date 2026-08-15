@@ -203,6 +203,75 @@ export function compareTrend(previous: number, latest: number): Trend {
   return "flat";
 }
 
+export type ExerciseStatus =
+  | "improving"
+  | "plateauing"
+  | "declining"
+  | "stable"
+  | "needs-more-data";
+
+/** Sessions needed before a flat reading counts as a genuine plateau
+ *  rather than a single quiet session — see computeExerciseStatusFromValues. */
+const PLATEAU_WINDOW = 4;
+
+/**
+ * Status of one exercise's progress, from its per-session primary-metric
+ * values (most-recent session first — index 0 is latest).
+ *
+ * Below PLATEAU_WINDOW sessions, this is a plain two-point comparison —
+ * latest vs. the one before it — in the same spirit as compareTrend
+ * itself: not enough history yet to tell a genuine plateau from a single
+ * off session, so a flat reading here is reported as "stable", not
+ * "plateauing".
+ *
+ * At PLATEAU_WINDOW+ sessions, it compares the oldest vs. newest value in
+ * that trailing window instead of just the last two points, so a single
+ * up/down blip mid-window doesn't flip the result. Only this comparison
+ * can report "plateauing" — a real plateau needs several sessions to be
+ * one, not two. Still deliberately just comparing two points (oldest and
+ * newest), not a regression or a variance check, matching compareTrend's
+ * own scope — see its doc comment.
+ *
+ * `lowerIsBetter` matches getCardioTrend's own parameter: pass true for
+ * pace, where a falling value is the improvement, not the decline. Every
+ * other metric this app tracks (weight, reps, duration, distance, speed,
+ * rate) is higher-is-better, so it defaults to false.
+ */
+export function computeExerciseStatusFromValues(
+  values: number[],
+  lowerIsBetter = false,
+): ExerciseStatus {
+  if (values.length < 2) return "needs-more-data";
+
+  const windowed = values.length >= PLATEAU_WINDOW;
+  const previous = windowed ? values[PLATEAU_WINDOW - 1] : values[1];
+  const latest = values[0];
+
+  if (latest === previous) return windowed ? "plateauing" : "stable";
+  const improved = lowerIsBetter ? latest < previous : latest > previous;
+  return improved ? "improving" : "declining";
+}
+
+/**
+ * Single source of truth for how each ExerciseStatus reads and looks —
+ * shared by Profile's Current Focus card, its Recent Progress list, and
+ * the Exercise Detail page's chart header, so a future wording or glyph
+ * change happens in one place rather than three. `tone` is a Tailwind
+ * text-color class, not a raw color, matching how the rest of this file
+ * (formatPRValue etc.) stays presentation-agnostic apart from this one
+ * intentionally UI-facing export.
+ */
+export const EXERCISE_STATUS_COPY: Record<
+  ExerciseStatus,
+  { icon: string; label: string; tone: string }
+> = {
+  "needs-more-data": { icon: "•", label: "Needs more data", tone: "text-muted-foreground" },
+  improving: { icon: "↗", label: "Improving", tone: "text-primary" },
+  declining: { icon: "↘", label: "Lower than last time", tone: "text-muted-foreground" },
+  plateauing: { icon: "⏸", label: "Plateauing", tone: "text-muted-foreground" },
+  stable: { icon: "→", label: "Stable", tone: "text-muted-foreground" },
+};
+
 export interface CardioTrend {
   direction: "improving" | "declining" | "steady";
   previous: number;

@@ -19,9 +19,12 @@ import {
   getPrimaryMetric,
   getPrimaryMetricKind,
   compareTrend,
+  computeExerciseStatusFromValues,
+  EXERCISE_STATUS_COPY,
   formatMetricValue,
   type Trend,
   type MetricKind,
+  type ExerciseStatus,
 } from "@/lib/exerciseProgress";
 import { formatRelativeDate } from "@/lib/format";
 import { selectHomeGreeting } from "@/lib/homeGreetings";
@@ -612,35 +615,27 @@ function StatCard({ icon, label, value }: { icon: ReactNode; label: string; valu
   );
 }
 
-type ExerciseStatus = "improving" | "plateauing" | "stable" | "needs-more-data";
-
 /** Used on the Current Focus card — includes the exercise name context, so
  *  it reads as a sentence rather than a bare pill. */
 function StatusLine({ status }: { status: ExerciseStatus }) {
-  if (status === "needs-more-data") {
-    return <p className="mt-2 text-xs text-muted-foreground">• Needs more data</p>;
-  }
-  if (status === "improving") {
-    return <p className="mt-2 text-xs font-medium text-primary">↗ Improving</p>;
-  }
-  if (status === "plateauing") {
-    return <p className="mt-2 text-xs font-medium text-muted-foreground">↘ Plateauing</p>;
-  }
-  return <p className="mt-2 text-xs font-medium text-muted-foreground">→ Stable</p>;
+  const { icon, label, tone } = EXERCISE_STATUS_COPY[status];
+  const weight = status === "needs-more-data" ? "" : "font-medium";
+  return (
+    <p className={`mt-2 text-xs ${weight} ${tone}`}>
+      {icon} {label}
+    </p>
+  );
 }
 
 /** Used in the Recent Progress list — compact pill form. */
 function StatusPill({ status }: { status: ExerciseStatus }) {
-  if (status === "needs-more-data") {
-    return <span className="shrink-0 text-xs text-muted-foreground">• Needs more data</span>;
-  }
-  if (status === "improving") {
-    return <span className="shrink-0 text-xs font-medium text-primary">↗ Improving</span>;
-  }
-  if (status === "plateauing") {
-    return <span className="shrink-0 text-xs font-medium text-muted-foreground">↘ Plateauing</span>;
-  }
-  return <span className="shrink-0 text-xs font-medium text-muted-foreground">→ Stable</span>;
+  const { icon, label, tone } = EXERCISE_STATUS_COPY[status];
+  const weight = status === "needs-more-data" ? "" : "font-medium";
+  return (
+    <span className={`shrink-0 text-xs ${weight} ${tone}`}>
+      {icon} {label}
+    </span>
+  );
 }
 
 function TrendLine({
@@ -863,15 +858,7 @@ function computeExerciseStatus(
     .filter((v): v is number => v != null);
 
   const best = values.length > 0 ? Math.max(...values) : null;
-
-  if (values.length < 2) {
-    return { status: "needs-more-data", best, metricKind, distanceUnit };
-  }
-
-  // values is most-recent-first (workouts is), so values[0] is latest.
-  const trend = compareTrend(values[1], values[0]);
-  const status: ExerciseStatus =
-    trend === "up" ? "improving" : trend === "down" ? "plateauing" : "stable";
+  const status = computeExerciseStatusFromValues(values);
   return { status, best, metricKind, distanceUnit };
 }
 

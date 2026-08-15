@@ -15,7 +15,10 @@ import {
   formatPRDelta,
   getCardioTrend,
   formatCardioInsight,
+  computeExerciseStatusFromValues,
+  EXERCISE_STATUS_COPY,
   type DisplayPRType,
+  type ExerciseStatus,
 } from "@/lib/exerciseProgress";
 import { formatDate } from "@/lib/format";
 import { EmptyState } from "@/components/EmptyState";
@@ -130,6 +133,13 @@ function ExerciseProgressPage() {
           chartData[chartData.length - 1].value,
         )
       : null;
+
+  // chartData is oldest-first (for the chart's x-axis); the classifier
+  // wants most-recent-first, same convention as Profile's own values array.
+  const exerciseStatus: ExerciseStatus = computeExerciseStatusFromValues(
+    [...chartData].reverse().map((p) => p.value),
+    schema.paceConvention?.style === "pace",
+  );
 
   // Latest PR per type — derived directly from stored records
   const latest: Partial<Record<DisplayPRType, PRRecord>> = {};
@@ -330,11 +340,17 @@ function ExerciseProgressPage() {
       {/* Progress chart */}
       {chartData.length >= 2 && (
         <div className="rounded-xl bg-card p-4">
-          <h2 className="mb-3 text-sm font-semibold">
-            {isCardioProgress
-              ? `${schema.paceConvention?.style === "pace" ? "Pace" : "Speed"} Over Time`
-              : `${metricLabel(metricKind)} Over Time`}
-          </h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">
+              {isCardioProgress
+                ? `${schema.paceConvention?.style === "pace" ? "Pace" : "Speed"} Over Time`
+                : `${metricLabel(metricKind)} Over Time`}
+            </h2>
+            <span className={`text-xs font-medium ${EXERCISE_STATUS_COPY[exerciseStatus].tone}`}>
+              {EXERCISE_STATUS_COPY[exerciseStatus].icon}{" "}
+              {EXERCISE_STATUS_COPY[exerciseStatus].label}
+            </span>
+          </div>
           <div className="h-44 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
