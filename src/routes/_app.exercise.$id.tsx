@@ -17,6 +17,7 @@ import {
   formatCardioInsight,
   computeExerciseStatusFromValues,
   EXERCISE_STATUS_COPY,
+  formatStatusConfidence,
   type DisplayPRType,
   type ExerciseStatus,
 } from "@/lib/exerciseProgress";
@@ -140,6 +141,7 @@ function ExerciseProgressPage() {
     [...chartData].reverse().map((p) => p.value),
     schema.paceConvention?.style === "pace",
   );
+  const statusConfidence = formatStatusConfidence(chartData.length);
 
   // Latest PR per type — derived directly from stored records
   const latest: Partial<Record<DisplayPRType, PRRecord>> = {};
@@ -340,7 +342,7 @@ function ExerciseProgressPage() {
       {/* Progress chart */}
       {chartData.length >= 2 && (
         <div className="rounded-xl bg-card p-4">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-1 flex items-center justify-between">
             <h2 className="text-sm font-semibold">
               {isCardioProgress
                 ? `${schema.paceConvention?.style === "pace" ? "Pace" : "Speed"} Over Time`
@@ -351,6 +353,11 @@ function ExerciseProgressPage() {
               {EXERCISE_STATUS_COPY[exerciseStatus].label}
             </span>
           </div>
+          {statusConfidence && (
+            <p className="mb-3 text-right text-[11px] text-muted-foreground/70">
+              {statusConfidence}
+            </p>
+          )}
           <div className="h-44 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>

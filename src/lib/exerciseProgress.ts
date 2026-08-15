@@ -252,6 +252,53 @@ export function computeExerciseStatusFromValues(
   return improved ? "improving" : "declining";
 }
 
+export type TrendConfidence = "early" | "established";
+
+/**
+ * How much evidence backs a trend reading, from sample size alone —
+ * deliberately mirrors the exact PLATEAU_WINDOW boundary
+ * computeExerciseStatusFromValues itself switches on, so a status's
+ * confidence always agrees with how it was actually computed: "early"
+ * means only a bare 2-point comparison went into it (same as this
+ * function's own below-window case), "established" means the fuller
+ * windowed comparison did.
+ *
+ * `sessionsUsed` names exactly what was compared, not the caller's whole
+ * history — computeExerciseStatusFromValues never looks past the 2nd or
+ * PLATEAU_WINDOW-th point regardless of how much more data exists, so an
+ * evidence line should never claim more sessions than that.
+ *
+ * Returns null below 2 sessions, where there's no trend to attach
+ * confidence to at all — matches computeExerciseStatusFromValues' own
+ * "needs-more-data" cutoff.
+ */
+export function getTrendConfidence(
+  sampleSize: number,
+): { confidence: TrendConfidence; sessionsUsed: number } | null {
+  if (sampleSize < 2) return null;
+  const established = sampleSize >= PLATEAU_WINDOW;
+  return {
+    confidence: established ? "established" : "early",
+    sessionsUsed: established ? PLATEAU_WINDOW : 2,
+  };
+}
+
+export function trendConfidenceLabel(confidence: TrendConfidence): string {
+  return confidence === "established" ? "Well-established" : "Early signal";
+}
+
+/**
+ * "Early signal · Based on your last 2 sessions" style caption for an
+ * ExerciseStatus reading — pairs the confidence tier with exactly how
+ * many sessions computeExerciseStatusFromValues actually compared. Null
+ * below 2 sessions, matching getTrendConfidence.
+ */
+export function formatStatusConfidence(sampleSize: number): string | null {
+  const info = getTrendConfidence(sampleSize);
+  if (!info) return null;
+  return `${trendConfidenceLabel(info.confidence)} · Based on your last ${info.sessionsUsed} sessions`;
+}
+
 /**
  * Single source of truth for how each ExerciseStatus reads and looks —
  * shared by Profile's Current Focus card, its Recent Progress list, and

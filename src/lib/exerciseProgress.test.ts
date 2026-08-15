@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { computeExerciseStatusFromValues } from "@/lib/exerciseProgress";
+import {
+  computeExerciseStatusFromValues,
+  formatStatusConfidence,
+  getTrendConfidence,
+  trendConfidenceLabel,
+} from "@/lib/exerciseProgress";
 
 describe("computeExerciseStatusFromValues", () => {
   it("returns needs-more-data with fewer than 2 sessions", () => {
@@ -54,5 +59,48 @@ describe("computeExerciseStatusFromValues", () => {
       expect(computeExerciseStatusFromValues([300, 300], true)).toBe("stable");
       expect(computeExerciseStatusFromValues([300, 280, 310, 300], true)).toBe("plateauing");
     });
+  });
+});
+
+describe("getTrendConfidence", () => {
+  it("returns null below 2 sessions — no trend to attach confidence to", () => {
+    expect(getTrendConfidence(0)).toBeNull();
+    expect(getTrendConfidence(1)).toBeNull();
+  });
+
+  it("reports early confidence, capped at 2 sessions used, below the plateau window", () => {
+    expect(getTrendConfidence(2)).toEqual({ confidence: "early", sessionsUsed: 2 });
+    expect(getTrendConfidence(3)).toEqual({ confidence: "early", sessionsUsed: 2 });
+  });
+
+  it("reports established confidence, capped at 4 sessions used, at or above the plateau window", () => {
+    expect(getTrendConfidence(4)).toEqual({ confidence: "established", sessionsUsed: 4 });
+    // A much larger history still names only the 4 sessions the underlying
+    // classifier actually compares (oldest/newest in the window) — never
+    // overstating the evidence beyond what was really used.
+    expect(getTrendConfidence(50)).toEqual({ confidence: "established", sessionsUsed: 4 });
+  });
+});
+
+describe("trendConfidenceLabel", () => {
+  it("labels each tier", () => {
+    expect(trendConfidenceLabel("early")).toBe("Early signal");
+    expect(trendConfidenceLabel("established")).toBe("Well-established");
+  });
+});
+
+describe("formatStatusConfidence", () => {
+  it("returns null below 2 sessions", () => {
+    expect(formatStatusConfidence(1)).toBeNull();
+  });
+
+  it("names exactly 2 sessions below the window, regardless of how many actually exist", () => {
+    expect(formatStatusConfidence(2)).toBe("Early signal · Based on your last 2 sessions");
+    expect(formatStatusConfidence(3)).toBe("Early signal · Based on your last 2 sessions");
+  });
+
+  it("names exactly 4 sessions at or above the window, regardless of how many actually exist", () => {
+    expect(formatStatusConfidence(4)).toBe("Well-established · Based on your last 4 sessions");
+    expect(formatStatusConfidence(20)).toBe("Well-established · Based on your last 4 sessions");
   });
 });

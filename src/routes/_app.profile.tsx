@@ -21,6 +21,9 @@ import {
   compareTrend,
   computeExerciseStatusFromValues,
   EXERCISE_STATUS_COPY,
+  formatStatusConfidence,
+  trendConfidenceLabel,
+  type TrendConfidence,
   formatMetricValue,
   type Trend,
   type MetricKind,
@@ -122,11 +125,19 @@ function ProfilePage() {
     const exerciseId = recentExerciseIds[0];
     if (!exerciseId) return null;
     const def = getExercise(exerciseId);
-    const { status, best, metricKind, distanceUnit } = computeExerciseStatus(
+    const { status, best, metricKind, distanceUnit, sampleSize } = computeExerciseStatus(
       workouts ?? [],
       exerciseId,
     );
-    return { exerciseId, name: def?.name ?? exerciseId, status, best, metricKind, distanceUnit };
+    return {
+      exerciseId,
+      name: def?.name ?? exerciseId,
+      status,
+      best,
+      metricKind,
+      distanceUnit,
+      sampleSize,
+    };
   }, [recentExerciseIds, workouts]);
 
   const consistency = useMemo(
@@ -350,7 +361,7 @@ function ProfilePage() {
                     </p>
                   </>
                 ) : null}
-                <StatusLine status={currentFocus.status} />
+                <StatusLine status={currentFocus.status} sampleSize={currentFocus.sampleSize} />
               </div>
             )}
 
@@ -388,11 +399,19 @@ function ProfilePage() {
                   <span className="text-xs">Volume trend (last 4 weeks vs. prior 4)</span>
                 </div>
                 <TrendLine
-                  trend={volumeTrend}
+                  trend={volumeTrend.trend}
                   upLabel="Increasing"
                   downLabel="Decreasing"
                   flatLabel="Stable"
                 />
+                <p className="mt-0.5 text-[11px] text-muted-foreground/70">
+                  {trendConfidenceLabel(
+                    volumeTrendConfidence(volumeTrend.recentCount, volumeTrend.priorCount),
+                  )}{" "}
+                  · {volumeTrend.recentCount} workout
+                  {volumeTrend.recentCount === 1 ? "" : "s"} vs. {volumeTrend.priorCount} workout
+                  {volumeTrend.priorCount === 1 ? "" : "s"}
+                </p>
               </div>
             )}
           </div>
@@ -617,13 +636,19 @@ function StatCard({ icon, label, value }: { icon: ReactNode; label: string; valu
 
 /** Used on the Current Focus card — includes the exercise name context, so
  *  it reads as a sentence rather than a bare pill. */
-function StatusLine({ status }: { status: ExerciseStatus }) {
+function StatusLine({ status, sampleSize }: { status: ExerciseStatus; sampleSize: number }) {
   const { icon, label, tone } = EXERCISE_STATUS_COPY[status];
   const weight = status === "needs-more-data" ? "" : "font-medium";
+  const confidenceCaption = formatStatusConfidence(sampleSize);
   return (
-    <p className={`mt-2 text-xs ${weight} ${tone}`}>
-      {icon} {label}
-    </p>
+    <div className="mt-2">
+      <p className={`text-xs ${weight} ${tone}`}>
+        {icon} {label}
+      </p>
+      {confidenceCaption && (
+        <p className="mt-0.5 text-[11px] text-muted-foreground/70">{confidenceCaption}</p>
+      )}
+    </div>
   );
 }
 
@@ -826,9 +851,12 @@ function getRecentlyTrainedExercises(workouts: Workout[], count: number): string
 }
 
 /**
- * Simple status for one exercise: compares its two most recent sessions'
- * primary-metric values. Deliberately just a two-point comparison — no
- * plateau detection, no confidence scoring, matching what was asked for.
+ * Status for one exercise, from its per-session primary-metric values —
+ * see computeExerciseStatusFromValues (exerciseProgress.ts) for the
+ * actual classification (plain 2-point comparison below 4 sessions,
+ * windowed oldest-vs-newest at 4+). sampleSize is exposed alongside the
+ * status so callers can attach a confidence caption via
+ * formatStatusConfidence without recomputing values.length themselves.
  */
 function computeExerciseStatus(
   workouts: Workout[],
@@ -838,6 +866,7 @@ function computeExerciseStatus(
   best: number | null;
   metricKind: MetricKind;
   distanceUnit?: DistanceUnit;
+  sampleSize: number;
 } {
   const def = getExercise(exerciseId);
   const schema = getExerciseLoggingSchema(def);
@@ -859,16 +888,20 @@ function computeExerciseStatus(
 
   const best = values.length > 0 ? Math.max(...values) : null;
   const status = computeExerciseStatusFromValues(values);
-  return { status, best, metricKind, distanceUnit };
+  return { status, best, metricKind, distanceUnit, sampleSize: values.length };
 }
 
 /**
  * Compares total volume in the last 4 weeks against the 4 weeks before
  * that. Returns null (hide the card) unless there's actual training in
  * both halves — otherwise this would just be reporting "you hadn't
- * started yet", not a real trend.
+ * started yet", not a real trend. recentCount/priorCount are exposed
+ * alongside the trend so the card can show a confidence caption stating
+ * exactly what was compared.
  */
-function computeVolumeTrend(workouts: Workout[]): Trend | null {
+function computeVolumeTrend(
+  workouts: Workout[],
+): { trend: Trend; recentCount: number; priorCount: number } | null {
   const weekMs = 7 * 86400000;
   const now = Date.now();
   const recentStart = now - 4 * weekMs;
@@ -882,7 +915,23 @@ function computeVolumeTrend(workouts: Workout[]): Trend | null {
   const sum = (ws: Workout[]) =>
     ws.reduce((acc, w) => acc + computeWorkoutStats(w.exercises).totalVolume, 0);
 
-  return compareTrend(sum(prior), sum(recent));
+  return {
+    trend: compareTrend(sum(prior), sum(recent)),
+    recentCount: recent.length,
+    priorCount: prior.length,
+  };
+}
+
+/** Established only when BOTH halves clear this bar — a single unusually
+ *  heavy or light session shouldn't be able to swing a whole half's sum
+ *  on its own, so a thin half keeps the reading at "early" regardless of
+ *  how solid the other half looks. */
+const VOLUME_TREND_ESTABLISHED_MIN = 3;
+
+function volumeTrendConfidence(recentCount: number, priorCount: number): TrendConfidence {
+  return recentCount >= VOLUME_TREND_ESTABLISHED_MIN && priorCount >= VOLUME_TREND_ESTABLISHED_MIN
+    ? "established"
+    : "early";
 }
 
 interface MuscleContribution {
