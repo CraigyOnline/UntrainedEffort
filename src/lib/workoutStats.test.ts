@@ -6,6 +6,7 @@ import {
   computeDominantSignature,
   computeWorkoutDisplayStats,
   computeWorkoutStats,
+  detectSessionGoal,
   formatCardioActivity,
   getCurrentExerciseId,
   getCurrentExerciseName,
@@ -292,5 +293,94 @@ describe("getCurrentExerciseId / getCurrentExerciseName", () => {
   it("returns undefined for an empty workout", () => {
     expect(getCurrentExerciseId([])).toBeUndefined();
     expect(getCurrentExerciseName([])).toBeUndefined();
+  });
+});
+
+describe("detectSessionGoal", () => {
+  it("classifies a clear majority of low-rep sets as strength", () => {
+    const exercises = makeExercises([
+      [
+        "bench-press",
+        [makeSet({ reps: 3 }), makeSet({ reps: 4 }), makeSet({ reps: 5 }), makeSet({ reps: 5 })],
+      ],
+    ]);
+    expect(detectSessionGoal(exercises)).toBe("strength");
+  });
+
+  it("classifies a clear majority of moderate-rep sets as hypertrophy", () => {
+    const exercises = makeExercises([
+      ["bench-press", [makeSet({ reps: 8 }), makeSet({ reps: 10 }), makeSet({ reps: 12 })]],
+    ]);
+    expect(detectSessionGoal(exercises)).toBe("hypertrophy");
+  });
+
+  it("classifies a clear majority of high-rep sets as endurance", () => {
+    const exercises = makeExercises([
+      ["bench-press", [makeSet({ reps: 15 }), makeSet({ reps: 20 }), makeSet({ reps: 13 })]],
+    ]);
+    expect(detectSessionGoal(exercises)).toBe("endurance");
+  });
+
+  it("classifies an even split with no clear majority as mixed, including an exact 50/50 tie", () => {
+    const exercises = makeExercises([
+      [
+        "bench-press",
+        [
+          makeSet({ reps: 3 }), // strength
+          makeSet({ reps: 4 }), // strength
+          makeSet({ reps: 8 }), // hypertrophy
+          makeSet({ reps: 10 }), // hypertrophy
+        ],
+      ],
+    ]);
+    // 2/4 = exactly 50%, deliberately not a majority (>50% required)
+    expect(detectSessionGoal(exercises)).toBe("mixed");
+  });
+
+  it("returns null below the minimum sample size of 3 qualifying sets", () => {
+    const exercises = makeExercises([
+      ["bench-press", [makeSet({ reps: 5 }), makeSet({ reps: 5 })]],
+    ]);
+    expect(detectSessionGoal(exercises)).toBeNull();
+  });
+
+  it("returns null for an all-cardio workout", () => {
+    const exercises = makeExercises([
+      [
+        "treadmill",
+        [makeSet({ duration: 600 }), makeSet({ duration: 600 }), makeSet({ duration: 600 })],
+      ],
+    ]);
+    expect(detectSessionGoal(exercises)).toBeNull();
+  });
+
+  it("counts each side of a unilateral set as its own data point", () => {
+    const exercises = makeExercises([
+      [
+        "db-row",
+        [
+          makeSet({ weight: 20, reps: 4, additionalPerformances: [{ weight: 18, reps: 4 }] }),
+          makeSet({ weight: 20, reps: 4, additionalPerformances: [{ weight: 18, reps: 4 }] }),
+        ],
+      ],
+    ]);
+    // 2 sets × 2 sides = 4 qualifying performances, all reps=4 (strength)
+    expect(detectSessionGoal(exercises)).toBe("strength");
+  });
+
+  it("excludes uncompleted sets and zero-rep sets from the count", () => {
+    const exercises = makeExercises([
+      [
+        "bench-press",
+        [
+          makeSet({ reps: 5 }),
+          makeSet({ reps: 5 }),
+          makeSet({ reps: 999, completed: false }), // excluded
+          makeSet({ reps: 0 }), // excluded — not a real rep count
+        ],
+      ],
+    ]);
+    // Only 2 qualifying sets remain — below the minimum sample size
+    expect(detectSessionGoal(exercises)).toBeNull();
   });
 });

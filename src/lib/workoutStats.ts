@@ -292,3 +292,60 @@ export function getCurrentExerciseName(exercises: Workout["exercises"]): string 
   const currentExerciseId = getCurrentExerciseId(exercises);
   return currentExerciseId ? getExercise(currentExerciseId)?.name : undefined;
 }
+
+/**
+ * Rep-range training goal — a different axis entirely from WorkoutMode's
+ * "mixed" (which is about modality: strength vs cardio vs interval).
+ * This is purely about rep ranges *within* resistance training, so a
+ * workout can independently be WorkoutMode "strength" and SessionGoal
+ * "mixed" (e.g. heavy triples on one lift, higher-rep burnout sets on
+ * another) — the two "mixed"s are unrelated and can disagree.
+ */
+export type SessionGoal = "strength" | "hypertrophy" | "endurance" | "mixed";
+
+/**
+ * Classifies a workout's rep-range emphasis from its completed sets:
+ * Strength (1-5 reps), Hypertrophy (6-12), Endurance (13+) — standard
+ * resistance-training convention. "Mixed" when no range holds a clear
+ * (>50%) majority rather than forcing a label onto a genuinely blended
+ * session.
+ *
+ * Only resistance-tracked sets count — same schema.weight !== "hidden"
+ * rule computeExerciseVolume (workoutIntegrity.ts) uses, so cardio never
+ * contributes. Unilateral sets count each side's reps separately, same
+ * as relevantPRValues' "reps" PR type — one performance, one data point,
+ * regardless of which side.
+ *
+ * Returns null below a minimum sample size (3 qualifying performances)
+ * rather than confidently labeling a session from a couple of stray
+ * sets, and for an all-cardio workout, which has nothing to classify.
+ */
+export function detectSessionGoal(exercises: Workout["exercises"]): SessionGoal | null {
+  const buckets = { strength: 0, hypertrophy: 0, endurance: 0 };
+  let total = 0;
+
+  for (const ex of exercises) {
+    const def = getExercise(ex.exerciseId);
+    if (!def) continue;
+    const schema = getExerciseLoggingSchema(def);
+    if (schema.weight === "hidden") continue;
+
+    for (const s of ex.sets) {
+      if (!s.completed) continue;
+      for (const perf of setPerformances(s)) {
+        if (perf.reps <= 0) continue;
+        total += 1;
+        if (perf.reps <= 5) buckets.strength += 1;
+        else if (perf.reps <= 12) buckets.hypertrophy += 1;
+        else buckets.endurance += 1;
+      }
+    }
+  }
+
+  if (total < 3) return null;
+
+  const [topGoal, topCount] = (Object.entries(buckets) as [SessionGoal, number][]).reduce((a, b) =>
+    b[1] > a[1] ? b : a,
+  );
+  return topCount / total > 0.5 ? topGoal : "mixed";
+}

@@ -33,7 +33,11 @@ import {
   CircuitStationList,
 } from "@/components/CircuitSummary";
 import { computeIntensity, intensityFromExerciseIds } from "@/lib/muscles";
-import { computeWorkoutDisplayStats } from "@/lib/workoutStats";
+import {
+  computeWorkoutDisplayStats,
+  detectSessionGoal,
+  type SessionGoal,
+} from "@/lib/workoutStats";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -94,6 +98,13 @@ export const Route = createFileRoute("/_app/workout")({
   validateSearch: searchSchema,
   component: WorkoutPage,
 });
+
+const SESSION_GOAL_LABELS: Record<SessionGoal, string> = {
+  strength: "Strength session",
+  hypertrophy: "Hypertrophy session",
+  endurance: "Endurance session",
+  mixed: "Mixed session",
+};
 
 function WorkoutPage() {
   const { routineId } = Route.useSearch();
@@ -433,6 +444,7 @@ function WorkoutPage() {
   if (summary) {
     const hasPRs = completionMessage?.kind === "pr";
     const intensity = computeIntensity(summary.exercises);
+    const sessionGoal = detectSessionGoal(summary.exercises);
     return (
       <div className="flex flex-col gap-4 px-4 pb-8">
         {/* Stage 0: the acknowledgment, alone. Stage 1+: recedes to a
@@ -479,6 +491,11 @@ function WorkoutPage() {
               >
                 {completionMessage.headline}
               </p>
+              {stage >= 1 && sessionGoal && (
+                <p className="px-4 text-xs font-medium text-muted-foreground/70">
+                  {SESSION_GOAL_LABELS[sessionGoal]}
+                </p>
+              )}
             </div>
           )}
         </div>
