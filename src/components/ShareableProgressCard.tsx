@@ -2,22 +2,38 @@ import { forwardRef } from "react";
 import type { Workout } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { MuscleMap } from "@/components/MuscleMap";
+import { CardioSignature } from "@/components/CardioSignature";
 import { WorkoutStatsRow } from "@/components/WorkoutSummary";
 import { CircuitStatsRow, CircuitSignatureIcon } from "@/components/CircuitSummary";
-import type { MuscleGroup } from "@/lib/exercises";
+import { computeIntensity } from "@/lib/muscles";
+import {
+  computeWorkoutDisplayStats,
+  computeDominantSignature,
+  resolveCardioPattern,
+} from "@/lib/workoutStats";
 import icon from "@/assets/brand/icon.png";
 
 interface ShareableProgressCardProps {
   workout: Workout;
-  intensity: Partial<Record<MuscleGroup, number>>;
 }
 
 /**
- * Static export-only card for the Workout Complete screen's share action
- * (workoutIntegrity's shareProgressCard captures this to a PNG) — a
- * fixed-width, auto-height layout rather than the interactive screen's
- * own responsive one, since this only ever needs to render once,
- * off-screen, for html-to-image to rasterize.
+ * Static export-only card for the share action on both the Workout
+ * Complete screen and the History detail page (shareCard.ts's
+ * shareProgressCard captures this to a PNG) — a fixed-width, auto-height
+ * layout rather than either screen's own responsive one, since this only
+ * ever needs to render once, off-screen, for html-to-image to rasterize.
+ *
+ * Deliberately computes intensity/dominant-signature itself from
+ * `workout` alone, the same self-contained way WorkoutSummary computes
+ * its own intensity internally, rather than taking them as props — two
+ * separate call sites each pre-computing and passing this in would risk
+ * quietly drifting out of sync with each other (and did: the first
+ * version of this card, built only against the Workout Complete screen,
+ * had no cardio-dominant branch at all — MuscleMap unconditionally,
+ * matching that screen's own always-MuscleMap choice, but wrong for
+ * History's page, which already branches to CardioSignature the way
+ * WorkoutSummary does below).
  *
  * Deliberately plain MuscleMap here, not ExpandableMuscleMap — nothing
  * on an exported image can be tapped, so the tap-to-expand affordance
@@ -29,7 +45,10 @@ interface ShareableProgressCardProps {
  * it over time.
  */
 export const ShareableProgressCard = forwardRef<HTMLDivElement, ShareableProgressCardProps>(
-  function ShareableProgressCard({ workout, intensity }, ref) {
+  function ShareableProgressCard({ workout }, ref) {
+    const stats = workout.circuit ? null : computeWorkoutDisplayStats(workout.exercises);
+    const dominant = stats ? computeDominantSignature(stats) : null;
+
     return (
       <div
         ref={ref}
@@ -52,8 +71,10 @@ export const ShareableProgressCard = forwardRef<HTMLDivElement, ShareableProgres
         <div className="rounded-2xl bg-card p-4">
           {workout.circuit ? (
             <CircuitSignatureIcon circuit={workout.circuit} className="mx-auto" />
+          ) : dominant === "strength" ? (
+            <MuscleMap intensity={computeIntensity(workout.exercises)} className="w-full" />
           ) : (
-            <MuscleMap intensity={intensity} className="w-full" />
+            <CardioSignature pattern={resolveCardioPattern(stats!)} className="mx-auto" />
           )}
         </div>
 

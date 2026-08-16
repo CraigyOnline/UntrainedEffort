@@ -701,7 +701,7 @@ function WorkoutPage() {
             measure it, so it's positioned far outside the viewport
             instead of hidden. */}
         <div style={{ position: "fixed", left: -9999, top: 0 }}>
-          <ShareableProgressCard ref={shareCardRef} workout={summary} intensity={intensity} />
+          <ShareableProgressCard ref={shareCardRef} workout={summary} />
         </div>
       </div>
     );

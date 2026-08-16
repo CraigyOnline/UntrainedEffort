@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate, useRouter, Link, useBlocker } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUndo } from "@/hooks/useUndo";
 import { useLiveQuery } from "dexie-react-hooks";
-import { ArrowLeft, Check, Trash2, X, Pencil, Save } from "lucide-react";
+import { ArrowLeft, Check, Trash2, X, Pencil, Save, Share2 } from "lucide-react";
 import { getDb, type Workout, type WorkoutExerciseLog, type PRRecord } from "@/lib/db";
 import {
   getExercise,
@@ -22,6 +22,8 @@ import { UnilateralSetInputs } from "@/components/forms/UnilateralSetInputs";
 import { Button } from "@/components/ui/button";
 import { WorkoutSummary } from "@/components/WorkoutSummary";
 import { CircuitSummary } from "@/components/CircuitSummary";
+import { ShareableProgressCard } from "@/components/ShareableProgressCard";
+import { shareProgressCard } from "@/lib/shareCard";
 import { formatDuration } from "@/lib/format";
 import { formatPRValue, formatPRDelta } from "@/lib/exerciseProgress";
 import { haptics } from "@/lib/haptics";
@@ -46,6 +48,8 @@ function HistoryDetailPage() {
   const router = useRouter();
 
   const [workout, setWorkout] = useState<Workout | null | undefined>(undefined);
+  const shareCardRef = useRef<HTMLDivElement>(null);
+  const [sharing, setSharing] = useState(false);
 
   const workoutPRs = useLiveQuery(async () => {
     if (typeof window === "undefined" || !workout?.id) return [];
@@ -290,16 +294,47 @@ function HistoryDetailPage() {
         ) : (
           <h1 className="truncate font-bold">{view.name}</h1>
         )}
-        {editing ? (
-          <button onClick={save}>
-            <Save className="h-4 w-4" />
-          </button>
-        ) : (
-          <button onClick={startEdit}>
-            <Pencil className="h-4 w-4" />
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {!editing && (
+            <button
+              disabled={sharing}
+              onClick={async () => {
+                if (!shareCardRef.current || sharing || !workout) return;
+                setSharing(true);
+                try {
+                  await shareProgressCard(shareCardRef.current, "untrained-effort-workout");
+                } finally {
+                  setSharing(false);
+                }
+              }}
+              aria-label="Share progress card"
+            >
+              <Share2 className="h-4 w-4" />
+            </button>
+          )}
+          {editing ? (
+            <button onClick={save}>
+              <Save className="h-4 w-4" />
+            </button>
+          ) : (
+            <button onClick={startEdit}>
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </header>
+
+      {/* Off-screen — never shown, only captured to an image on share.
+          Needs real layout (not display:none) for html-to-image to
+          measure it, so it's positioned far outside the viewport instead
+          of hidden. Always the saved `workout`, never `draft` — sharing
+          an in-progress unsaved edit wouldn't make sense (the button
+          above is hidden while editing for the same reason). */}
+      {workout && (
+        <div style={{ position: "fixed", left: -9999, top: 0 }}>
+          <ShareableProgressCard ref={shareCardRef} workout={workout} />
+        </div>
+      )}
 
       {view.circuit ? (
         <CircuitSummary durationSec={view.durationSec} circuit={view.circuit} />
