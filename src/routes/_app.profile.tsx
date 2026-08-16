@@ -477,6 +477,7 @@ function ProfilePage() {
                         width={32}
                       />
                       <Tooltip
+                        cursor={{ fill: "var(--muted)", radius: 4 }}
                         formatter={(value: number) => [
                           `${Math.round(value).toLocaleString()}`,
                           "Volume",
