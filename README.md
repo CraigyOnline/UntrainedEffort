@@ -4,6 +4,10 @@ An open-source, local-first Android workout tracker built for people who want to
 
 Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownership of your data, and a polished workout experience.
 
+> **Personal project.** This app is built primarily for my own use. It's shared publicly and open-source, but it isn't a polished commercial product and comes with no support guarantees.
+>
+> **AI disclosure.** Development of this project has relied heavily on AI coding tools. Keep that in mind when reading the code or history.
+
 ---
 
 ## Philosophy
@@ -35,19 +39,23 @@ Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownershi
 - Cardio & interval workouts, tracked in the right unit for each activity (km, meters, floors)
 - A wide and growing exercise library, spanning strength, functional, and cardio movements
 - Unilateral exercise support
+- Live, set-by-set expected rep range in the Workout HUD, based on your recent performance at that same set position
 
 ### Progress
 
 - Workout history
 - Search & filtering
-- Personal records (PRs)
+- Personal records (PRs), including a dedicated volume PR alongside best-ever weight
 - Exercise progress charts
 - Exercise detail pages
 - Browse & search the full exercise library
 - Profile dashboard
-- Muscle activity maps
+- Muscle activity maps, with date-range filtering (7/30/90 days or all-time)
 - Workout completion celebrations
 - Motivational welcome & completion messages
+- Session goal detection — classifies a completed workout as Strength/Hypertrophy/Endurance/Mixed
+- Calm, multi-session-aware progress status per exercise (improving/plateauing/declining/stable), with a confidence qualifier and supporting evidence rather than a flat assertion
+- Shareable progress card — export a workout as a shareable image, from the Workout Complete screen or workout history
 
 ### Data
 
@@ -66,17 +74,12 @@ Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownershi
 - Richer exercise statistics
 - Cardio pace & speed metrics
 - Muscle activity trends
-- **Volume PR tracking** — second PR type alongside existing best-ever-weight PR: best-ever single-set volume (weight × reps) per exercise. New trigger in `completionMessages.ts`, separate from the existing PR trigger, so a workout without a weight PR can still earn a PR moment. Own message pool, following the existing "pair fact with recognition" rule.
-- **Muscle heatmap date-range filtering** — extend `MuscleMap` with an aggregated view over a user-selected date range, for a History/Insights screen. New aggregate mode, distinct from the existing per-workout/routine `compact` thumbnails.
-- **Trend confidence indicators** — when surfacing any trend in this section, attach a short confidence qualifier plus one line of supporting evidence rather than asserting the trend flatly.
 
 ### Insights
 
 - Muscle recovery indicators
 - Training frequency
 - Last trained by muscle
-- **Plateau detection** — flag when an exercise's weight/volume trend has stalled over recent sessions. Calm, non-judgmental tone only — no "stuck" framing, more like gentle encouragement or a suggestion to switch things up.
-- **Session goal detection** — classify a completed workout as Strength/Hypertrophy/Endurance/Mixed from its rep-range distribution. Derived data computed alongside existing workout stats; feeds into completion messages as a new contextual input, additive to the baseline message.
 
 ### Future
 
@@ -84,14 +87,12 @@ Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownershi
 - Optional cloud sync
 - Wear OS support
 - Illustrated exercise form guidance (start/end position art)
-- **Fatigue-aware expected rep range** — live, set-by-set expected rep range in the Workout HUD based on rolling recent performance for that exercise. Larger feature needing its own live-session UI treatment — a future phase, not a quick add.
-- **Shareable progress card** — export-to-image card combining workout stats and the muscle map, offered as an optional action after the Workout Complete acknowledgment/stats reveal. Reuse `workoutStats.ts` and `MuscleMap` rather than duplicating logic.
 
 ---
 
 ## Contributing
 
-This project is developed primarily for personal use, but ideas, bug reports and pull requests are always welcome.
+This is primarily a personal project (see the note at the top), but ideas, bug reports, and pull requests are always welcome.
 
 ---
 
