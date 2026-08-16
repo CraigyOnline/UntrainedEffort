@@ -10,10 +10,12 @@ import {
   type DistanceUnit,
 } from "@/lib/exercises";
 import {
+  computeVolumeByPeriod,
   computeWorkoutDisplayStats,
   computeWorkoutStats,
   formatCardioActivity,
   type CardioActivityStats,
+  type VolumePeriodGranularity,
 } from "@/lib/workoutStats";
 import {
   getPrimaryMetric,
@@ -33,6 +35,7 @@ import { formatRelativeDate } from "@/lib/format";
 import { computeMuscleRecovery, MUSCLE_RECOVERY_COPY } from "@/lib/muscles";
 import { selectHomeGreeting } from "@/lib/homeGreetings";
 import { Activity, TrendingUp, CalendarDays, BarChart3, Target, Flame } from "lucide-react";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { MuscleMap } from "@/components/MuscleMap";
 import { useDismissOnBack } from "@/lib/backHandler";
 import { formatTimeTrained } from "@/features/history/duration";
@@ -76,6 +79,7 @@ function ProfilePage() {
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
   const [drilldownMuscle, setDrilldownMuscle] = useState<MuscleGroup | null>(null);
   const [heatmapRange, setHeatmapRange] = useState<HeatmapRange>(30);
+  const [volumeGranularity, setVolumeGranularity] = useState<VolumePeriodGranularity>("week");
 
   const stats = useMemo(() => computeStats(workouts ?? []), [workouts]);
 
@@ -153,6 +157,16 @@ function ProfilePage() {
   );
 
   const volumeTrend = useMemo(() => computeVolumeTrend(workouts ?? []), [workouts]);
+
+  const volumeSeries = useMemo(
+    () =>
+      computeVolumeByPeriod(
+        workouts ?? [],
+        volumeGranularity,
+        volumeGranularity === "week" ? 8 : 6,
+      ),
+    [workouts, volumeGranularity],
+  );
 
   const recentProgress = useMemo(() => {
     return recentExerciseIds.slice(0, 5).map((exerciseId) => {
@@ -399,26 +413,85 @@ function ProfilePage() {
               </div>
             </div>
 
-            {volumeTrend && (
+            {(workouts?.length ?? 0) > 0 && (
               <div className="rounded-2xl bg-card p-4">
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <BarChart3 className="h-3.5 w-3.5" />
                   <span className="text-xs">Volume trend (last 4 weeks vs. prior 4)</span>
                 </div>
-                <TrendLine
-                  trend={volumeTrend.trend}
-                  upLabel="Increasing"
-                  downLabel="Decreasing"
-                  flatLabel="Stable"
-                />
-                <p className="mt-0.5 text-[11px] text-muted-foreground/70">
-                  {trendConfidenceLabel(
-                    volumeTrendConfidence(volumeTrend.recentCount, volumeTrend.priorCount),
-                  )}{" "}
-                  · {volumeTrend.recentCount} workout
-                  {volumeTrend.recentCount === 1 ? "" : "s"} vs. {volumeTrend.priorCount} workout
-                  {volumeTrend.priorCount === 1 ? "" : "s"}
-                </p>
+                {volumeTrend ? (
+                  <>
+                    <TrendLine
+                      trend={volumeTrend.trend}
+                      upLabel="Increasing"
+                      downLabel="Decreasing"
+                      flatLabel="Stable"
+                    />
+                    <p className="mt-0.5 text-[11px] text-muted-foreground/70">
+                      {trendConfidenceLabel(
+                        volumeTrendConfidence(volumeTrend.recentCount, volumeTrend.priorCount),
+                      )}{" "}
+                      · {volumeTrend.recentCount} workout
+                      {volumeTrend.recentCount === 1 ? "" : "s"} vs. {volumeTrend.priorCount}{" "}
+                      workout
+                      {volumeTrend.priorCount === 1 ? "" : "s"}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-xs text-muted-foreground/70">
+                    Not enough history yet for a trend — keep logging workouts.
+                  </p>
+                )}
+
+                <div className="mt-4 flex gap-2">
+                  {(["week", "month"] as const).map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setVolumeGranularity(g)}
+                      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                        volumeGranularity === g
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-muted-foreground active:bg-secondary/70"
+                      }`}
+                    >
+                      {g === "week" ? "Weekly" : "Monthly"}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-3 h-36 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={volumeSeries} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                        axisLine={{ stroke: "var(--border)" }}
+                        tickLine={false}
+                        interval={volumeGranularity === "week" ? 1 : 0}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={32}
+                      />
+                      <Tooltip
+                        formatter={(value: number) => [
+                          `${Math.round(value).toLocaleString()}`,
+                          "Volume",
+                        ]}
+                        contentStyle={{
+                          background: "var(--card)",
+                          border: "1px solid var(--border)",
+                          borderRadius: 8,
+                          fontSize: 12,
+                        }}
+                      />
+                      <Bar dataKey="volume" fill="var(--primary)" radius={[3, 3, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             )}
           </div>

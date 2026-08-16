@@ -349,3 +349,88 @@ export function detectSessionGoal(exercises: Workout["exercises"]): SessionGoal 
   );
   return topCount / total > 0.5 ? topGoal : "mixed";
 }
+
+export type VolumePeriodGranularity = "week" | "month";
+
+export interface VolumePeriod {
+  /** Start of this period, ms since epoch — a rolling 7-day window start for
+   *  "week", the first of the calendar month (local time) for "month". */
+  periodStart: number;
+  /** Short display label — "Jun 2" for a week, "Jun" for a month. */
+  label: string;
+  volume: number;
+}
+
+/**
+ * Buckets total volume (same computeWorkoutStats().totalVolume used
+ * everywhere else — circuit workouts contribute 0, matching their
+ * exercises: [] convention) into a fixed number of periods, oldest to
+ * newest, ending with the period containing `now`.
+ *
+ * Always returns exactly `periodCount` entries, zero-filled for any period
+ * with no training — a quiet stretch should read as a dip on a chart, not
+ * silently compress the x-axis.
+ *
+ * "week" uses rolling 7-day windows counted back from `now` (matching the
+ * "last 4 weeks vs. prior 4" language computeVolumeTrend already uses on
+ * Profile) rather than calendar (Mon-Sun) weeks. "month" uses actual
+ * calendar months instead — rolling 30-day windows would drift against the
+ * month labels a chart would otherwise want to show.
+ */
+export function computeVolumeByPeriod(
+  workouts: Workout[],
+  granularity: VolumePeriodGranularity,
+  periodCount: number,
+  now: number = Date.now(),
+): VolumePeriod[] {
+  const totalsByWorkout = workouts.map((w) => ({
+    startedAt: w.startedAt,
+    volume: computeWorkoutStats(w.exercises).totalVolume,
+  }));
+
+  const periods: VolumePeriod[] = [];
+
+  if (granularity === "week") {
+    const dayMs = 86400000;
+    const weekMs = 7 * dayMs;
+    // Anchor the most recent bucket's end to the day after `now`'s local
+    // day, so "today" always falls inside the last bucket regardless of
+    // time-of-day.
+    const endOfToday = new Date(now);
+    endOfToday.setHours(24, 0, 0, 0);
+    const windowEnd = endOfToday.getTime();
+
+    for (let i = periodCount - 1; i >= 0; i--) {
+      const periodStart = windowEnd - (i + 1) * weekMs;
+      const periodEnd = periodStart + weekMs;
+      const volume = totalsByWorkout
+        .filter((w) => w.startedAt >= periodStart && w.startedAt < periodEnd)
+        .reduce((acc, w) => acc + w.volume, 0);
+      const label = new Date(periodStart).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+      });
+      periods.push({ periodStart, label, volume });
+    }
+  } else {
+    const anchor = new Date(now);
+    anchor.setDate(1);
+    anchor.setHours(0, 0, 0, 0);
+
+    for (let i = periodCount - 1; i >= 0; i--) {
+      const start = new Date(anchor);
+      start.setMonth(start.getMonth() - i);
+      const end = new Date(start);
+      end.setMonth(end.getMonth() + 1);
+      const periodStart = start.getTime();
+      const periodEnd = end.getTime();
+      const volume = totalsByWorkout
+        .filter((w) => w.startedAt >= periodStart && w.startedAt < periodEnd)
+        .reduce((acc, w) => acc + w.volume, 0);
+      const label = start.toLocaleDateString(undefined, { month: "short" });
+      periods.push({ periodStart, label, volume });
+    }
+  }
+
+  return periods;
+}

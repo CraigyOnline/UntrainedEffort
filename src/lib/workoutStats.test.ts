@@ -4,6 +4,7 @@ import { formatPace } from "@/lib/exercises";
 import {
   computeDominantCircuitSignature,
   computeDominantSignature,
+  computeVolumeByPeriod,
   computeWorkoutDisplayStats,
   computeWorkoutStats,
   detectSessionGoal,
@@ -382,5 +383,108 @@ describe("detectSessionGoal", () => {
     ]);
     // Only 2 qualifying sets remain — below the minimum sample size
     expect(detectSessionGoal(exercises)).toBeNull();
+  });
+});
+
+describe("computeVolumeByPeriod", () => {
+  const DAY_MS = 86400000;
+
+  function makeWorkout(startedAt: number, exercises: Workout["exercises"]): Workout {
+    return { id: 1, startedAt, endedAt: startedAt, durationSec: 0, name: "", exercises };
+  }
+
+  it("always returns exactly periodCount entries, oldest to newest", () => {
+    const now = Date.parse("2026-08-16T12:00:00.000Z");
+    const periods = computeVolumeByPeriod([], "week", 8, now);
+    expect(periods).toHaveLength(8);
+    for (let i = 1; i < periods.length; i++) {
+      expect(periods[i].periodStart).toBeGreaterThan(periods[i - 1].periodStart);
+    }
+  });
+
+  it("zero-fills a week with no training", () => {
+    const now = Date.parse("2026-08-16T12:00:00.000Z");
+    const periods = computeVolumeByPeriod([], "week", 4, now);
+    expect(periods.every((p) => p.volume === 0)).toBe(true);
+  });
+
+  it("places today's volume in the most recent weekly bucket", () => {
+    const now = Date.parse("2026-08-16T12:00:00.000Z");
+    const workouts = [
+      makeWorkout(now, makeExercises([["bench-press", [makeSet({ weight: 10, reps: 5 })]]])), // 50
+    ];
+    const periods = computeVolumeByPeriod(workouts, "week", 4, now);
+    expect(periods[periods.length - 1].volume).toBe(50);
+    expect(periods.slice(0, -1).every((p) => p.volume === 0)).toBe(true);
+  });
+
+  it("sums multiple workouts landing in the same weekly bucket", () => {
+    const now = Date.parse("2026-08-16T12:00:00.000Z");
+    const workouts = [
+      makeWorkout(now, makeExercises([["bench-press", [makeSet({ weight: 10, reps: 5 })]]])), // 50
+      makeWorkout(
+        now - 2 * DAY_MS,
+        makeExercises([["bench-press", [makeSet({ weight: 20, reps: 5 })]]]), // 100
+      ),
+    ];
+    const periods = computeVolumeByPeriod(workouts, "week", 2, now);
+    expect(periods[periods.length - 1].volume).toBe(150);
+  });
+
+  it("separates workouts a week apart into distinct buckets", () => {
+    const now = Date.parse("2026-08-16T12:00:00.000Z");
+    const workouts = [
+      makeWorkout(now, makeExercises([["bench-press", [makeSet({ weight: 10, reps: 5 })]]])), // 50, this week
+      makeWorkout(
+        now - 8 * DAY_MS,
+        makeExercises([["bench-press", [makeSet({ weight: 20, reps: 5 })]]]), // 100, prior week
+      ),
+    ];
+    const periods = computeVolumeByPeriod(workouts, "week", 2, now);
+    expect(periods[0].volume).toBe(100);
+    expect(periods[1].volume).toBe(50);
+  });
+
+  it("buckets by calendar month, not a rolling 30-day window", () => {
+    // Aug 1 and Aug 31 are both in the August calendar bucket despite being
+    // 30 days apart, and July 31 falls in the July bucket despite being
+    // only 1 day before Aug 1.
+    const now = Date.parse("2026-08-31T12:00:00.000Z");
+    const workouts = [
+      makeWorkout(
+        Date.parse("2026-08-01T00:00:00.000Z"),
+        makeExercises([["bench-press", [makeSet({ weight: 10, reps: 5 })]]]), // 50
+      ),
+      makeWorkout(
+        Date.parse("2026-08-31T00:00:00.000Z"),
+        makeExercises([["bench-press", [makeSet({ weight: 20, reps: 5 })]]]), // 100
+      ),
+      makeWorkout(
+        Date.parse("2026-07-31T00:00:00.000Z"),
+        makeExercises([["bench-press", [makeSet({ weight: 5, reps: 5 })]]]), // 25
+      ),
+    ];
+    const periods = computeVolumeByPeriod(workouts, "month", 2, now);
+    expect(periods[0].volume).toBe(25); // July
+    expect(periods[1].volume).toBe(150); // August
+  });
+
+  it("gives a circuit workout (exercises: []) zero volume, same as computeWorkoutStats", () => {
+    const now = Date.parse("2026-08-16T12:00:00.000Z");
+    const workouts = [makeWorkout(now, [])];
+    const periods = computeVolumeByPeriod(workouts, "week", 1, now);
+    expect(periods[0].volume).toBe(0);
+  });
+
+  it("excludes a workout that falls just outside the requested window", () => {
+    const now = Date.parse("2026-08-16T12:00:00.000Z");
+    const workouts = [
+      makeWorkout(
+        now - 30 * DAY_MS,
+        makeExercises([["bench-press", [makeSet({ weight: 10, reps: 5 })]]]),
+      ),
+    ];
+    const periods = computeVolumeByPeriod(workouts, "week", 2, now); // only covers last 2 weeks
+    expect(periods.every((p) => p.volume === 0)).toBe(true);
   });
 });
