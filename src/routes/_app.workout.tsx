@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, useBlocker } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import {
   getDb,
@@ -33,6 +33,8 @@ import {
   CircuitStationList,
 } from "@/components/CircuitSummary";
 import { computeIntensity, intensityFromExerciseIds } from "@/lib/muscles";
+import { ShareableProgressCard } from "@/components/ShareableProgressCard";
+import { shareProgressCard } from "@/lib/shareCard";
 import {
   computeWorkoutDisplayStats,
   detectSessionGoal,
@@ -49,7 +51,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowDown, ArrowUp, Dumbbell, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Dumbbell,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Share2,
+  Trash2,
+} from "lucide-react";
 import { useDismissOnBack } from "@/lib/backHandler";
 import {
   detectRoutineChange,
@@ -168,6 +179,8 @@ function WorkoutPage() {
   // advances on genuine pauses measured in seconds, not frames.
   const [messageVisible, setMessageVisible] = useState(false);
   const [stage, setStage] = useState<0 | 1 | 2>(0);
+  const shareCardRef = useRef<HTMLDivElement>(null);
+  const [sharing, setSharing] = useState(false);
   const [prRevealed, setPrRevealed] = useState(false);
   useEffect(() => {
     if (!summary) {
@@ -657,14 +670,39 @@ function WorkoutPage() {
         )}
 
         {stage >= 2 && (
-          <Button
-            onClick={() => navigate({ to: "/history" })}
-            className="animate-[fade-in-soft_320ms_ease-out_forwards]"
+          <div
+            className="flex animate-[fade-in-soft_320ms_ease-out_forwards] items-center gap-2"
             style={{ animationDelay: "180ms" }}
           >
-            Done
-          </Button>
+            <Button onClick={() => navigate({ to: "/history" })} className="flex-1">
+              Done
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              disabled={sharing}
+              onClick={async () => {
+                if (!shareCardRef.current || sharing) return;
+                setSharing(true);
+                try {
+                  await shareProgressCard(shareCardRef.current, "untrained-effort-workout");
+                } finally {
+                  setSharing(false);
+                }
+              }}
+              aria-label="Share progress card"
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
+          </div>
         )}
+        {/* Off-screen — never shown, only captured to an image on share.
+            Needs real layout (not display:none) for html-to-image to
+            measure it, so it's positioned far outside the viewport
+            instead of hidden. */}
+        <div style={{ position: "fixed", left: -9999, top: 0 }}>
+          <ShareableProgressCard ref={shareCardRef} workout={summary} intensity={intensity} />
+        </div>
       </div>
     );
   }
