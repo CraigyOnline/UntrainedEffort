@@ -352,24 +352,27 @@ export function detectSessionGoal(exercises: Workout["exercises"]): SessionGoal 
 
 export type VolumePeriodGranularity = "week" | "month";
 
-export interface VolumePeriod {
+export interface PeriodBucket {
   /** Start of this period, ms since epoch — a rolling 7-day window start for
    *  "week", the first of the calendar month (local time) for "month". */
   periodStart: number;
+  /** Exclusive end of this period, ms since epoch. */
+  periodEnd: number;
   /** Short display label — "Jun 2" for a week, "Jun" for a month. */
+  label: string;
+}
+
+export interface VolumePeriod {
+  periodStart: number;
   label: string;
   volume: number;
 }
 
 /**
- * Buckets total volume (same computeWorkoutStats().totalVolume used
- * everywhere else — circuit workouts contribute 0, matching their
- * exercises: [] convention) into a fixed number of periods, oldest to
- * newest, ending with the period containing `now`.
- *
- * Always returns exactly `periodCount` entries, zero-filled for any period
- * with no training — a quiet stretch should read as a dip on a chart, not
- * silently compress the x-axis.
+ * Builds a fixed number of period boundaries, oldest to newest, ending with
+ * the period containing `now`. Shared by computeVolumeByPeriod and
+ * muscles.ts's computeMuscleActivityByPeriod so both use identical bucket
+ * boundaries and labels.
  *
  * "week" uses rolling 7-day windows counted back from `now` (matching the
  * "last 4 weeks vs. prior 4" language computeVolumeTrend already uses on
@@ -377,18 +380,12 @@ export interface VolumePeriod {
  * calendar months instead — rolling 30-day windows would drift against the
  * month labels a chart would otherwise want to show.
  */
-export function computeVolumeByPeriod(
-  workouts: Workout[],
+export function buildPeriodBuckets(
   granularity: VolumePeriodGranularity,
   periodCount: number,
   now: number = Date.now(),
-): VolumePeriod[] {
-  const totalsByWorkout = workouts.map((w) => ({
-    startedAt: w.startedAt,
-    volume: computeWorkoutStats(w.exercises).totalVolume,
-  }));
-
-  const periods: VolumePeriod[] = [];
+): PeriodBucket[] {
+  const buckets: PeriodBucket[] = [];
 
   if (granularity === "week") {
     const dayMs = 86400000;
@@ -403,14 +400,11 @@ export function computeVolumeByPeriod(
     for (let i = periodCount - 1; i >= 0; i--) {
       const periodStart = windowEnd - (i + 1) * weekMs;
       const periodEnd = periodStart + weekMs;
-      const volume = totalsByWorkout
-        .filter((w) => w.startedAt >= periodStart && w.startedAt < periodEnd)
-        .reduce((acc, w) => acc + w.volume, 0);
       const label = new Date(periodStart).toLocaleDateString(undefined, {
         month: "short",
         day: "numeric",
       });
-      periods.push({ periodStart, label, volume });
+      buckets.push({ periodStart, periodEnd, label });
     }
   } else {
     const anchor = new Date(now);
@@ -422,15 +416,42 @@ export function computeVolumeByPeriod(
       start.setMonth(start.getMonth() - i);
       const end = new Date(start);
       end.setMonth(end.getMonth() + 1);
-      const periodStart = start.getTime();
-      const periodEnd = end.getTime();
-      const volume = totalsByWorkout
-        .filter((w) => w.startedAt >= periodStart && w.startedAt < periodEnd)
-        .reduce((acc, w) => acc + w.volume, 0);
       const label = start.toLocaleDateString(undefined, { month: "short" });
-      periods.push({ periodStart, label, volume });
+      buckets.push({ periodStart: start.getTime(), periodEnd: end.getTime(), label });
     }
   }
 
-  return periods;
+  return buckets;
+}
+
+/**
+ * Buckets total volume (same computeWorkoutStats().totalVolume used
+ * everywhere else — circuit workouts contribute 0, matching their
+ * exercises: [] convention) into a fixed number of periods, oldest to
+ * newest, ending with the period containing `now`.
+ *
+ * Always returns exactly `periodCount` entries, zero-filled for any period
+ * with no training — a quiet stretch should read as a dip on a chart, not
+ * silently compress the x-axis.
+ */
+export function computeVolumeByPeriod(
+  workouts: Workout[],
+  granularity: VolumePeriodGranularity,
+  periodCount: number,
+  now: number = Date.now(),
+): VolumePeriod[] {
+  const totalsByWorkout = workouts.map((w) => ({
+    startedAt: w.startedAt,
+    volume: computeWorkoutStats(w.exercises).totalVolume,
+  }));
+
+  return buildPeriodBuckets(granularity, periodCount, now).map(
+    ({ periodStart, periodEnd, label }) => ({
+      periodStart,
+      label,
+      volume: totalsByWorkout
+        .filter((w) => w.startedAt >= periodStart && w.startedAt < periodEnd)
+        .reduce((acc, w) => acc + w.volume, 0),
+    }),
+  );
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Workout, WorkoutSet } from "@/lib/db";
 import {
   computeIntensity,
+  computeMuscleActivityByPeriod,
   computeMuscleRecovery,
   intensityFromExerciseIds,
   MUSCLE_RECOVERY_THRESHOLDS,
@@ -194,5 +195,96 @@ describe("computeMuscleRecovery", () => {
 
   it("returns an empty object for no workouts", () => {
     expect(computeMuscleRecovery([], now)).toEqual({});
+  });
+});
+
+describe("computeMuscleActivityByPeriod", () => {
+  const now = Date.parse("2026-08-16T12:00:00.000Z");
+
+  function makeWorkout(startedAt: number, exercises: Workout["exercises"]): Workout {
+    return { id: 1, startedAt, exercises } as Workout;
+  }
+
+  it("always returns exactly periodCount entries, oldest to newest", () => {
+    const periods = computeMuscleActivityByPeriod([], "Chest", "week", 8, now);
+    expect(periods).toHaveLength(8);
+    for (let i = 1; i < periods.length; i++) {
+      expect(periods[i].periodStart).toBeGreaterThan(periods[i - 1].periodStart);
+    }
+  });
+
+  it("zero-fills a period with no activity for that muscle", () => {
+    const periods = computeMuscleActivityByPeriod([], "Chest", "week", 4, now);
+    expect(periods.every((p) => p.score === 0)).toBe(true);
+  });
+
+  it("weights primary-muscle sets at full value, per completed set", () => {
+    const workouts = [
+      makeWorkout(now, makeExercises([["bench-press", [makeSet(), makeSet(), makeSet()]]])),
+    ];
+    const periods = computeMuscleActivityByPeriod(workouts, "Chest", "week", 1, now);
+    expect(periods[0].score).toBe(3);
+  });
+
+  it("weights secondary-muscle sets at half value, per completed set", () => {
+    const workouts = [
+      makeWorkout(now, makeExercises([["bench-press", [makeSet(), makeSet(), makeSet()]]])),
+    ];
+    // bench-press is secondary for Triceps
+    const periods = computeMuscleActivityByPeriod(workouts, "Triceps", "week", 1, now);
+    expect(periods[0].score).toBe(1.5);
+  });
+
+  it("excludes uncompleted sets from the score", () => {
+    const workouts = [
+      makeWorkout(
+        now,
+        makeExercises([["bench-press", [makeSet(), makeSet({ completed: false })]]]),
+      ),
+    ];
+    const periods = computeMuscleActivityByPeriod(workouts, "Chest", "week", 1, now);
+    expect(periods[0].score).toBe(1);
+  });
+
+  it("gives a muscle with no involvement in the exercise a zero score", () => {
+    const workouts = [makeWorkout(now, makeExercises([["bench-press", [makeSet()]]]))];
+    const periods = computeMuscleActivityByPeriod(workouts, "Calves", "week", 1, now);
+    expect(periods[0].score).toBe(0);
+  });
+
+  it("separates workouts a week apart into distinct buckets", () => {
+    const workouts = [
+      makeWorkout(now, makeExercises([["bench-press", [makeSet()]]])), // this week, score 1
+      makeWorkout(now - 8 * DAY_MS, makeExercises([["bench-press", [makeSet(), makeSet()]]])), // prior week, score 2
+    ];
+    const periods = computeMuscleActivityByPeriod(workouts, "Chest", "week", 2, now);
+    expect(periods[0].score).toBe(2);
+    expect(periods[1].score).toBe(1);
+  });
+
+  it("buckets by calendar month, not a rolling 30-day window", () => {
+    const workouts = [
+      makeWorkout(
+        Date.parse("2026-08-01T00:00:00.000Z"),
+        makeExercises([["bench-press", [makeSet()]]]),
+      ),
+      makeWorkout(
+        Date.parse("2026-07-31T00:00:00.000Z"),
+        makeExercises([["bench-press", [makeSet(), makeSet()]]]),
+      ),
+    ];
+    const monthNow = Date.parse("2026-08-31T12:00:00.000Z");
+    const periods = computeMuscleActivityByPeriod(workouts, "Chest", "month", 2, monthNow);
+    expect(periods[0].score).toBe(2); // July
+    expect(periods[1].score).toBe(1); // August
+  });
+
+  it("shares identical period boundaries with computeVolumeByPeriod's bucketing for the same inputs", () => {
+    // Cross-check: a workout that lands in the latest weekly bucket for
+    // computeVolumeByPeriod should land in the same relative bucket here.
+    const workouts = [makeWorkout(now, makeExercises([["bench-press", [makeSet()]]]))];
+    const periods = computeMuscleActivityByPeriod(workouts, "Chest", "week", 4, now);
+    expect(periods[periods.length - 1].score).toBe(1);
+    expect(periods.slice(0, -1).every((p) => p.score === 0)).toBe(true);
   });
 });

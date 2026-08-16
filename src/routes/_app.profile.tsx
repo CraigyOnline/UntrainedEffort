@@ -32,7 +32,11 @@ import {
   type ExerciseStatus,
 } from "@/lib/exerciseProgress";
 import { formatRelativeDate } from "@/lib/format";
-import { computeMuscleRecovery, MUSCLE_RECOVERY_COPY } from "@/lib/muscles";
+import {
+  computeMuscleActivityByPeriod,
+  computeMuscleRecovery,
+  MUSCLE_RECOVERY_COPY,
+} from "@/lib/muscles";
 import { selectHomeGreeting } from "@/lib/homeGreetings";
 import { Activity, TrendingUp, CalendarDays, BarChart3, Target, Flame } from "lucide-react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -78,6 +82,7 @@ function ProfilePage() {
 
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
   const [drilldownMuscle, setDrilldownMuscle] = useState<MuscleGroup | null>(null);
+  const [drilldownGranularity, setDrilldownGranularity] = useState<VolumePeriodGranularity>("week");
   const [heatmapRange, setHeatmapRange] = useState<HeatmapRange>(30);
   const [volumeGranularity, setVolumeGranularity] = useState<VolumePeriodGranularity>("week");
 
@@ -227,6 +232,20 @@ function ProfilePage() {
     if (!drilldownMuscle) return [];
     return computeMuscleContributions(heatmapWorkouts ?? [], drilldownMuscle, 5);
   }, [drilldownMuscle, heatmapWorkouts]);
+
+  // Full unfiltered `workouts`, same reasoning as the top-level Volume
+  // trend chart and muscle recovery indicators — an 8-week/6-month trend
+  // shouldn't be clipped down to almost nothing by whatever short range
+  // the heatmap's 7D/30D/90D selector happens to have active.
+  const muscleActivity = useMemo(() => {
+    if (!drilldownMuscle) return [];
+    return computeMuscleActivityByPeriod(
+      workouts ?? [],
+      drilldownMuscle,
+      drilldownGranularity,
+      drilldownGranularity === "week" ? 8 : 6,
+    );
+  }, [drilldownMuscle, drilldownGranularity, workouts]);
 
   function closeDrilldown() {
     setDrilldownMuscle(null);
@@ -660,6 +679,61 @@ function ProfilePage() {
                 Close
               </button>
             </div>
+
+            {muscleActivity.some((p) => p.score > 0) && (
+              <div className="mb-4">
+                <div className="flex gap-2">
+                  {(["week", "month"] as const).map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setDrilldownGranularity(g)}
+                      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                        drilldownGranularity === g
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-muted-foreground active:bg-secondary/70"
+                      }`}
+                    >
+                      {g === "week" ? "Weekly" : "Monthly"}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-3 h-32 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={muscleActivity}
+                      margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
+                    >
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                        axisLine={{ stroke: "var(--border)" }}
+                        tickLine={false}
+                        interval={drilldownGranularity === "week" ? 1 : 0}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={28}
+                      />
+                      <Tooltip
+                        cursor={{ fill: "var(--muted)", radius: 4 }}
+                        formatter={(value: number) => [`${Math.round(value * 10) / 10}`, "Sets"]}
+                        contentStyle={{
+                          background: "var(--card)",
+                          border: "1px solid var(--border)",
+                          borderRadius: 8,
+                          fontSize: 12,
+                        }}
+                      />
+                      <Bar dataKey="score" fill="var(--primary)" radius={[3, 3, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
 
             {muscleContributions.length === 0 ? (
               <p className="text-sm text-muted-foreground">

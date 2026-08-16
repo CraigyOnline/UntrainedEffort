@@ -1,5 +1,6 @@
 import type { Workout } from "@/lib/db";
 import { getExercise, type MuscleGroup } from "@/lib/exercises";
+import { buildPeriodBuckets, type VolumePeriodGranularity } from "@/lib/workoutStats";
 
 /**
  * Maps each tracked MuscleGroup to the anatomical region(s) that light up
@@ -203,4 +204,55 @@ export function computeMuscleRecovery(
     out[k as MuscleGroup] = { lastTrainedAt, daysAgo, status };
   }
   return out;
+}
+
+export interface MuscleActivityPeriod {
+  periodStart: number;
+  label: string;
+  /** Weighted count of completed sets touching this muscle in the period —
+   *  primary-mover sets count fully, secondary/assisting sets count at 0.5,
+   *  the same per-set weighting computeIntensity uses (not just exercise
+   *  presence). Not a literal training-volume figure (weight×reps) —
+   *  deliberately set-count based so bodyweight and cardio-assisted work
+   *  register too, not just loaded lifts. */
+  score: number;
+}
+
+/**
+ * Buckets a single muscle's training activity into a fixed number of
+ * periods, using the exact same period boundaries as workoutStats.ts's
+ * computeVolumeByPeriod (via the shared buildPeriodBuckets), so the two
+ * charts stay in lockstep. Zero-filled for any period with no activity.
+ */
+export function computeMuscleActivityByPeriod(
+  workouts: Workout[],
+  muscle: MuscleGroup,
+  granularity: VolumePeriodGranularity,
+  periodCount: number,
+  now: number = Date.now(),
+): MuscleActivityPeriod[] {
+  const contributions: { startedAt: number; weight: number }[] = [];
+  for (const w of workouts) {
+    for (const log of w.exercises) {
+      const def = getExercise(log.exerciseId);
+      if (!def) continue;
+      const completedCount = log.sets.filter((s) => s.completed).length;
+      if (!completedCount) continue;
+      if (def.muscle === muscle) {
+        contributions.push({ startedAt: w.startedAt, weight: completedCount });
+      } else if (def.secondary?.includes(muscle)) {
+        contributions.push({ startedAt: w.startedAt, weight: completedCount * 0.5 });
+      }
+    }
+  }
+
+  return buildPeriodBuckets(granularity, periodCount, now).map(
+    ({ periodStart, periodEnd, label }) => ({
+      periodStart,
+      label,
+      score: contributions
+        .filter((c) => c.startedAt >= periodStart && c.startedAt < periodEnd)
+        .reduce((acc, c) => acc + c.weight, 0),
+    }),
+  );
 }
