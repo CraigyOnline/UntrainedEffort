@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeExerciseStatusFromValues,
+  computeExpectedRepRange,
   formatStatusConfidence,
   getTrendConfidence,
   trendConfidenceLabel,
@@ -102,5 +103,44 @@ describe("formatStatusConfidence", () => {
   it("names exactly 4 sessions at or above the window, regardless of how many actually exist", () => {
     expect(formatStatusConfidence(4)).toBe("Well-established · Based on your last 4 sessions");
     expect(formatStatusConfidence(20)).toBe("Well-established · Based on your last 4 sessions");
+  });
+});
+
+describe("computeExpectedRepRange", () => {
+  it("returns null with fewer than 2 historical values at that set position", () => {
+    expect(computeExpectedRepRange([], 0)).toBeNull();
+    expect(computeExpectedRepRange([[10, 8, 6]], 0)).toBeNull();
+  });
+
+  it("returns the observed min/max at that exact set position", () => {
+    const sessions = [
+      [10, 8, 6],
+      [9, 7],
+      [11, 9, 7],
+    ];
+    // set index 0 (1st set): 10, 9, 11
+    expect(computeExpectedRepRange(sessions, 0)).toEqual({ min: 9, max: 11 });
+    // set index 1 (2nd set): 8, 7, 9
+    expect(computeExpectedRepRange(sessions, 1)).toEqual({ min: 7, max: 9 });
+  });
+
+  it("ignores sessions that didn't reach that set position", () => {
+    const sessions = [
+      [10, 8, 6],
+      [9], // only 1 set logged that session
+    ];
+    // set index 2 (3rd set) — only the first session has data there,
+    // below the 2-value minimum
+    expect(computeExpectedRepRange(sessions, 2)).toBeNull();
+  });
+
+  it("ignores a zero rep count at that position (not a real set)", () => {
+    const sessions = [
+      [10, 8],
+      [9, 0],
+      [11, 7],
+    ];
+    // set index 1: 8, 0(excluded), 7 — only 2 real values, right at the floor
+    expect(computeExpectedRepRange(sessions, 1)).toEqual({ min: 7, max: 8 });
   });
 });

@@ -37,6 +37,11 @@ import {
 } from "./workoutHelpers";
 import { haptics } from "@/lib/haptics";
 import { checkLivePRs, type LivePRHit, type PRType } from "@/lib/workoutIntegrity";
+import { computeExpectedRepRange } from "@/lib/exerciseProgress";
+
+/** Rolling window size for computeExpectedRepRange's historical rep-range
+ *  guidance — how many recent sessions of an exercise to look back across. */
+const REP_RANGE_SESSION_WINDOW = 5;
 
 // Presentation-only text for a live PR badge — not a duplicate of the PR
 // calculation itself (that's entirely inside checkLivePRs/relevantPRValues),
@@ -142,6 +147,7 @@ function ExerciseCard({
   ei,
   celebration,
   previousSets,
+  recentReps,
   removeExercise,
   updateIntervalConfig,
   setIntervalState,
@@ -156,6 +162,7 @@ function ExerciseCard({
   ei: number;
   celebration: { exerciseId: string; setId: string | undefined } | null;
   previousSets: WorkoutSet[] | undefined;
+  recentReps: number[][] | undefined;
   removeExercise: (ei: number) => void;
   updateIntervalConfig: (ei: number, patch: Partial<IntervalConfig>) => void;
   setIntervalState: (ei: number, next: IntervalTimerState | undefined) => void;
@@ -171,6 +178,15 @@ function ExerciseCard({
   const defaultIntervalConfig = getIntervalConfig(def);
   const intervalConfig = ex.intervalConfig ?? defaultIntervalConfig;
   const dragControls = useDragControls();
+
+  // Historical rep-range guidance (computeExpectedRepRange) only ever
+  // applies to the set you're actually about to do next, not every row —
+  // so this is computed once here rather than per-row inside the map below.
+  const firstIncompleteIndex = ex.sets.findIndex((set) => !set.completed);
+  const expectedRepRange =
+    firstIncompleteIndex >= 0 && recentReps
+      ? computeExpectedRepRange(recentReps, firstIncompleteIndex)
+      : null;
 
   return (
     <Reorder.Item
@@ -389,13 +405,23 @@ function ExerciseCard({
                     min={0}
                     size="normal"
                   />
-                  <StepperInput
-                    value={s.reps ?? 0}
-                    onCommit={(v) => updateSet(ei, si, { reps: v })}
-                    step={1}
-                    min={0}
-                    size="normal"
-                  />
+                  <div className="flex flex-col items-center gap-0.5">
+                    <StepperInput
+                      value={s.reps ?? 0}
+                      onCommit={(v) => updateSet(ei, si, { reps: v })}
+                      step={1}
+                      min={0}
+                      size="normal"
+                    />
+                    {si === firstIncompleteIndex && expectedRepRange && (
+                      <span className="text-[10px] text-muted-foreground/70">
+                        Usually{" "}
+                        {expectedRepRange.min === expectedRepRange.max
+                          ? expectedRepRange.min
+                          : `${expectedRepRange.min}–${expectedRepRange.max}`}
+                      </span>
+                    )}
+                  </div>
                 </>
               )}
 
@@ -470,6 +496,40 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
   }, [exerciseIds.join(","), session.startedAt]);
 
   const previousByExercise: Map<string, WorkoutSet[]> = previousByExerciseResult ?? new Map();
+
+  // Rolling window for computeExpectedRepRange (exerciseProgress.ts) — same
+  // until/each/remaining-set walk as previousByExerciseResult above, just
+  // collecting up to REP_RANGE_SESSION_WINDOW sessions per exercise
+  // instead of stopping at the first, and storing rep counts rather than
+  // full sets.
+  const recentRepsByExerciseResult = useLiveQuery(async (): Promise<Map<string, number[][]>> => {
+    const map = new Map<string, number[][]>();
+    if (typeof window === "undefined") return map;
+
+    const remaining = new Set(exerciseIds);
+    if (remaining.size === 0) return map;
+
+    await getDb()
+      .workouts.orderBy("startedAt")
+      .reverse()
+      .until(() => remaining.size === 0)
+      .each((w) => {
+        if (w.startedAt === session.startedAt) return;
+        for (const e of w.exercises) {
+          if (!remaining.has(e.exerciseId)) continue;
+          const reps = e.sets.filter((s) => s.completed).map((s) => s.reps ?? 0);
+          if (reps.length === 0) continue;
+          const sessions = map.get(e.exerciseId) ?? [];
+          sessions.push(reps);
+          map.set(e.exerciseId, sessions);
+          if (sessions.length >= REP_RANGE_SESSION_WINDOW) remaining.delete(e.exerciseId);
+        }
+      });
+
+    return map;
+  }, [exerciseIds.join(","), session.startedAt]);
+
+  const recentRepsByExercise: Map<string, number[][]> = recentRepsByExerciseResult ?? new Map();
 
   const {
     undoItem: undo,
@@ -850,6 +910,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
             ei={ei}
             celebration={celebration}
             previousSets={previousByExercise.get(ex.exerciseId)}
+            recentReps={recentRepsByExercise.get(ex.exerciseId)}
             removeExercise={removeExercise}
             updateIntervalConfig={updateIntervalConfig}
             setIntervalState={setIntervalState}

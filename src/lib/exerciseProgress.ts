@@ -401,3 +401,38 @@ export function computeLastTrainedAt(workouts: Workout[]): Map<string, number> {
   }
   return map;
 }
+
+/**
+ * Expected rep range for the Nth set (0-indexed) of an exercise, from
+ * the observed range of reps logged at that exact set position across a
+ * rolling window of recent past sessions of the same exercise —
+ * "recentSessionReps" is that window, one entry per session, each a
+ * list of that session's completed sets' rep counts in order. Later set
+ * positions naturally read lower than earlier ones purely because
+ * that's how they've actually gone recently — no explicit decay formula
+ * needed, and no separate within-session fatigue model to keep in sync
+ * with this one.
+ *
+ * Deliberately doesn't weight-match sessions to today's planned weight.
+ * A short rolling window rarely spans a big enough weight change for
+ * that to matter much in practice, and a tolerance-based match would be
+ * real complexity for a comparatively rare case — worth revisiting if
+ * it turns out wrong often enough to matter.
+ *
+ * Needs at least 2 historical values at this exact position to report
+ * anything — same "don't assert a confident-looking range from thin
+ * data" floor as computeExerciseStatusFromValues' minimum sample size,
+ * just a flat 2 rather than that function's early/established split
+ * (there's no larger "established" tier here — with a 5-session window
+ * this can never see more than 5 data points regardless).
+ */
+export function computeExpectedRepRange(
+  recentSessionReps: number[][],
+  setIndex: number,
+): { min: number; max: number } | null {
+  const observed = recentSessionReps
+    .map((session) => session[setIndex])
+    .filter((r): r is number => r != null && r > 0);
+  if (observed.length < 2) return null;
+  return { min: Math.min(...observed), max: Math.max(...observed) };
+}
