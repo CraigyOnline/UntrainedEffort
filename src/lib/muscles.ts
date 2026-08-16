@@ -128,3 +128,79 @@ export function intensityFromExerciseIds(
   }
   return out;
 }
+
+/** Day-count thresholds behind computeMuscleRecovery's status buckets. */
+export const MUSCLE_RECOVERY_THRESHOLDS = {
+  /** Below this many days since last trained → "recent". */
+  recentMaxDays: 2,
+  /** Below this many days since last trained (and not "recent") → "recovered". At or above → "overdue". */
+  recoveredMaxDays: 7,
+} as const;
+
+export type MuscleRecoveryStatus = "recent" | "recovered" | "overdue";
+
+export interface MuscleRecoveryInfo {
+  lastTrainedAt: number;
+  daysAgo: number;
+  status: MuscleRecoveryStatus;
+}
+
+/** Label/tone per recovery status, same convention as exerciseProgress.ts's EXERCISE_STATUS_COPY. */
+export const MUSCLE_RECOVERY_COPY: Record<MuscleRecoveryStatus, { label: string; tone: string }> = {
+  recent: { label: "Recent", tone: "text-primary" },
+  recovered: { label: "Recovered", tone: "text-muted-foreground" },
+  overdue: { label: "Overdue", tone: "text-muted-foreground" },
+};
+
+/**
+ * Days since each muscle group was last trained, counting both primary
+ * and secondary involvement — a muscle worked as a stabilizer still
+ * accumulates fatigue even if it wasn't the main mover, so this is
+ * deliberately more inclusive than computeIntensity's volume weighting.
+ * "Was this muscle worked at all recently" is a different question than
+ * "how much of this workout's volume went to it".
+ *
+ * Scans the full workout history, independent of any display-range
+ * filter a caller might otherwise apply elsewhere (e.g. Profile's
+ * heatmap range) — recovery status should reflect the actual last time
+ * a muscle was trained, not be silently capped by an unrelated UI filter.
+ *
+ * An exercise counts as having trained a muscle if any of its sets was
+ * completed, matching computeLastTrainedAt's per-exercise convention.
+ * Muscles never trained are omitted from the result rather than given a
+ * synthetic "overdue forever" status.
+ */
+export function computeMuscleRecovery(
+  workouts: Workout[],
+  now: number = Date.now(),
+): Partial<Record<MuscleGroup, MuscleRecoveryInfo>> {
+  const lastTrained: Partial<Record<MuscleGroup, number>> = {};
+
+  for (const w of workouts) {
+    for (const log of w.exercises) {
+      if (!log.sets.some((s) => s.completed)) continue;
+      const def = getExercise(log.exerciseId);
+      if (!def) continue;
+      for (const m of [def.muscle, ...(def.secondary ?? [])]) {
+        if (m === "Cardio") continue;
+        if ((lastTrained[m] ?? 0) < w.startedAt) {
+          lastTrained[m] = w.startedAt;
+        }
+      }
+    }
+  }
+
+  const out: Partial<Record<MuscleGroup, MuscleRecoveryInfo>> = {};
+  for (const [k, ts] of Object.entries(lastTrained)) {
+    const lastTrainedAt = ts as number;
+    const daysAgo = Math.floor((now - lastTrainedAt) / (1000 * 60 * 60 * 24));
+    const status: MuscleRecoveryStatus =
+      daysAgo < MUSCLE_RECOVERY_THRESHOLDS.recentMaxDays
+        ? "recent"
+        : daysAgo < MUSCLE_RECOVERY_THRESHOLDS.recoveredMaxDays
+          ? "recovered"
+          : "overdue";
+    out[k as MuscleGroup] = { lastTrainedAt, daysAgo, status };
+  }
+  return out;
+}

@@ -30,6 +30,7 @@ import {
   type ExerciseStatus,
 } from "@/lib/exerciseProgress";
 import { formatRelativeDate } from "@/lib/format";
+import { computeMuscleRecovery, MUSCLE_RECOVERY_COPY } from "@/lib/muscles";
 import { selectHomeGreeting } from "@/lib/homeGreetings";
 import { Activity, TrendingUp, CalendarDays, BarChart3, Target, Flame } from "lucide-react";
 import { MuscleMap } from "@/components/MuscleMap";
@@ -89,6 +90,12 @@ function ProfilePage() {
   }, [workouts, heatmapRange]);
 
   const intensity = useMemo(() => computeMuscleIntensity(heatmapWorkouts ?? []), [heatmapWorkouts]);
+
+  // Deliberately computed from the full, unfiltered `workouts` rather than
+  // `heatmapWorkouts` — recovery reflects the actual last time a muscle was
+  // trained, and shouldn't be silently capped by whatever date range the
+  // heatmap above happens to be showing.
+  const recovery = useMemo(() => computeMuscleRecovery(workouts ?? []), [workouts]);
 
   const greeting = useLiveQuery(() => selectHomeGreeting(), []);
 
@@ -512,8 +519,16 @@ function ProfilePage() {
                     setDrilldownMuscle(m);
                   }}
                 >
-                  <div className="mb-1 flex justify-between text-xs">
-                    <span className="text-muted-foreground">{m}</span>
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{m}</span>
+                      {recovery[m] && (
+                        <span className={MUSCLE_RECOVERY_COPY[recovery[m]!.status].tone}>
+                          {MUSCLE_RECOVERY_COPY[recovery[m]!.status].label} ·{" "}
+                          {formatRelativeDate(recovery[m]!.lastTrainedAt)}
+                        </span>
+                      )}
+                    </span>
                     <span className="font-semibold tabular-nums">{value}%</span>
                   </div>
 
