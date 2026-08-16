@@ -51,6 +51,9 @@ Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownershi
 - Browse & search the full exercise library
 - Profile dashboard
 - Muscle activity maps, with date-range filtering (7/30/90 days or all-time)
+- Muscle recovery indicators — a recovered/recent/overdue status per muscle, based on days since it was last trained
+- Muscle activity trends — a per-muscle weekly or monthly training-activity chart, from the muscle map drilldown
+- Volume trend — a 4-week vs. prior-4-week trend indicator alongside weekly or monthly volume bar charts
 - Workout completion celebrations
 - Motivational welcome & completion messages
 - Session goal detection — classifies a completed workout as Strength/Hypertrophy/Endurance/Mixed
@@ -70,16 +73,12 @@ Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownershi
 
 ### Analytics
 
-- Weekly & monthly volume charts
 - Richer exercise statistics
 - Cardio pace & speed metrics
-- Muscle activity trends
 
 ### Insights
 
-- Muscle recovery indicators
 - Training frequency
-- Last trained by muscle
 
 ### Future
 
