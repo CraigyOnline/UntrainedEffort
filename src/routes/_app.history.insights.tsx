@@ -4,8 +4,7 @@ import { type ReactNode } from "react";
 import { Dumbbell } from "lucide-react";
 import { getDb, type Workout, type PRRecord } from "@/lib/db";
 import { TrainingConsistencyHeatmap } from "@/features/history/TrainingConsistencyHeatmap";
-import { LifetimeSummary } from "@/features/history/LifetimeSummary";
-import { CurrentYearSummary } from "@/features/history/CurrentYearSummary";
+import { Totals } from "@/features/history/Totals";
 import { MonthlySummaries } from "@/features/history/MonthlySummaries";
 import { Milestones } from "@/features/history/Milestones";
 import { CardioSummary } from "@/features/history/CardioSummary";
@@ -74,9 +73,8 @@ function InsightsPage() {
       {hasWorkouts && (
         <>
           <SectionLabel>Training</SectionLabel>
+          <Totals workouts={workouts ?? []} />
           <TrainingConsistencyHeatmap workouts={workouts ?? []} />
-          <LifetimeSummary workouts={workouts} />
-          <CurrentYearSummary workouts={workouts ?? []} />
           <MonthlySummaries workouts={workouts ?? []} />
 
           {/* Strength (volume trend, exercise progression, PRs) intentionally
