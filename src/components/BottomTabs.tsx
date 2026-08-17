@@ -1,14 +1,14 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { User, Play, History, Settings } from "lucide-react";
+import { LayoutDashboard, Play, History, Settings } from "lucide-react";
 
 // Exported so overlay components (ExercisePicker, RoutineEditor) can calculate
 // their bottom offset without hardcoding the nav height in multiple places.
 export const BOTTOM_NAV_HEIGHT = 62;
 
 const tabs = [
-  { to: "/profile", label: "Profile", Icon: User },
+  { to: "/overview", label: "Overview", Icon: LayoutDashboard },
   { to: "/workout", label: "Workout", Icon: Play },
-  { to: "/history", label: "Progress", Icon: History },
+  { to: "/history", label: "History", Icon: History },
   { to: "/settings", label: "Settings", Icon: Settings },
 ] as const;
 

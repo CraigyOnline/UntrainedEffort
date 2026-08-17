@@ -44,10 +44,10 @@ import { MuscleMap } from "@/components/MuscleMap";
 import { useDismissOnBack } from "@/lib/backHandler";
 import { formatTimeTrained } from "@/features/history/duration";
 
-export const Route = createFileRoute("/_app/profile")({
+export const Route = createFileRoute("/_app/overview")({
   head: () => ({
     meta: [
-      { title: "Profile · Untrained Effort" },
+      { title: "Overview · Untrained Effort" },
       {
         name: "description",
         content: "Your workout stats, streak and history.",

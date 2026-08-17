@@ -13,7 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppExercisesRouteImport } from './routes/_app.exercises'
 import { Route as AppHistoryRouteImport } from './routes/_app.history'
-import { Route as AppProfileRouteImport } from './routes/_app.profile'
+import { Route as AppOverviewRouteImport } from './routes/_app.overview'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppWorkoutRouteImport } from './routes/_app.workout'
 import { Route as AppExerciseIdRouteImport } from './routes/_app.exercise.$id'
@@ -43,9 +43,9 @@ const AppHistoryRoute = AppHistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => AppRoute,
 } as any)
-const AppProfileRoute = AppProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
+const AppOverviewRoute = AppOverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
@@ -99,7 +99,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/exercises': typeof AppExercisesRoute
   '/history': typeof AppHistoryRouteWithChildren
-  '/profile': typeof AppProfileRoute
+  '/overview': typeof AppOverviewRoute
   '/settings': typeof AppSettingsRoute
   '/workout': typeof AppWorkoutRoute
   '/exercise/$id': typeof AppExerciseIdRoute
@@ -113,7 +113,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/exercises': typeof AppExercisesRoute
-  '/profile': typeof AppProfileRoute
+  '/overview': typeof AppOverviewRoute
   '/settings': typeof AppSettingsRoute
   '/workout': typeof AppWorkoutRoute
   '/exercise/$id': typeof AppExerciseIdRoute
@@ -130,7 +130,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_app/exercises': typeof AppExercisesRoute
   '/_app/history': typeof AppHistoryRouteWithChildren
-  '/_app/profile': typeof AppProfileRoute
+  '/_app/overview': typeof AppOverviewRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/workout': typeof AppWorkoutRoute
   '/_app/exercise/$id': typeof AppExerciseIdRoute
@@ -147,7 +147,7 @@ export interface FileRouteTypes {
     | '/'
     | '/exercises'
     | '/history'
-    | '/profile'
+    | '/overview'
     | '/settings'
     | '/workout'
     | '/exercise/$id'
@@ -161,7 +161,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/exercises'
-    | '/profile'
+    | '/overview'
     | '/settings'
     | '/workout'
     | '/exercise/$id'
@@ -177,7 +177,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_app/exercises'
     | '/_app/history'
-    | '/_app/profile'
+    | '/_app/overview'
     | '/_app/settings'
     | '/_app/workout'
     | '/_app/exercise/$id'
@@ -224,11 +224,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHistoryRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/profile': {
-      id: '/_app/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof AppProfileRouteImport
+    '/_app/overview': {
+      id: '/_app/overview'
+      path: '/overview'
+      fullPath: '/overview'
+      preLoaderRoute: typeof AppOverviewRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/settings': {
@@ -316,7 +316,7 @@ const AppHistoryRouteWithChildren = AppHistoryRoute._addFileChildren(
 interface AppRouteChildren {
   AppExercisesRoute: typeof AppExercisesRoute
   AppHistoryRoute: typeof AppHistoryRouteWithChildren
-  AppProfileRoute: typeof AppProfileRoute
+  AppOverviewRoute: typeof AppOverviewRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppWorkoutRoute: typeof AppWorkoutRoute
   AppExerciseIdRoute: typeof AppExerciseIdRoute
@@ -328,7 +328,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppExercisesRoute: AppExercisesRoute,
   AppHistoryRoute: AppHistoryRouteWithChildren,
-  AppProfileRoute: AppProfileRoute,
+  AppOverviewRoute: AppOverviewRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppWorkoutRoute: AppWorkoutRoute,
   AppExerciseIdRoute: AppExerciseIdRoute,

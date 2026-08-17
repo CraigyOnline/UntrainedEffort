@@ -37,7 +37,7 @@ const FADE_MS = 350;
  * it deliberately doesn't get the bottom tab bar or active-workout card —
  * it's a moment before the app itself, not a page within it. Navigates
  * with `replace: true` so it never sits in history — same reasoning
- * __root.tsx already applies to "/profile" being the app's true root for
+ * __root.tsx already applies to "/overview" being the app's true root for
  * the Android back button.
  */
 function LaunchScreen() {
@@ -72,7 +72,7 @@ function LaunchScreen() {
 
   useEffect(() => {
     if (!leaving) return;
-    const t = setTimeout(() => navigate({ to: "/profile", replace: true }), FADE_MS);
+    const t = setTimeout(() => navigate({ to: "/overview", replace: true }), FADE_MS);
     return () => clearTimeout(t);
   }, [leaving, navigate]);
 
