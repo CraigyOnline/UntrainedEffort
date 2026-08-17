@@ -1,72 +1,55 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo } from "react";
 import { getDb, type Workout, type WorkoutSet } from "@/lib/db";
 import {
   getExercise,
   getExerciseLoggingSchema,
-  MUSCLE_GROUPS,
   type MuscleGroup,
   type DistanceUnit,
 } from "@/lib/exercises";
 import {
-  computeVolumeByPeriod,
   computeWorkoutDisplayStats,
-  computeWorkoutStats,
+  computeVolumeTrend,
+  volumeTrendConfidence,
   formatCardioActivity,
   type CardioActivityStats,
-  type VolumePeriodGranularity,
 } from "@/lib/workoutStats";
 import {
   getPrimaryMetric,
   getPrimaryMetricKind,
-  compareTrend,
   computeExerciseStatusFromValues,
   EXERCISE_STATUS_COPY,
-  formatStatusConfidence,
   trendConfidenceLabel,
-  type TrendConfidence,
   formatMetricValue,
-  type Trend,
   type MetricKind,
   type ExerciseStatus,
 } from "@/lib/exerciseProgress";
-import { formatRelativeDate } from "@/lib/format";
-import {
-  computeMuscleActivityByPeriod,
-  computeMuscleRecovery,
-  MUSCLE_RECOVERY_COPY,
-} from "@/lib/muscles";
 import { selectHomeGreeting } from "@/lib/homeGreetings";
-import { Activity, TrendingUp, CalendarDays, BarChart3, Target, Flame } from "lucide-react";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { MuscleMap } from "@/components/MuscleMap";
-import { useDismissOnBack } from "@/lib/backHandler";
 import { formatTimeTrained } from "@/features/history/duration";
+import { MuscleMap } from "@/components/MuscleMap";
+import { WeekActivityStrip } from "@/components/WeekActivityStrip";
+import { WorkoutSummary } from "@/components/WorkoutSummary";
+import { Totals } from "@/features/history/Totals";
 
 export const Route = createFileRoute("/_app/overview")({
   head: () => ({
     meta: [
       { title: "Overview · Untrained Effort" },
-      {
-        name: "description",
-        content: "Your workout stats, streak and history.",
-      },
+      { name: "description", content: "Your workout stats, streak and history." },
     ],
   }),
-  component: ProfilePage,
+  component: OverviewPage,
 });
 
-type HeatmapRange = 7 | 30 | 90 | null;
+/** Below this many logged sessions, trend/status data is too thin to
+ *  produce a genuine conclusion — matches the "established" threshold
+ *  already used by getTrendConfidence/volumeTrendConfidence elsewhere in
+ *  this codebase (exerciseProgress.ts), reused rather than re-decided
+ *  here. See the redesign spec §4's "1–3 workouts" state. */
+const ESTABLISHED_THRESHOLD = 4;
 
-const HEATMAP_RANGES: { label: string; value: HeatmapRange }[] = [
-  { label: "7D", value: 7 },
-  { label: "30D", value: 30 },
-  { label: "90D", value: 90 },
-  { label: "All", value: null },
-];
-
-function ProfilePage() {
+function OverviewPage() {
   const navigate = useNavigate();
 
   const workouts = useLiveQuery(async () => {
@@ -74,63 +57,21 @@ function ProfilePage() {
     return getDb().workouts.orderBy("startedAt").reverse().toArray();
   }, []);
 
-  const lastWorkout = useLiveQuery(async () => {
-    if (typeof window === "undefined") return null;
-    const all = await getDb().workouts.orderBy("startedAt").reverse().limit(1).toArray();
-    return all?.[0] ?? null;
-  }, []);
-
-  const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
-  const [drilldownMuscle, setDrilldownMuscle] = useState<MuscleGroup | null>(null);
-  const [drilldownGranularity, setDrilldownGranularity] = useState<VolumePeriodGranularity>("week");
-  const [heatmapRange, setHeatmapRange] = useState<HeatmapRange>(30);
-  const [volumeGranularity, setVolumeGranularity] = useState<VolumePeriodGranularity>("week");
-
-  const stats = useMemo(() => computeStats(workouts ?? []), [workouts]);
-
-  // The muscle heatmap and everything derived from it (balance snapshot,
-  // muscle list, drilldown) use this range-filtered set rather than
-  // `workouts` directly — Sessions/Volume/Active days above stay all-time,
-  // a separate stat, untouched by this filter.
-  const heatmapWorkouts = useMemo(() => {
-    if (!workouts || heatmapRange === null) return workouts;
-    const since = Date.now() - heatmapRange * 86400000;
-    return workouts.filter((w) => w.startedAt >= since);
-  }, [workouts, heatmapRange]);
-
-  const intensity = useMemo(() => computeMuscleIntensity(heatmapWorkouts ?? []), [heatmapWorkouts]);
-
-  // Deliberately computed from the full, unfiltered `workouts` rather than
-  // `heatmapWorkouts` — recovery reflects the actual last time a muscle was
-  // trained, and shouldn't be silently capped by whatever date range the
-  // heatmap above happens to be showing.
-  const recovery = useMemo(() => computeMuscleRecovery(workouts ?? []), [workouts]);
-
   const greeting = useLiveQuery(() => selectHomeGreeting(), []);
 
-  const lastSummary = useMemo(() => {
-    if (!lastWorkout) return null;
+  const lastWorkout = workouts?.[0] ?? null;
 
-    const { totalSets: sets } = computeWorkoutStats(lastWorkout.exercises);
+  const trainedDays = useMemo(() => computeTrainedDaySet(workouts ?? []), [workouts]);
 
-    const muscles = new Set(
-      lastWorkout.exercises.map((e) => getExercise(e.exerciseId)?.muscle).filter(Boolean),
-    );
+  // Fixed trailing 30-day window — compact teaser, no user-facing range
+  // picker (that belongs to the full interactive map, see the flagged gap
+  // below). Matches the old default range this page used to open on.
+  const intensity = useMemo(() => {
+    const since = Date.now() - 30 * 86400000;
+    return computeMuscleIntensity((workouts ?? []).filter((w) => w.startedAt >= since));
+  }, [workouts]);
 
-    return {
-      name: lastWorkout.name,
-      duration: lastWorkout.durationSec,
-      sets,
-      muscles: Array.from(muscles).slice(0, 2),
-      id: lastWorkout.id,
-    };
-  }, [lastWorkout]);
-
-  /* ===================== */
-  /* TRAINING INSIGHTS */
-  /* ===================== */
-
-  const streaks = useMemo(() => computeStreaks(workouts ?? []), [workouts]);
+  const stats = useMemo(() => computeCardioStats(workouts ?? []), [workouts]);
 
   const recentExerciseIds = useMemo(
     () => getRecentlyTrainedExercises(workouts ?? [], 6),
@@ -156,25 +97,10 @@ function ProfilePage() {
     };
   }, [recentExerciseIds, workouts]);
 
-  const consistency = useMemo(
-    () => computeConsistency(workouts ?? [], streaks),
-    [workouts, streaks],
-  );
-
   const volumeTrend = useMemo(() => computeVolumeTrend(workouts ?? []), [workouts]);
 
-  const volumeSeries = useMemo(
-    () =>
-      computeVolumeByPeriod(
-        workouts ?? [],
-        volumeGranularity,
-        volumeGranularity === "week" ? 8 : 6,
-      ),
-    [workouts, volumeGranularity],
-  );
-
   const recentProgress = useMemo(() => {
-    return recentExerciseIds.slice(0, 5).map((exerciseId) => {
+    return recentExerciseIds.slice(0, 3).map((exerciseId) => {
       const def = getExercise(exerciseId);
       const { status, best, metricKind, distanceUnit } = computeExerciseStatus(
         workouts ?? [],
@@ -184,179 +110,131 @@ function ProfilePage() {
     });
   }, [recentExerciseIds, workouts]);
 
-  /* ===================== */
-  /* TRAINING BALANCE SNAPSHOT (FIXED) */
-  /* ===================== */
-
-  const balance = useMemo(() => {
-    if (!workouts) {
-      // Still loading — distinct from "loaded, but genuinely no data" below,
-      // so the snapshot doesn't flash a false "no data yet" on every mount.
-      return { hasData: undefined, most: null, leastTrained: null, untrained: [] };
-    }
-
-    const entries = MUSCLE_GROUPS.filter((m) => m !== "Cardio").map((m) => ({
-      muscle: m,
-      value: intensity[m] ?? 0,
-    }));
-
-    const anyTrainingData = entries.some((e) => e.value > 0);
-
-    if (!anyTrainingData) {
+  /**
+   * Placeholder cascade — NOT the eligibility/priority/recency engine
+   * from the redesign spec §6 (that's a dedicated follow-up commit). This
+   * wires up the layout using whatever's cheaply available from existing
+   * helpers so Overview isn't structurally empty in the meantime. Milestone/
+   * PR detection (the spec's actual top priority) isn't wired in here yet.
+   */
+  const trainingSignal = useMemo(() => {
+    if (volumeTrend && volumeTrend.trend === "up") {
       return {
-        hasData: false,
-        most: null,
-        leastTrained: null,
-        untrained: [],
+        headline: "Volume ↑ Increasing",
+        detail: `${trendConfidenceLabel(volumeTrendConfidence(volumeTrend.recentCount, volumeTrend.priorCount))} · ${volumeTrend.recentCount} vs ${volumeTrend.priorCount} workouts`,
       };
     }
+    if (currentFocus && currentFocus.status === "improving") {
+      return {
+        headline: `${currentFocus.name} ↑ Moving well`,
+        detail:
+          currentFocus.best != null
+            ? formatMetricValue(
+                currentFocus.metricKind,
+                currentFocus.best,
+                currentFocus.distanceUnit,
+              )
+            : null,
+      };
+    }
+    return null;
+  }, [volumeTrend, currentFocus]);
 
-    const trained = entries.filter((e) => e.value > 0);
-    const sorted = [...entries].sort((a, b) => b.value - a.value);
-
-    const most = sorted[0];
-
-    const leastTrained = trained.reduce((min, cur) => (cur.value < min.value ? cur : min));
-
-    const untrained = entries.filter((e) => e.value === 0).map((e) => e.muscle);
-
-    return {
-      hasData: true,
-      most,
-      leastTrained,
-      untrained,
-    };
-  }, [intensity, workouts]);
-
-  const muscleContributions = useMemo(() => {
-    if (!drilldownMuscle) return [];
-    return computeMuscleContributions(heatmapWorkouts ?? [], drilldownMuscle, 5);
-  }, [drilldownMuscle, heatmapWorkouts]);
-
-  // Full unfiltered `workouts`, same reasoning as the top-level Volume
-  // trend chart and muscle recovery indicators — an 8-week/6-month trend
-  // shouldn't be clipped down to almost nothing by whatever short range
-  // the heatmap's 7D/30D/90D selector happens to have active.
-  const muscleActivity = useMemo(() => {
-    if (!drilldownMuscle) return [];
-    return computeMuscleActivityByPeriod(
-      workouts ?? [],
-      drilldownMuscle,
-      drilldownGranularity,
-      drilldownGranularity === "week" ? 8 : 6,
-    );
-  }, [drilldownMuscle, drilldownGranularity, workouts]);
-
-  function closeDrilldown() {
-    setDrilldownMuscle(null);
-    setSelectedMuscle(null);
-  }
-
-  useDismissOnBack(!!drilldownMuscle, closeDrilldown);
+  const hasWorkouts = !!workouts?.length;
+  const isEstablished = (workouts?.length ?? 0) >= ESTABLISHED_THRESHOLD;
 
   return (
-    <div className="flex flex-col gap-6 px-4 pt-6">
-      {/* HEADER */}
-      <header className="flex items-center gap-4">
-        <div className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary">
-          <BarChart3 className="h-6 w-6" />
-        </div>
-
-        <div className="min-w-0">
-          <h1 className="truncate text-xl font-bold tracking-tight">Training Overview</h1>
-
-          {greeting && (
-            <div className="mt-1 inline-flex items-center rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
-              {greeting.headline}
-            </div>
-          )}
-        </div>
+    <div className="flex flex-col gap-6 px-4 pt-6 pb-8">
+      {/* HERO + WEEKLY STRIP */}
+      <header className="flex flex-col gap-3">
+        {greeting && <p className="text-lg font-semibold leading-snug">{greeting.headline}</p>}
+        {hasWorkouts && <WeekActivityStrip trainedDays={trainedDays} />}
       </header>
 
-      {/* LAST WORKOUT */}
-      {lastSummary && (
-        <div
-          onClick={() =>
-            lastSummary.id &&
-            navigate({ to: "/history/$id", params: { id: String(lastSummary.id) } })
-          }
-          className="rounded-2xl bg-card p-4 active:scale-[0.99] transition cursor-pointer"
+      {!hasWorkouts && workouts !== undefined && (
+        <button
+          onClick={() => navigate({ to: "/workout" })}
+          className="rounded-2xl bg-primary py-3.5 text-center text-sm font-semibold text-primary-foreground active:opacity-90"
         >
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-semibold">Last workout</p>
-            <p className="text-xs text-muted-foreground">Tap to view</p>
-          </div>
-
-          <p className="truncate font-bold">{lastSummary.name}</p>
-
-          <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-            <span>{Math.round(lastSummary.duration / 60)} min</span>
-            <span>{lastSummary.sets} sets</span>
-            {lastSummary.muscles.length > 0 && <span>{lastSummary.muscles.join(", ")}</span>}
-          </div>
-        </div>
+          Start a workout
+        </button>
       )}
 
-      {/* STATS */}
-      <section className="grid grid-cols-3 gap-3">
-        <StatCard
-          icon={<Activity className="h-4 w-4" />}
-          label="Sessions"
-          value={stats.total.toString()}
-        />
-        <StatCard
-          icon={<TrendingUp className="h-4 w-4" />}
-          label="Volume"
-          value={Math.round(stats.totalVolume).toLocaleString()}
-        />
-        <StatCard
-          icon={<CalendarDays className="h-4 w-4" />}
-          label="Active days"
-          value={stats.thisWeek.toString()}
-        />
-      </section>
-
-      {/* CARDIO SNAPSHOT */}
-      {stats.cardio.sessions > 0 && (
+      {hasWorkouts && lastWorkout && (
         <section>
-          <div className="mb-3 flex items-end justify-between gap-3">
-            <div>
-              <h2 className="text-base font-semibold">Cardio</h2>
-              <p className="text-xs text-muted-foreground">Your cardio counts too.</p>
-            </div>
+          <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Last workout
+          </p>
+          <div
+            onClick={() => navigate({ to: "/history/$id", params: { id: String(lastWorkout.id) } })}
+            className="cursor-pointer active:scale-[0.99] transition"
+          >
+            <WorkoutSummary
+              name={lastWorkout.name}
+              durationSec={lastWorkout.durationSec}
+              exercises={lastWorkout.exercises}
+              showName
+            />
+          </div>
+        </section>
+      )}
+
+      {hasWorkouts && isEstablished && trainingSignal && (
+        <section>
+          <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Training signal
+          </p>
+          <div
+            className="rounded-2xl p-4"
+            style={{
+              backgroundColor: "color-mix(in oklch, var(--color-primary) 12%, transparent)",
+              border: "1px solid color-mix(in oklch, var(--color-primary) 35%, transparent)",
+            }}
+          >
+            <p className="text-sm font-semibold" style={{ color: "var(--color-primary)" }}>
+              {trainingSignal.headline}
+            </p>
+            {trainingSignal.detail && (
+              <p className="mt-1 text-xs text-muted-foreground">{trainingSignal.detail}</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {hasWorkouts && (
+        <section>
+          <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Training at a glance
+          </p>
+          <Totals workouts={workouts ?? []} />
+        </section>
+      )}
+
+      {hasWorkouts && isEstablished && (
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Muscle activity
+            </p>
             <button
-              onClick={() => navigate({ to: "/history" })}
+              onClick={() => navigate({ to: "/history/insights" })}
               className="text-xs font-medium text-primary active:opacity-70"
             >
-              See progress →
+              View muscle activity →
             </button>
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <StatCard
-              icon={<Activity className="h-4 w-4" />}
-              label="Sessions"
-              value={stats.cardio.sessions.toString()}
-            />
-            <StatCard
-              icon={<CalendarDays className="h-4 w-4" />}
-              label="Cardio time"
-              value={formatTimeTrained(stats.cardio.durationSec)}
-            />
-          </div>
-
-          <div className="mt-3 rounded-2xl bg-card p-4">
-            <p className="text-xs font-medium text-muted-foreground">Recent activities</p>
-            <div className="mt-3 flex flex-col gap-2.5">
-              {stats.cardio.activities.slice(0, 3).map((activity) => (
-                <div
-                  key={activity.exerciseId}
-                  className="flex items-baseline justify-between gap-3"
-                >
-                  <span className="truncate text-sm font-medium">{activity.name}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {formatProfileCardioActivity(activity)}
-                  </span>
+          <div className="rounded-2xl bg-card p-4">
+            <MuscleMap intensity={intensity} className="mx-auto h-32 w-auto" />
+            <div className="mt-3 flex flex-col gap-2">
+              {topMuscles(intensity).map(({ muscle, value }) => (
+                <div key={muscle} className="flex items-center gap-3 text-xs">
+                  <span className="w-20 shrink-0 text-muted-foreground">{muscle}</span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${Math.round(value * 100)}%` }}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -364,515 +242,95 @@ function ProfilePage() {
         </section>
       )}
 
-      {/* TRAINING INSIGHTS */}
-      {!workouts ? null : workouts.length === 0 ? (
-        <section className="rounded-2xl border border-border/50 bg-card p-5 text-center">
-          <p className="text-sm text-muted-foreground">
-            Complete your first workout to start tracking progress.
-          </p>
-        </section>
-      ) : (
+      {hasWorkouts && isEstablished && recentProgress.length > 0 && (
         <section>
-          <h2 className="mb-3 text-base font-semibold">Training Insights</h2>
-          <div className="flex flex-col gap-3">
-            {currentFocus && (
-              <div
-                onClick={() =>
-                  navigate({ to: "/exercise/$id", params: { id: currentFocus.exerciseId } })
-                }
-                className="rounded-2xl bg-card p-4 active:scale-[0.99] transition cursor-pointer"
-              >
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Target className="h-3.5 w-3.5" />
-                  <span className="text-xs">Current focus</span>
-                </div>
-                <p className="mt-1 truncate text-sm font-bold">{currentFocus.name}</p>
-                {currentFocus.best != null ? (
-                  <>
-                    <p className="mt-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                      Current Best
-                    </p>
-                    <p className="text-base font-bold text-primary">
-                      {formatMetricValue(
-                        currentFocus.metricKind,
-                        currentFocus.best,
-                        currentFocus.distanceUnit,
-                      )}
-                    </p>
-                  </>
-                ) : null}
-                <StatusLine status={currentFocus.status} sampleSize={currentFocus.sampleSize} />
-              </div>
-            )}
-
-            <div className="rounded-2xl bg-card p-4">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Flame className="h-3.5 w-3.5" />
-                <span className="text-xs">Training consistency</span>
-              </div>
-              <div className="mt-2 flex flex-col gap-1.5">
-                <p className="text-sm">
-                  <span className="font-bold">{consistency.streak}</span>{" "}
-                  <span className="text-muted-foreground">
-                    day{consistency.streak === 1 ? "" : "s"} current streak
-                  </span>
-                </p>
-                <p className="text-sm">
-                  <span className="font-bold">{consistency.workoutsThisWeek}</span>{" "}
-                  <span className="text-muted-foreground">
-                    workout{consistency.workoutsThisWeek === 1 ? "" : "s"} this week
-                  </span>
-                </p>
-                <p className="text-sm">
-                  <span className="font-bold">{consistency.activeDaysThisMonth}</span>{" "}
-                  <span className="text-muted-foreground">
-                    active day{consistency.activeDaysThisMonth === 1 ? "" : "s"} this month
-                  </span>
-                </p>
-              </div>
-            </div>
-
-            {(workouts?.length ?? 0) > 0 && (
-              <div className="rounded-2xl bg-card p-4">
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <BarChart3 className="h-3.5 w-3.5" />
-                  <span className="text-xs">Volume trend (last 4 weeks vs. prior 4)</span>
-                </div>
-                {volumeTrend ? (
-                  <>
-                    <TrendLine
-                      trend={volumeTrend.trend}
-                      upLabel="Increasing"
-                      downLabel="Decreasing"
-                      flatLabel="Stable"
-                    />
-                    <p className="mt-0.5 text-[11px] text-muted-foreground/70">
-                      {trendConfidenceLabel(
-                        volumeTrendConfidence(volumeTrend.recentCount, volumeTrend.priorCount),
-                      )}{" "}
-                      · {volumeTrend.recentCount} workout
-                      {volumeTrend.recentCount === 1 ? "" : "s"} vs. {volumeTrend.priorCount}{" "}
-                      workout
-                      {volumeTrend.priorCount === 1 ? "" : "s"}
-                    </p>
-                  </>
-                ) : (
-                  <p className="mt-1 text-xs text-muted-foreground/70">
-                    Not enough history yet for a trend — keep logging workouts.
-                  </p>
-                )}
-
-                <div className="mt-4 flex gap-2">
-                  {(["week", "month"] as const).map((g) => (
-                    <button
-                      key={g}
-                      type="button"
-                      onClick={() => setVolumeGranularity(g)}
-                      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                        volumeGranularity === g
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-muted-foreground active:bg-secondary/70"
-                      }`}
-                    >
-                      {g === "week" ? "Weekly" : "Monthly"}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="mt-3 h-36 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={volumeSeries} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                      <XAxis
-                        dataKey="label"
-                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
-                        axisLine={{ stroke: "var(--border)" }}
-                        tickLine={false}
-                        interval={volumeGranularity === "week" ? 1 : 0}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={32}
-                      />
-                      <Tooltip
-                        cursor={{ fill: "var(--muted)", radius: 4 }}
-                        formatter={(value: number) => [
-                          `${Math.round(value).toLocaleString()}`,
-                          "Volume",
-                        ]}
-                        contentStyle={{
-                          background: "var(--card)",
-                          border: "1px solid var(--border)",
-                          borderRadius: 8,
-                          fontSize: 12,
-                        }}
-                      />
-                      <Bar dataKey="volume" fill="var(--primary)" radius={[3, 3, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* MUSCLE MAP */}
-      <section className="rounded-2xl border border-border/50 bg-card p-5">
-        <div className="mb-4">
-          <h2 className="text-base font-semibold">Muscle Activity</h2>
-          <p className="text-xs text-muted-foreground">
-            Based on completed sets
-            {heatmapRange !== null ? ` in the last ${heatmapRange} days` : ""} • Tap to explore
+          <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Recent progress
           </p>
-        </div>
-
-        <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-          {HEATMAP_RANGES.map(({ label, value }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => setHeatmapRange(value)}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                heatmapRange === value
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground active:bg-secondary/70"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div
-          className={`mb-5 rounded-xl p-3 ${selectedMuscle ? "bg-primary/10" : "bg-secondary/50"}`}
-        >
-          <MuscleMap intensity={intensity} activeMuscle={selectedMuscle} className="w-full" />
-        </div>
-
-        {/* ===================== */}
-        {/* TRAINING BALANCE SNAPSHOT (FIXED EMPTY STATE) */}
-        {/* ===================== */}
-
-        <div className="mb-5 rounded-xl border border-border/50 bg-secondary/10 p-4">
-          <h3 className="mb-2 text-sm font-semibold">Training Balance Snapshot</h3>
-
-          {balance.hasData === undefined ? null : !balance.hasData ? (
-            <p className="py-2 text-center text-xs text-muted-foreground">
-              {heatmapRange !== null
-                ? `No training data in the last ${heatmapRange} days.`
-                : "No training data yet. Start a workout to see muscle insights."}
-            </p>
-          ) : (
-            <div className="space-y-1 text-xs text-muted-foreground">
-              {balance.most && (
-                <p>
-                  Most trained:{" "}
-                  <span className="font-medium text-foreground">{balance.most.muscle}</span>
-                </p>
-              )}
-
-              {balance.leastTrained && (
-                <p>
-                  Least trained:{" "}
-                  <span className="font-medium text-foreground">{balance.leastTrained.muscle}</span>
-                </p>
-              )}
-
-              {balance.untrained.length > 0 && (
-                <p>
-                  Untrained:{" "}
-                  <span className="font-medium text-foreground">
-                    {balance.untrained.slice(0, 3).join(", ")}
-                    {balance.untrained.length > 3 ? "…" : ""}
-                  </span>
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* MUSCLE LIST */}
-        <div className="space-y-3">
-          {MUSCLE_GROUPS.filter((m) => m !== "Cardio" && (intensity[m] ?? 0) > 0)
-            .sort((a, b) => (intensity[b] ?? 0) - (intensity[a] ?? 0))
-            .slice(0, 7)
-            .map((m) => {
-              const value = Math.round((intensity[m] ?? 0) * 100);
-              const isSelected = selectedMuscle === m;
-              const dim = selectedMuscle && !isSelected;
-
-              return (
-                <div
-                  key={m}
-                  className={dim ? "opacity-30" : "opacity-100"}
-                  onClick={() => {
-                    setSelectedMuscle(m);
-                    setDrilldownMuscle(m);
-                  }}
-                >
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-2">
-                      <span className="text-muted-foreground">{m}</span>
-                      {recovery[m] && (
-                        <span className={MUSCLE_RECOVERY_COPY[recovery[m]!.status].tone}>
-                          {MUSCLE_RECOVERY_COPY[recovery[m]!.status].label} ·{" "}
-                          {formatRelativeDate(recovery[m]!.lastTrainedAt)}
-                        </span>
-                      )}
-                    </span>
-                    <span className="font-semibold tabular-nums">{value}%</span>
-                  </div>
-
-                  <div className="h-2 w-full rounded-full bg-secondary">
-                    <div
-                      className="h-full bg-primary transition-all"
-                      style={{ width: `${value}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-      </section>
-
-      {/* RECENT PROGRESS */}
-      {recentProgress.length > 0 && (
-        <section className="rounded-2xl border border-border/50 bg-card p-5">
-          <h2 className="mb-3 text-base font-semibold">Recent Progress</h2>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5">
             {recentProgress.map((row) => (
               <div
                 key={row.exerciseId}
                 onClick={() => navigate({ to: "/exercise/$id", params: { id: row.exerciseId } })}
-                className="flex items-center justify-between gap-3 border-b border-border/30 pb-3 last:border-0 last:pb-0 cursor-pointer active:opacity-70"
+                className="flex items-center justify-between gap-3 cursor-pointer active:opacity-70"
               >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{row.name}</p>
-                  {row.best != null && (
-                    <p className="text-xs text-muted-foreground">
-                      {formatMetricValue(row.metricKind, row.best, row.distanceUnit)}
-                    </p>
-                  )}
-                </div>
-                <StatusPill status={row.status} />
+                <span className="truncate text-sm">{row.name}</span>
+                <StatusArrow status={row.status} />
               </div>
             ))}
           </div>
           <button
             onClick={() => navigate({ to: "/exercises" })}
-            className="mt-3 w-full text-center text-xs font-medium text-primary active:opacity-70"
+            className="mt-2 text-xs font-medium text-primary active:opacity-70"
           >
-            See all exercises →
+            See all progress →
           </button>
         </section>
       )}
 
-      {/* DRILLDOWN */}
-      {drilldownMuscle && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/40">
-          <div className="w-full rounded-t-2xl bg-card p-5">
-            <div className="mb-3 flex justify-between">
-              <h3 className="font-semibold">{drilldownMuscle}</h3>
-              <button onClick={closeDrilldown} className="text-sm text-muted-foreground">
-                Close
-              </button>
-            </div>
-
-            {muscleActivity.some((p) => p.score > 0) && (
-              <div className="mb-4">
-                <div className="flex gap-2">
-                  {(["week", "month"] as const).map((g) => (
-                    <button
-                      key={g}
-                      type="button"
-                      onClick={() => setDrilldownGranularity(g)}
-                      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                        drilldownGranularity === g
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-muted-foreground active:bg-secondary/70"
-                      }`}
-                    >
-                      {g === "week" ? "Weekly" : "Monthly"}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="mt-3 h-32 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={muscleActivity}
-                      margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
-                    >
-                      <XAxis
-                        dataKey="label"
-                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
-                        axisLine={{ stroke: "var(--border)" }}
-                        tickLine={false}
-                        interval={drilldownGranularity === "week" ? 1 : 0}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={28}
-                      />
-                      <Tooltip
-                        cursor={{ fill: "var(--muted)", radius: 4 }}
-                        formatter={(value: number) => [`${Math.round(value * 10) / 10}`, "Sets"]}
-                        contentStyle={{
-                          background: "var(--card)",
-                          border: "1px solid var(--border)",
-                          borderRadius: 8,
-                          fontSize: 12,
-                        }}
-                      />
-                      <Bar dataKey="score" fill="var(--primary)" radius={[3, 3, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
-
-            {muscleContributions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No recent workouts have trained this muscle yet.
-              </p>
-            ) : (
-              <div className="mb-4 flex max-h-72 flex-col gap-3 overflow-y-auto">
-                {muscleContributions.map((c) => (
-                  <div
-                    key={c.workoutId}
-                    onClick={() =>
-                      navigate({ to: "/history/$id", params: { id: String(c.workoutId) } })
-                    }
-                    className="cursor-pointer rounded-xl bg-secondary/20 p-3 active:opacity-70"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-muted-foreground">
-                        {formatRelativeDate(c.startedAt)}
-                      </p>
-                    </div>
-                    <p className="text-sm font-semibold">{c.workoutName}</p>
-                    <ul className="mt-1 text-xs text-muted-foreground">
-                      {c.exerciseNames.map((name, i) => (
-                        <li key={i}>• {name}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
-
+      {hasWorkouts && isEstablished && stats.cardio.sessions > 0 && (
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Cardio
+            </p>
             <button
-              onClick={closeDrilldown}
-              className="w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground"
+              onClick={() => navigate({ to: "/history/insights" })}
+              className="text-xs font-medium text-primary active:opacity-70"
             >
-              Done
+              View cardio →
             </button>
           </div>
-        </div>
+          <div className="flex flex-col gap-2">
+            {stats.cardio.activities.slice(0, 3).map((activity) => (
+              <div key={activity.exerciseId} className="flex items-baseline justify-between gap-3">
+                <span className="truncate text-sm">{activity.name}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {formatOverviewCardioActivity(activity)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );
 }
 
-/* ===================== */
-
-function formatProfileCardioActivity(activity: CardioActivityStats): string {
-  const formatted = formatCardioActivity(activity);
-  return formatted || formatTimeTrained(activity.durationSec);
+/** Top 3 muscles by intensity, Cardio excluded — same convention as the
+ *  old Training Balance Snapshot's `entries` filter. */
+function topMuscles(intensity: Partial<Record<MuscleGroup, number>>) {
+  return (Object.entries(intensity) as [MuscleGroup, number][])
+    .filter(([m]) => m !== "Cardio")
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([muscle, value]) => ({ muscle, value }));
 }
 
-function StatCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div className="rounded-2xl bg-card p-4">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        {icon}
-        <span className="text-xs">{label}</span>
-      </div>
-      <p className="mt-1 text-xl font-bold">{value}</p>
-    </div>
-  );
+function StatusArrow({ status }: { status: ExerciseStatus }) {
+  const { icon, tone } = EXERCISE_STATUS_COPY[status];
+  return <span className={`shrink-0 text-sm font-medium ${tone}`}>{icon}</span>;
 }
 
-/** Used on the Current Focus card — includes the exercise name context, so
- *  it reads as a sentence rather than a bare pill. */
-function StatusLine({ status, sampleSize }: { status: ExerciseStatus; sampleSize: number }) {
-  const { icon, label, tone } = EXERCISE_STATUS_COPY[status];
-  const weight = status === "needs-more-data" ? "" : "font-medium";
-  const confidenceCaption = formatStatusConfidence(sampleSize);
-  return (
-    <div className="mt-2">
-      <p className={`text-xs ${weight} ${tone}`}>
-        {icon} {label}
-      </p>
-      {confidenceCaption && (
-        <p className="mt-0.5 text-[11px] text-muted-foreground/70">{confidenceCaption}</p>
-      )}
-    </div>
-  );
+function dayStart(t: number): number {
+  const d = new Date(t);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
 }
 
-/** Used in the Recent Progress list — compact pill form. */
-function StatusPill({ status }: { status: ExerciseStatus }) {
-  const { icon, label, tone } = EXERCISE_STATUS_COPY[status];
-  const weight = status === "needs-more-data" ? "" : "font-medium";
-  return (
-    <span className={`shrink-0 text-xs ${weight} ${tone}`}>
-      {icon} {label}
-    </span>
-  );
+function computeTrainedDaySet(workouts: Workout[]): Set<number> {
+  return new Set(workouts.map((w) => dayStart(w.startedAt)));
 }
 
-function TrendLine({
-  trend,
-  upLabel,
-  downLabel,
-  flatLabel,
-}: {
-  trend: Trend;
-  upLabel: string;
-  downLabel: string;
-  flatLabel: string;
-}) {
-  if (trend === "up") {
-    return <p className="mt-1 text-base font-bold text-primary">↑ {upLabel}</p>;
-  }
-  if (trend === "down") {
-    return <p className="mt-1 text-base font-bold text-muted-foreground">↓ {downLabel}</p>;
-  }
-  return <p className="mt-1 text-base font-bold text-muted-foreground">→ {flatLabel}</p>;
+/** formatCardioActivity can return an empty string for an activity with
+ *  only duration logged (no distance/pace) — falls back to a plain
+ *  duration string rather than rendering blank. Same fallback the old
+ *  Profile page's cardio section had. */
+function formatOverviewCardioActivity(activity: CardioActivityStats): string {
+  return formatCardioActivity(activity) || formatTimeTrained(activity.durationSec);
 }
 
-/* ===================== */
-
-/** Distinct calendar days, within the trailing `windowMs` from now, that
- *  contain at least one workout. Shared by computeStats (7-day window, for
- *  the Summary "Active days" card) and computeConsistency (30-day window)
- *  so "what counts as an active day" is decided in exactly one place. */
-function countActiveDays(workouts: Workout[], windowMs: number): number {
-  const cutoff = Date.now() - windowMs;
-  return new Set(
-    workouts
-      .filter((w) => w.startedAt >= cutoff)
-      .map((w) => {
-        const d = new Date(w.startedAt);
-        d.setHours(0, 0, 0, 0);
-        return d.getTime();
-      }),
-  ).size;
-}
-
-function computeStats(workouts: Workout[]) {
-  const total = workouts.length;
-
-  const totalVolume = workouts.reduce(
-    (acc, w) => acc + computeWorkoutStats(w.exercises).totalVolume,
-    0,
-  );
-
+function computeCardioStats(workouts: Workout[]) {
   const cardioByExercise = new Map<string, CardioActivityStats>();
   let cardioSessions = 0;
   let cardioDurationSec = 0;
@@ -889,7 +347,6 @@ function computeStats(workouts: Workout[]) {
         cardioByExercise.set(activity.exerciseId, { ...activity });
         continue;
       }
-
       existing.durationSec += activity.durationSec;
       if (activity.distance != null && activity.distanceUnit === existing.distanceUnit) {
         existing.distance = (existing.distance ?? 0) + activity.distance;
@@ -898,9 +355,6 @@ function computeStats(workouts: Workout[]) {
   }
 
   return {
-    total,
-    totalVolume,
-    thisWeek: countActiveDays(workouts, 7 * 86400000),
     cardio: {
       sessions: cardioSessions,
       durationSec: cardioDurationSec,
@@ -918,11 +372,8 @@ function computeMuscleIntensity(workouts: Workout[]) {
     for (const e of w.exercises) {
       const def = getExercise(e.exerciseId);
       if (!def) continue;
-
       const completed = e.sets.filter((s) => s.completed).length;
-
       totals[def.muscle] = (totals[def.muscle] ?? 0) + completed;
-
       for (const sec of def.secondary ?? []) {
         totals[sec] = (totals[sec] ?? 0) + completed * 0.5;
       }
@@ -930,73 +381,11 @@ function computeMuscleIntensity(workouts: Workout[]) {
   }
 
   const max = Math.max(1, ...Object.values(totals));
-
   const normalized: Partial<Record<MuscleGroup, number>> = {};
-
   for (const k of Object.keys(totals) as MuscleGroup[]) {
     normalized[k] = (totals[k] ?? 0) / max;
   }
-
   return normalized;
-}
-
-/**
- * Current + best streak of consecutive calendar days containing at least
- * one workout. A day that hasn't happened yet (today, if nothing's logged)
- * doesn't break the current streak — only a genuinely skipped day does.
- */
-function computeStreaks(workouts: Workout[]): { current: number; best: number } {
-  if (workouts.length === 0) return { current: 0, best: 0 };
-
-  const dayMs = 86400000;
-  const dayOf = (t: number) => {
-    const d = new Date(t);
-    d.setHours(0, 0, 0, 0);
-    return d.getTime();
-  };
-
-  const days = Array.from(new Set(workouts.map((w) => dayOf(w.startedAt)))).sort((a, b) => b - a);
-
-  const today = dayOf(Date.now());
-  let current = 0;
-  if (days[0] === today || days[0] === today - dayMs) {
-    current = 1;
-    for (let i = 1; i < days.length; i++) {
-      if (days[i - 1] - days[i] === dayMs) current++;
-      else break;
-    }
-  }
-
-  let best = 1;
-  let run = 1;
-  for (let i = 1; i < days.length; i++) {
-    if (days[i - 1] - days[i] === dayMs) {
-      run++;
-      best = Math.max(best, run);
-    } else {
-      run = 1;
-    }
-  }
-
-  return { current, best };
-}
-
-/** The three Training Consistency numbers — reuses computeStreaks for the
- *  streak and countActiveDays for the "this month" figure rather than
- *  re-deriving either. "This week"/"this month" are trailing 7- and
- *  30-day windows, matching the rolling-window convention already used
- *  elsewhere on this page (computeStats, computeVolumeTrend), rather than
- *  calendar week/month boundaries this app has no other concept of. */
-function computeConsistency(
-  workouts: Workout[],
-  streaks: { current: number; best: number },
-): { streak: number; workoutsThisWeek: number; activeDaysThisMonth: number } {
-  const weekAgo = Date.now() - 7 * 86400000;
-  return {
-    streak: streaks.current,
-    workoutsThisWeek: workouts.filter((w) => w.startedAt >= weekAgo).length,
-    activeDaysThisMonth: countActiveDays(workouts, 30 * 86400000),
-  };
 }
 
 /** Distinct exercise ids appearing in completed sets, most-recently-first. */
@@ -1013,14 +402,6 @@ function getRecentlyTrainedExercises(workouts: Workout[], count: number): string
   return seen.slice(0, count);
 }
 
-/**
- * Status for one exercise, from its per-session primary-metric values —
- * see computeExerciseStatusFromValues (exerciseProgress.ts) for the
- * actual classification (plain 2-point comparison below 4 sessions,
- * windowed oldest-vs-newest at 4+). sampleSize is exposed alongside the
- * status so callers can attach a confidence caption via
- * formatStatusConfidence without recomputing values.length themselves.
- */
 function computeExerciseStatus(
   workouts: Workout[],
   exerciseId: string,
@@ -1044,7 +425,6 @@ function computeExerciseStatus(
 
   const metricKind = getPrimaryMetricKind(schema);
   const distanceUnit = schema.distanceUnit;
-
   const values = sessionSets
     .map((sets) => getPrimaryMetric(metricKind, sets))
     .filter((v): v is number => v != null);
@@ -1052,86 +432,4 @@ function computeExerciseStatus(
   const best = values.length > 0 ? Math.max(...values) : null;
   const status = computeExerciseStatusFromValues(values);
   return { status, best, metricKind, distanceUnit, sampleSize: values.length };
-}
-
-/**
- * Compares total volume in the last 4 weeks against the 4 weeks before
- * that. Returns null (hide the card) unless there's actual training in
- * both halves — otherwise this would just be reporting "you hadn't
- * started yet", not a real trend. recentCount/priorCount are exposed
- * alongside the trend so the card can show a confidence caption stating
- * exactly what was compared.
- */
-function computeVolumeTrend(
-  workouts: Workout[],
-): { trend: Trend; recentCount: number; priorCount: number } | null {
-  const weekMs = 7 * 86400000;
-  const now = Date.now();
-  const recentStart = now - 4 * weekMs;
-  const priorStart = now - 8 * weekMs;
-
-  const recent = workouts.filter((w) => w.startedAt >= recentStart);
-  const prior = workouts.filter((w) => w.startedAt >= priorStart && w.startedAt < recentStart);
-
-  if (recent.length === 0 || prior.length === 0) return null;
-
-  const sum = (ws: Workout[]) =>
-    ws.reduce((acc, w) => acc + computeWorkoutStats(w.exercises).totalVolume, 0);
-
-  return {
-    trend: compareTrend(sum(prior), sum(recent)),
-    recentCount: recent.length,
-    priorCount: prior.length,
-  };
-}
-
-/** Established only when BOTH halves clear this bar — a single unusually
- *  heavy or light session shouldn't be able to swing a whole half's sum
- *  on its own, so a thin half keeps the reading at "early" regardless of
- *  how solid the other half looks. */
-const VOLUME_TREND_ESTABLISHED_MIN = 3;
-
-function volumeTrendConfidence(recentCount: number, priorCount: number): TrendConfidence {
-  return recentCount >= VOLUME_TREND_ESTABLISHED_MIN && priorCount >= VOLUME_TREND_ESTABLISHED_MIN
-    ? "established"
-    : "early";
-}
-
-interface MuscleContribution {
-  workoutId: number;
-  workoutName: string;
-  startedAt: number;
-  exerciseNames: string[];
-}
-
-/** Recent workouts where any exercise's primary or secondary muscle
- *  matches — the same primary/secondary weighting computeMuscleIntensity
- *  already uses, just listing contributing workouts instead of a number. */
-function computeMuscleContributions(
-  workouts: Workout[],
-  muscle: MuscleGroup,
-  limit: number,
-): MuscleContribution[] {
-  const out: MuscleContribution[] = [];
-  for (const w of workouts) {
-    const names: string[] = [];
-    for (const ex of w.exercises) {
-      if (!ex.sets.some((s) => s.completed)) continue;
-      const def = getExercise(ex.exerciseId);
-      if (!def) continue;
-      if (def.muscle === muscle || def.secondary?.includes(muscle)) {
-        names.push(def.name);
-      }
-    }
-    if (names.length > 0 && w.id != null) {
-      out.push({
-        workoutId: w.id,
-        workoutName: w.name,
-        startedAt: w.startedAt,
-        exerciseNames: names,
-      });
-    }
-    if (out.length >= limit) break;
-  }
-  return out;
 }

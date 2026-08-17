@@ -10,6 +10,7 @@ import {
   type DistanceUnit,
 } from "@/lib/exercises";
 import { formatDuration } from "@/lib/format";
+import { compareTrend, type Trend, type TrendConfidence } from "@/lib/exerciseProgress";
 
 export interface WorkoutStats {
   totalSets: number;
@@ -454,4 +455,50 @@ export function computeVolumeByPeriod(
         .reduce((acc, w) => acc + w.volume, 0),
     }),
   );
+}
+
+/**
+ * Compares total volume in the last 4 weeks against the 4 weeks before
+ * that. Returns null (caller should hide/omit) unless there's actual
+ * training in both halves — otherwise this would just be reporting "you
+ * hadn't started yet", not a real trend. recentCount/priorCount are
+ * exposed alongside the trend so callers can show a confidence caption
+ * stating exactly what was compared.
+ *
+ * Extracted here (previously duplicated identically in both the Overview
+ * route and the History → Insights route) since both need the exact same
+ * comparison — a second copy would drift the moment one of them changed.
+ */
+export function computeVolumeTrend(
+  workouts: Workout[],
+): { trend: Trend; recentCount: number; priorCount: number } | null {
+  const weekMs = 7 * 86400000;
+  const now = Date.now();
+  const recentStart = now - 4 * weekMs;
+  const priorStart = now - 8 * weekMs;
+
+  const recent = workouts.filter((w) => w.startedAt >= recentStart);
+  const prior = workouts.filter((w) => w.startedAt >= priorStart && w.startedAt < recentStart);
+  if (recent.length === 0 || prior.length === 0) return null;
+
+  const sum = (ws: Workout[]) =>
+    ws.reduce((acc, w) => acc + computeWorkoutStats(w.exercises).totalVolume, 0);
+
+  return {
+    trend: compareTrend(sum(prior), sum(recent)),
+    recentCount: recent.length,
+    priorCount: prior.length,
+  };
+}
+
+/** Established only when BOTH halves clear this bar — a single unusually
+ *  heavy or light session shouldn't be able to swing a whole half's sum
+ *  on its own, so a thin half keeps the reading at "early" regardless of
+ *  how solid the other half looks. */
+export const VOLUME_TREND_ESTABLISHED_MIN = 3;
+
+export function volumeTrendConfidence(recentCount: number, priorCount: number): TrendConfidence {
+  return recentCount >= VOLUME_TREND_ESTABLISHED_MIN && priorCount >= VOLUME_TREND_ESTABLISHED_MIN
+    ? "established"
+    : "early";
 }
