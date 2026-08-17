@@ -128,9 +128,7 @@ function WorkoutTimeline() {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-4 pt-6 pb-8">
-      <h1 className="text-2xl font-bold">Workout Timeline</h1>
-
+    <div className="flex flex-col gap-4 px-4 pt-4 pb-8">
       <div className="flex flex-col gap-2">
         <input
           value={search.q ?? ""}

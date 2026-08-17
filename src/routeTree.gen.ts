@@ -19,6 +19,7 @@ import { Route as AppWorkoutRouteImport } from './routes/_app.workout'
 import { Route as AppExerciseIdRouteImport } from './routes/_app.exercise.$id'
 import { Route as AppHistoryIndexRouteImport } from './routes/_app.history.index'
 import { Route as AppHistoryIdRouteImport } from './routes/_app.history.$id'
+import { Route as AppHistoryInsightsRouteImport } from './routes/_app.history.insights'
 import { Route as AppHistoryTimelineRouteImport } from './routes/_app.history.timeline'
 import { Route as AppSettingsDatabaseRouteImport } from './routes/_app.settings_.database'
 import { Route as AppSettingsRestTimesRouteImport } from './routes/_app.settings_.rest-times'
@@ -73,6 +74,11 @@ const AppHistoryIdRoute = AppHistoryIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AppHistoryRoute,
 } as any)
+const AppHistoryInsightsRoute = AppHistoryInsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
+  getParentRoute: () => AppHistoryRoute,
+} as any)
 const AppHistoryTimelineRoute = AppHistoryTimelineRouteImport.update({
   id: '/timeline',
   path: '/timeline',
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/workout': typeof AppWorkoutRoute
   '/exercise/$id': typeof AppExerciseIdRoute
   '/history/$id': typeof AppHistoryIdRoute
+  '/history/insights': typeof AppHistoryInsightsRoute
   '/history/timeline': typeof AppHistoryTimelineRoute
   '/settings/database': typeof AppSettingsDatabaseRoute
   '/settings/rest-times': typeof AppSettingsRestTimesRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/workout': typeof AppWorkoutRoute
   '/exercise/$id': typeof AppExerciseIdRoute
   '/history/$id': typeof AppHistoryIdRoute
+  '/history/insights': typeof AppHistoryInsightsRoute
   '/history/timeline': typeof AppHistoryTimelineRoute
   '/settings/database': typeof AppSettingsDatabaseRoute
   '/settings/rest-times': typeof AppSettingsRestTimesRoute
@@ -135,6 +143,7 @@ export interface FileRoutesById {
   '/_app/workout': typeof AppWorkoutRoute
   '/_app/exercise/$id': typeof AppExerciseIdRoute
   '/_app/history/$id': typeof AppHistoryIdRoute
+  '/_app/history/insights': typeof AppHistoryInsightsRoute
   '/_app/history/timeline': typeof AppHistoryTimelineRoute
   '/_app/settings_/database': typeof AppSettingsDatabaseRoute
   '/_app/settings_/rest-times': typeof AppSettingsRestTimesRoute
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
     | '/workout'
     | '/exercise/$id'
     | '/history/$id'
+    | '/history/insights'
     | '/history/timeline'
     | '/settings/database'
     | '/settings/rest-times'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
     | '/workout'
     | '/exercise/$id'
     | '/history/$id'
+    | '/history/insights'
     | '/history/timeline'
     | '/settings/database'
     | '/settings/rest-times'
@@ -182,6 +193,7 @@ export interface FileRouteTypes {
     | '/_app/workout'
     | '/_app/exercise/$id'
     | '/_app/history/$id'
+    | '/_app/history/insights'
     | '/_app/history/timeline'
     | '/_app/settings_/database'
     | '/_app/settings_/rest-times'
@@ -266,6 +278,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHistoryIdRouteImport
       parentRoute: typeof AppHistoryRoute
     }
+    '/_app/history/insights': {
+      id: '/_app/history/insights'
+      path: '/insights'
+      fullPath: '/history/insights'
+      preLoaderRoute: typeof AppHistoryInsightsRouteImport
+      parentRoute: typeof AppHistoryRoute
+    }
     '/_app/history/timeline': {
       id: '/_app/history/timeline'
       path: '/timeline'
@@ -299,12 +318,14 @@ declare module '@tanstack/react-router' {
 
 interface AppHistoryRouteChildren {
   AppHistoryIdRoute: typeof AppHistoryIdRoute
+  AppHistoryInsightsRoute: typeof AppHistoryInsightsRoute
   AppHistoryTimelineRoute: typeof AppHistoryTimelineRoute
   AppHistoryIndexRoute: typeof AppHistoryIndexRoute
 }
 
 const AppHistoryRouteChildren: AppHistoryRouteChildren = {
   AppHistoryIdRoute: AppHistoryIdRoute,
+  AppHistoryInsightsRoute: AppHistoryInsightsRoute,
   AppHistoryTimelineRoute: AppHistoryTimelineRoute,
   AppHistoryIndexRoute: AppHistoryIndexRoute,
 }
