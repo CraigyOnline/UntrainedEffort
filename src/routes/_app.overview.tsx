@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo } from "react";
-import { getDb, type Workout, type WorkoutSet } from "@/lib/db";
+import { getDb, type Workout, type WorkoutSet, type PRRecord } from "@/lib/db";
 import {
   getExercise,
   getExerciseLoggingSchema,
@@ -10,8 +10,6 @@ import {
 } from "@/lib/exercises";
 import {
   computeWorkoutDisplayStats,
-  computeVolumeTrend,
-  volumeTrendConfidence,
   formatCardioActivity,
   type CardioActivityStats,
 } from "@/lib/workoutStats";
@@ -20,12 +18,11 @@ import {
   getPrimaryMetricKind,
   computeExerciseStatusFromValues,
   EXERCISE_STATUS_COPY,
-  trendConfidenceLabel,
-  formatMetricValue,
   type MetricKind,
   type ExerciseStatus,
 } from "@/lib/exerciseProgress";
 import { selectHomeGreeting } from "@/lib/homeGreetings";
+import { selectTrainingSignal } from "@/lib/trainingSignal";
 import { formatTimeTrained } from "@/features/history/duration";
 import { MuscleMap } from "@/components/MuscleMap";
 import { WeekActivityStrip } from "@/components/WeekActivityStrip";
@@ -57,6 +54,11 @@ function OverviewPage() {
     return getDb().workouts.orderBy("startedAt").reverse().toArray();
   }, []);
 
+  const prRecords = useLiveQuery(async () => {
+    if (typeof window === "undefined") return [];
+    return getDb().prHistory.toArray();
+  }, []) as PRRecord[] | undefined;
+
   const greeting = useLiveQuery(() => selectHomeGreeting(), []);
 
   const lastWorkout = workouts?.[0] ?? null;
@@ -86,6 +88,9 @@ function OverviewPage() {
       workouts ?? [],
       exerciseId,
     );
+    const lastTrainedAt = (workouts ?? []).find((w) =>
+      w.exercises.some((e) => e.exerciseId === exerciseId && e.sets.some((s) => s.completed)),
+    )?.startedAt;
     return {
       exerciseId,
       name: def?.name ?? exerciseId,
@@ -94,10 +99,9 @@ function OverviewPage() {
       metricKind,
       distanceUnit,
       sampleSize,
+      lastTrainedAt: lastTrainedAt ?? 0,
     };
   }, [recentExerciseIds, workouts]);
-
-  const volumeTrend = useMemo(() => computeVolumeTrend(workouts ?? []), [workouts]);
 
   const recentProgress = useMemo(() => {
     return recentExerciseIds.slice(0, 3).map((exerciseId) => {
@@ -110,35 +114,10 @@ function OverviewPage() {
     });
   }, [recentExerciseIds, workouts]);
 
-  /**
-   * Placeholder cascade — NOT the eligibility/priority/recency engine
-   * from the redesign spec §6 (that's a dedicated follow-up commit). This
-   * wires up the layout using whatever's cheaply available from existing
-   * helpers so Overview isn't structurally empty in the meantime. Milestone/
-   * PR detection (the spec's actual top priority) isn't wired in here yet.
-   */
-  const trainingSignal = useMemo(() => {
-    if (volumeTrend && volumeTrend.trend === "up") {
-      return {
-        headline: "Volume ↑ Increasing",
-        detail: `${trendConfidenceLabel(volumeTrendConfidence(volumeTrend.recentCount, volumeTrend.priorCount))} · ${volumeTrend.recentCount} vs ${volumeTrend.priorCount} workouts`,
-      };
-    }
-    if (currentFocus && currentFocus.status === "improving") {
-      return {
-        headline: `${currentFocus.name} ↑ Moving well`,
-        detail:
-          currentFocus.best != null
-            ? formatMetricValue(
-                currentFocus.metricKind,
-                currentFocus.best,
-                currentFocus.distanceUnit,
-              )
-            : null,
-      };
-    }
-    return null;
-  }, [volumeTrend, currentFocus]);
+  const trainingSignal = useMemo(
+    () => selectTrainingSignal(workouts ?? [], prRecords ?? [], currentFocus),
+    [workouts, prRecords, currentFocus],
+  );
 
   const hasWorkouts = !!workouts?.length;
   const isEstablished = (workouts?.length ?? 0) >= ESTABLISHED_THRESHOLD;
