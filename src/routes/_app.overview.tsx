@@ -46,6 +46,9 @@ export const Route = createFileRoute("/_app/overview")({
  *  here. See the redesign spec §4's "1–3 workouts" state. */
 const ESTABLISHED_THRESHOLD = 4;
 
+/** §5's "returning after a gap" modifier trigger. */
+const GAP_THRESHOLD_DAYS = 7;
+
 function OverviewPage() {
   const navigate = useNavigate();
 
@@ -62,6 +65,14 @@ function OverviewPage() {
   const greeting = useLiveQuery(() => selectHomeGreeting(), []);
 
   const lastWorkout = workouts?.[0] ?? null;
+
+  // A data-driven suppression of one component (not a layout branch, see
+  // §4). The hero line itself needs no change here: selectHomeGreeting()
+  // already only falls through to its gap-tier copy when momentum/streak
+  // don't apply, which is naturally exactly this same condition — no
+  // second gap check duplicated there.
+  const isReturningAfterGap =
+    !!lastWorkout && Date.now() - lastWorkout.startedAt > GAP_THRESHOLD_DAYS * 86400000;
 
   const trainedDays = useMemo(() => computeTrainedDaySet(workouts ?? []), [workouts]);
 
@@ -127,7 +138,7 @@ function OverviewPage() {
       {/* HERO + WEEKLY STRIP */}
       <header className="flex flex-col gap-3">
         {greeting && <p className="text-lg font-semibold leading-snug">{greeting.headline}</p>}
-        {hasWorkouts && <WeekActivityStrip trainedDays={trainedDays} />}
+        {hasWorkouts && !isReturningAfterGap && <WeekActivityStrip trainedDays={trainedDays} />}
       </header>
 
       {!hasWorkouts && workouts !== undefined && (
