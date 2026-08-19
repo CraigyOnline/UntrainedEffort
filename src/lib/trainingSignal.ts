@@ -4,6 +4,8 @@ import {
   formatPRValue,
   formatPRDelta,
   formatMetricValue,
+  getTrendConfidence,
+  trendConfidenceLabel,
   type ExerciseStatus,
   type MetricKind,
 } from "@/lib/exerciseProgress";
@@ -27,6 +29,7 @@ export interface CurrentFocus {
   metricKind: MetricKind;
   distanceUnit?: DistanceUnit;
   lastTrainedAt: number;
+  sampleSize: number;
 }
 
 const DAY_MS = 86400000;
@@ -98,12 +101,18 @@ function selectImprovementSignal(currentFocus: CurrentFocus | null): TrainingSig
   if (!currentFocus || currentFocus.status !== "improving") return null;
   if (Date.now() - currentFocus.lastTrainedAt > IMPROVEMENT_WINDOW_DAYS * DAY_MS) return null;
 
+  const valueText =
+    currentFocus.best != null
+      ? formatMetricValue(currentFocus.metricKind, currentFocus.best, currentFocus.distanceUnit)
+      : null;
+  const confidence = getTrendConfidence(currentFocus.sampleSize);
+  const confidenceText = confidence
+    ? `${trendConfidenceLabel(confidence.confidence)} · based on your last ${confidence.sessionsUsed} sessions`
+    : null;
+
   return {
     headline: `${currentFocus.name} ↑ Moving well`,
-    detail:
-      currentFocus.best != null
-        ? formatMetricValue(currentFocus.metricKind, currentFocus.best, currentFocus.distanceUnit)
-        : null,
+    detail: [valueText, confidenceText].filter(Boolean).join(" · ") || null,
   };
 }
 

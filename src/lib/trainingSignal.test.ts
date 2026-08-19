@@ -44,6 +44,7 @@ function makeFocus(overrides: Partial<CurrentFocus> = {}): CurrentFocus {
     best: 42.5,
     metricKind: "weight",
     lastTrainedAt: Date.now(),
+    sampleSize: 5,
     ...overrides,
   };
 }
@@ -86,6 +87,16 @@ describe("selectTrainingSignal", () => {
 
     const signal = selectTrainingSignal([], [], focus);
     expect(signal).toBeNull();
+  });
+
+  it("the improvement signal includes a confidence caption, matching the volume-trend signal's format", () => {
+    const now = 10_000 * DAY_MS;
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    const focus = makeFocus({ status: "improving", lastTrainedAt: now, sampleSize: 5 });
+
+    const signal = selectTrainingSignal([], [], focus);
+    expect(signal?.detail).toContain("Well-established");
+    expect(signal?.detail).toContain("42.5");
   });
 
   it("3+ sessions this week is a consistency signal when nothing higher-priority fires", () => {

@@ -11,7 +11,7 @@ const tabs = [
 export function HistoryTabs() {
   const { pathname } = useLocation();
   return (
-    <div className="flex gap-1 rounded-full bg-secondary/60 p-1 mx-4 mt-6">
+    <div className="flex gap-1 rounded-full bg-secondary/60 p-1 mx-4 mt-4">
       {tabs.map(({ to, label }) => {
         const active = pathname.startsWith(to);
         return (

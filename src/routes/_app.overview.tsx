@@ -19,6 +19,7 @@ import {
 import { selectHomeGreeting } from "@/lib/homeGreetings";
 import { selectTrainingSignal } from "@/lib/trainingSignal";
 import { formatTimeTrained } from "@/features/history/duration";
+import { PageHeader } from "@/components/PageHeader";
 import { WeekActivityStrip } from "@/components/WeekActivityStrip";
 import { WorkoutSummary } from "@/components/WorkoutSummary";
 import { Totals } from "@/features/history/Totals";
@@ -121,14 +122,12 @@ function OverviewPage() {
 
   return (
     <div className="flex flex-col gap-6 px-4 pt-6 pb-8">
-      {/* HERO + WEEKLY STRIP */}
-      <header className="flex flex-col gap-3">
-        <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          Overview
-        </p>
-        {greeting && <p className="text-lg font-semibold leading-snug">{greeting.headline}</p>}
+      <div className="flex flex-col gap-3">
+        <PageHeader eyebrow="Overview">
+          {greeting && <p className="text-lg font-semibold leading-snug">{greeting.headline}</p>}
+        </PageHeader>
         {hasWorkouts && !isReturningAfterGap && <WeekActivityStrip trainedDays={trainedDays} />}
-      </header>
+      </div>
 
       {!hasWorkouts && workouts !== undefined && (
         <button

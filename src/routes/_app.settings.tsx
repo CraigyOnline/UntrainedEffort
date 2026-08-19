@@ -29,12 +29,12 @@ import {
   Upload,
   Info,
   FileText,
-  Settings as SettingsIcon,
   Database,
   Wrench,
   MonitorSmartphone,
   ChevronRight,
 } from "lucide-react";
+import { PageHeader } from "@/components/PageHeader";
 import { getKeepAwakeDefault, setKeepAwakeDefault } from "@/lib/keepAwake";
 import { getHapticsEnabled, setHapticsEnabled } from "@/lib/haptics";
 import { getBodyType, setBodyType, type BodyType } from "@/lib/bodyType";
@@ -319,15 +319,9 @@ function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6 px-4 pt-6 pb-8">
-      <header className="flex items-center gap-4">
-        <div className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary">
-          <SettingsIcon className="h-6 w-6" />
-        </div>
-        <div className="min-w-0">
-          <h1 className="truncate text-xl font-bold tracking-tight">Settings</h1>
-          <p className="text-xs text-muted-foreground">App management & data ownership</p>
-        </div>
-      </header>
+      <PageHeader eyebrow="Settings">
+        <p className="text-lg font-semibold leading-snug">App management &amp; data ownership</p>
+      </PageHeader>
 
       {/* Workout */}
       <section className="rounded-2xl border border-border/50 bg-card p-5">

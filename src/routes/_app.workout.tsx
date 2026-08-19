@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, useBlocker } from "@tanstack/react-router
 import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
+import { PageHeader } from "@/components/PageHeader";
 import {
   getDb,
   type Routine,
@@ -813,10 +814,9 @@ function WorkoutPage() {
 
   return (
     <div className="flex flex-col gap-5 px-4 pt-6 pb-8">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">Workout</h1>
-        <p className="text-sm text-muted-foreground">How do you want to train today?</p>
-      </header>
+      <PageHeader eyebrow="Workout">
+        <p className="text-lg font-semibold leading-snug">How do you want to train today?</p>
+      </PageHeader>
 
       <button
         onClick={() => setQuickWorkoutTypePickerOpen(true)}
