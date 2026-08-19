@@ -2,12 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo } from "react";
 import { getDb, type Workout, type WorkoutSet, type PRRecord } from "@/lib/db";
-import {
-  getExercise,
-  getExerciseLoggingSchema,
-  type MuscleGroup,
-  type DistanceUnit,
-} from "@/lib/exercises";
+import { getExercise, getExerciseLoggingSchema, type DistanceUnit } from "@/lib/exercises";
 import {
   computeWorkoutDisplayStats,
   formatCardioActivity,
@@ -24,7 +19,6 @@ import {
 import { selectHomeGreeting } from "@/lib/homeGreetings";
 import { selectTrainingSignal } from "@/lib/trainingSignal";
 import { formatTimeTrained } from "@/features/history/duration";
-import { MuscleMap } from "@/components/MuscleMap";
 import { WeekActivityStrip } from "@/components/WeekActivityStrip";
 import { WorkoutSummary } from "@/components/WorkoutSummary";
 import { Totals } from "@/features/history/Totals";
@@ -75,14 +69,6 @@ function OverviewPage() {
     !!lastWorkout && Date.now() - lastWorkout.startedAt > GAP_THRESHOLD_DAYS * 86400000;
 
   const trainedDays = useMemo(() => computeTrainedDaySet(workouts ?? []), [workouts]);
-
-  // Fixed trailing 30-day window — compact teaser, no user-facing range
-  // picker (that belongs to the full interactive map, see the flagged gap
-  // below). Matches the old default range this page used to open on.
-  const intensity = useMemo(() => {
-    const since = Date.now() - 30 * 86400000;
-    return computeMuscleIntensity((workouts ?? []).filter((w) => w.startedAt >= since));
-  }, [workouts]);
 
   const stats = useMemo(() => computeCardioStats(workouts ?? []), [workouts]);
 
@@ -137,6 +123,9 @@ function OverviewPage() {
     <div className="flex flex-col gap-6 px-4 pt-6 pb-8">
       {/* HERO + WEEKLY STRIP */}
       <header className="flex flex-col gap-3">
+        <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          Overview
+        </p>
         {greeting && <p className="text-lg font-semibold leading-snug">{greeting.headline}</p>}
         {hasWorkouts && !isReturningAfterGap && <WeekActivityStrip trainedDays={trainedDays} />}
       </header>
@@ -164,6 +153,7 @@ function OverviewPage() {
               durationSec={lastWorkout.durationSec}
               exercises={lastWorkout.exercises}
               showName
+              mapHeight={110}
             />
           </div>
         </section>
@@ -197,38 +187,6 @@ function OverviewPage() {
             Training at a glance
           </p>
           <Totals workouts={workouts ?? []} />
-        </section>
-      )}
-
-      {hasWorkouts && isEstablished && (
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-              Muscle activity
-            </p>
-            <button
-              onClick={() => navigate({ to: "/history/insights" })}
-              className="text-xs font-medium text-primary active:opacity-70"
-            >
-              View muscle activity →
-            </button>
-          </div>
-          <div className="rounded-2xl bg-card p-4">
-            <MuscleMap intensity={intensity} className="mx-auto h-32 w-auto" />
-            <div className="mt-3 flex flex-col gap-2">
-              {topMuscles(intensity).map(({ muscle, value }) => (
-                <div key={muscle} className="flex items-center gap-3 text-xs">
-                  <span className="w-20 shrink-0 text-muted-foreground">{muscle}</span>
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${Math.round(value * 100)}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </section>
       )}
 
@@ -287,16 +245,6 @@ function OverviewPage() {
   );
 }
 
-/** Top 3 muscles by intensity, Cardio excluded — same convention as the
- *  old Training Balance Snapshot's `entries` filter. */
-function topMuscles(intensity: Partial<Record<MuscleGroup, number>>) {
-  return (Object.entries(intensity) as [MuscleGroup, number][])
-    .filter(([m]) => m !== "Cardio")
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([muscle, value]) => ({ muscle, value }));
-}
-
 function StatusArrow({ status }: { status: ExerciseStatus }) {
   const { icon, tone } = EXERCISE_STATUS_COPY[status];
   return <span className={`shrink-0 text-sm font-medium ${tone}`}>{icon}</span>;
@@ -353,29 +301,6 @@ function computeCardioStats(workouts: Workout[]) {
       ),
     },
   };
-}
-
-function computeMuscleIntensity(workouts: Workout[]) {
-  const totals: Partial<Record<MuscleGroup, number>> = {};
-
-  for (const w of workouts) {
-    for (const e of w.exercises) {
-      const def = getExercise(e.exerciseId);
-      if (!def) continue;
-      const completed = e.sets.filter((s) => s.completed).length;
-      totals[def.muscle] = (totals[def.muscle] ?? 0) + completed;
-      for (const sec of def.secondary ?? []) {
-        totals[sec] = (totals[sec] ?? 0) + completed * 0.5;
-      }
-    }
-  }
-
-  const max = Math.max(1, ...Object.values(totals));
-  const normalized: Partial<Record<MuscleGroup, number>> = {};
-  for (const k of Object.keys(totals) as MuscleGroup[]) {
-    normalized[k] = (totals[k] ?? 0) / max;
-  }
-  return normalized;
 }
 
 /** Distinct exercise ids appearing in completed sets, most-recently-first. */

@@ -136,6 +136,13 @@ interface Props {
   exercises: Workout["exercises"];
   showName?: boolean;
   revealed?: boolean;
+  /** Overrides the muscle map / cardio signature visual's height. Omitted
+   *  (Workout Complete, History detail) keeps the existing full-size
+   *  default — those contexts are the showcase moment for this workout.
+   *  Overview's Last Workout card passes a smaller value so it reads as
+   *  a supporting visual next to a dedicated Muscle Activity section,
+   *  not a second copy of it. */
+  mapHeight?: number | string;
 }
 
 export function CardioPerformanceCard({ exercises }: { exercises: Workout["exercises"] }) {
@@ -221,7 +228,14 @@ export function IntervalPerformanceCard({ exercises }: { exercises: Workout["exe
   );
 }
 
-export function WorkoutSummary({ name, durationSec, exercises, showName, revealed }: Props) {
+export function WorkoutSummary({
+  name,
+  durationSec,
+  exercises,
+  showName,
+  revealed,
+  mapHeight,
+}: Props) {
   const stats = computeWorkoutDisplayStats(exercises);
   const dominant = computeDominantSignature(stats);
 
@@ -230,9 +244,14 @@ export function WorkoutSummary({ name, durationSec, exercises, showName, reveale
       {showName && name && <h2 className="text-lg font-bold">{name}</h2>}
       <WorkoutStatsRow durationSec={durationSec} exercises={exercises} revealed={revealed} />
       {dominant === "strength" ? (
-        <ExpandableMuscleMap intensity={computeIntensity(exercises)} />
+        <ExpandableMuscleMap intensity={computeIntensity(exercises)} height={mapHeight} />
       ) : (
-        <CardioSignature pattern={resolveCardioPattern(stats)} className="mx-auto" />
+        <CardioSignature
+          pattern={resolveCardioPattern(stats)}
+          compact={mapHeight != null}
+          height={typeof mapHeight === "number" ? mapHeight : undefined}
+          className="mx-auto"
+        />
       )}
     </div>
   );

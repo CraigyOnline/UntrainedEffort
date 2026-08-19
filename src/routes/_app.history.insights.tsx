@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Dumbbell } from "lucide-react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getDb, type Workout, type PRRecord } from "@/lib/db";
+import { getExercise, MUSCLE_GROUPS, type MuscleGroup } from "@/lib/exercises";
 import {
   computeVolumeByPeriod,
   computeVolumeTrend,
@@ -11,12 +12,20 @@ import {
   type VolumePeriodGranularity,
 } from "@/lib/workoutStats";
 import { trendConfidenceLabel, type Trend } from "@/lib/exerciseProgress";
+import {
+  computeMuscleActivityByPeriod,
+  computeMuscleRecovery,
+  MUSCLE_RECOVERY_COPY,
+} from "@/lib/muscles";
+import { formatRelativeDate } from "@/lib/format";
+import { useDismissOnBack } from "@/lib/backHandler";
 import { TrainingConsistencyHeatmap } from "@/features/history/TrainingConsistencyHeatmap";
 import { Totals } from "@/features/history/Totals";
 import { MonthlySummaries } from "@/features/history/MonthlySummaries";
 import { Milestones } from "@/features/history/Milestones";
 import { CardioSummary } from "@/features/history/CardioSummary";
 import { EmptyState } from "@/components/EmptyState";
+import { MuscleMap } from "@/components/MuscleMap";
 
 export const Route = createFileRoute("/_app/history/insights")({
   head: () => ({
@@ -25,10 +34,26 @@ export const Route = createFileRoute("/_app/history/insights")({
   component: InsightsPage,
 });
 
-// Section header style shared across Training/Strength/Cardio/Milestones
-// below — bare text, no card, matching the "no-surface for section
-// labels" tier introduced by the Overview redesign work (kept consistent
-// here even though this commit doesn't otherwise restyle these components).
+type InsightsSection = "training" | "strength" | "cardio" | "milestones";
+
+const SECTIONS: { id: InsightsSection; label: string }[] = [
+  { id: "training", label: "Training" },
+  { id: "strength", label: "Strength" },
+  { id: "cardio", label: "Cardio" },
+  { id: "milestones", label: "Milestones" },
+];
+
+type HeatmapRange = 7 | 30 | 90 | null;
+
+const HEATMAP_RANGES: { label: string; value: HeatmapRange }[] = [
+  { label: "7D", value: 7 },
+  { label: "30D", value: 30 },
+  { label: "90D", value: 90 },
+  { label: "All", value: null },
+];
+
+// Section header style — bare text, no card, matching the "no-surface for
+// section labels" tier from the Overview redesign work.
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
     <p className="mt-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
@@ -37,7 +62,6 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
-/** Moved verbatim from the old Overview page's Volume trend card. */
 function TrendLine({
   trend,
   upLabel,
@@ -69,19 +93,16 @@ function InsightsPage() {
     [],
   ) as Workout[] | undefined;
 
-  // Single query for all PR records — reused by Milestones for the
-  // lifetime PR count, same query the Workout Timeline route runs
-  // independently for its per-workout PR badges.
   const allPRs = useLiveQuery(
     () =>
       typeof window === "undefined" ? Promise.resolve<PRRecord[]>([]) : getDb().prHistory.toArray(),
     [],
   ) as PRRecord[] | undefined;
 
+  const [section, setSection] = useState<InsightsSection>("training");
+
   const [volumeGranularity, setVolumeGranularity] = useState<VolumePeriodGranularity>("week");
-
   const volumeTrend = useMemo(() => computeVolumeTrend(workouts ?? []), [workouts]);
-
   const volumeSeries = useMemo(
     () =>
       computeVolumeByPeriod(
@@ -92,17 +113,94 @@ function InsightsPage() {
     [workouts, volumeGranularity],
   );
 
+  // Full interactive muscle exploration — relocated here from the old
+  // Overview page (before the redesign compacted Overview's own muscle
+  // section down to a per-workout thumbnail). This is the deep-dive
+  // counterpart to that quick glance, not a duplicate of it.
+  const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
+  const [drilldownMuscle, setDrilldownMuscle] = useState<MuscleGroup | null>(null);
+  const [drilldownGranularity, setDrilldownGranularity] = useState<VolumePeriodGranularity>("week");
+  const [heatmapRange, setHeatmapRange] = useState<HeatmapRange>(30);
+
+  const heatmapWorkouts = useMemo(() => {
+    if (!workouts || heatmapRange === null) return workouts;
+    const since = Date.now() - heatmapRange * 86400000;
+    return workouts.filter((w) => w.startedAt >= since);
+  }, [workouts, heatmapRange]);
+
+  const intensity = useMemo(() => computeMuscleIntensity(heatmapWorkouts ?? []), [heatmapWorkouts]);
+  const recovery = useMemo(() => computeMuscleRecovery(workouts ?? []), [workouts]);
+
+  const balance = useMemo(() => {
+    if (!workouts) return { hasData: undefined, most: null, leastTrained: null, untrained: [] };
+
+    const entries = MUSCLE_GROUPS.filter((m) => m !== "Cardio").map((m) => ({
+      muscle: m,
+      value: intensity[m] ?? 0,
+    }));
+    const anyTrainingData = entries.some((e) => e.value > 0);
+    if (!anyTrainingData) {
+      return { hasData: false as const, most: null, leastTrained: null, untrained: [] };
+    }
+
+    const trained = entries.filter((e) => e.value > 0);
+    const sorted = [...entries].sort((a, b) => b.value - a.value);
+    const most = sorted[0];
+    const leastTrained = trained.reduce((min, cur) => (cur.value < min.value ? cur : min));
+    const untrained = entries.filter((e) => e.value === 0).map((e) => e.muscle);
+
+    return { hasData: true as const, most, leastTrained, untrained };
+  }, [intensity, workouts]);
+
+  const muscleContributions = useMemo(() => {
+    if (!drilldownMuscle) return [];
+    return computeMuscleContributions(heatmapWorkouts ?? [], drilldownMuscle, 5);
+  }, [drilldownMuscle, heatmapWorkouts]);
+
+  const muscleActivity = useMemo(() => {
+    if (!drilldownMuscle) return [];
+    return computeMuscleActivityByPeriod(
+      workouts ?? [],
+      drilldownMuscle,
+      drilldownGranularity,
+      drilldownGranularity === "week" ? 8 : 6,
+    );
+  }, [drilldownMuscle, drilldownGranularity, workouts]);
+
+  function closeDrilldown() {
+    setDrilldownMuscle(null);
+    setSelectedMuscle(null);
+  }
+
+  useDismissOnBack(!!drilldownMuscle, closeDrilldown);
+
   const hasWorkouts = !!workouts?.length;
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-4 pb-8">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center gap-2">
+        <div className="flex flex-1 gap-1 overflow-x-auto">
+          {SECTIONS.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setSection(s.id)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                section === s.id
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary/60 text-muted-foreground active:bg-secondary"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
         <button
           onClick={() => navigate({ to: "/exercises" })}
-          className="flex items-center gap-1.5 rounded-full bg-secondary/60 px-3 py-1.5 text-xs font-medium text-foreground/80 active:scale-[0.98]"
+          aria-label="Browse exercises"
+          className="flex shrink-0 items-center justify-center rounded-full bg-secondary/60 p-2 text-foreground/80 active:scale-[0.96]"
         >
-          <Dumbbell className="h-3.5 w-3.5" />
-          Exercises
+          <Dumbbell className="h-4 w-4" />
         </button>
       </div>
 
@@ -113,18 +211,18 @@ function InsightsPage() {
         />
       )}
 
-      {hasWorkouts && (
+      {hasWorkouts && section === "training" && (
         <>
-          <SectionLabel>Training</SectionLabel>
           <Totals workouts={workouts ?? []} />
+          <SectionLabel>Training Consistency</SectionLabel>
           <TrainingConsistencyHeatmap workouts={workouts ?? []} />
+          <SectionLabel>Monthly Summaries</SectionLabel>
           <MonthlySummaries workouts={workouts ?? []} />
+        </>
+      )}
 
-          {/* Strength — relocated verbatim from the old Overview page's
-              "Volume trend" card. Exercise progression and PRs are still
-              not here — flagged separately as a real gap, not yet
-              relocated anywhere. */}
-          <SectionLabel>Strength</SectionLabel>
+      {hasWorkouts && section === "strength" && (
+        <>
           <div className="rounded-2xl bg-card p-4">
             <p className="text-xs font-medium text-muted-foreground">
               Volume trend (last 4 weeks vs. prior 4)
@@ -203,13 +301,292 @@ function InsightsPage() {
             </div>
           </div>
 
-          <SectionLabel>Cardio</SectionLabel>
-          <CardioSummary workouts={workouts ?? []} />
+          <SectionLabel>Muscle Activity</SectionLabel>
+          <div className="rounded-2xl border border-border/50 bg-card p-5">
+            <p className="mb-4 text-xs text-muted-foreground">
+              Based on completed sets
+              {heatmapRange !== null ? ` in the last ${heatmapRange} days` : ""} • Tap to explore
+            </p>
 
-          <SectionLabel>Milestones</SectionLabel>
-          <Milestones workouts={workouts ?? []} totalPRs={allPRs?.length ?? 0} />
+            <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+              {HEATMAP_RANGES.map(({ label, value }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setHeatmapRange(value)}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                    heatmapRange === value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground active:bg-secondary/70"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div
+              className={`mb-5 rounded-xl p-3 ${selectedMuscle ? "bg-primary/10" : "bg-secondary/50"}`}
+            >
+              <MuscleMap intensity={intensity} activeMuscle={selectedMuscle} className="w-full" />
+            </div>
+
+            <div className="mb-5 rounded-xl border border-border/50 bg-secondary/10 p-4">
+              <h3 className="mb-2 text-sm font-semibold">Training Balance Snapshot</h3>
+              {balance.hasData === undefined ? null : !balance.hasData ? (
+                <p className="py-2 text-center text-xs text-muted-foreground">
+                  {heatmapRange !== null
+                    ? `No training data in the last ${heatmapRange} days.`
+                    : "No training data yet. Start a workout to see muscle insights."}
+                </p>
+              ) : (
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  {balance.most && (
+                    <p>
+                      Most trained:{" "}
+                      <span className="font-medium text-foreground">{balance.most.muscle}</span>
+                    </p>
+                  )}
+                  {balance.leastTrained && (
+                    <p>
+                      Least trained:{" "}
+                      <span className="font-medium text-foreground">
+                        {balance.leastTrained.muscle}
+                      </span>
+                    </p>
+                  )}
+                  {balance.untrained.length > 0 && (
+                    <p>
+                      Untrained:{" "}
+                      <span className="font-medium text-foreground">
+                        {balance.untrained.slice(0, 3).join(", ")}
+                        {balance.untrained.length > 3 ? "…" : ""}
+                      </span>
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              {MUSCLE_GROUPS.filter((m) => m !== "Cardio" && (intensity[m] ?? 0) > 0)
+                .sort((a, b) => (intensity[b] ?? 0) - (intensity[a] ?? 0))
+                .slice(0, 7)
+                .map((m) => {
+                  const value = Math.round((intensity[m] ?? 0) * 100);
+                  const isSelected = selectedMuscle === m;
+                  const dim = selectedMuscle && !isSelected;
+                  return (
+                    <div
+                      key={m}
+                      className={dim ? "opacity-30" : "opacity-100"}
+                      onClick={() => {
+                        setSelectedMuscle(m);
+                        setDrilldownMuscle(m);
+                      }}
+                    >
+                      <div className="mb-1 flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-2">
+                          <span className="text-muted-foreground">{m}</span>
+                          {recovery[m] && (
+                            <span className={MUSCLE_RECOVERY_COPY[recovery[m]!.status].tone}>
+                              {MUSCLE_RECOVERY_COPY[recovery[m]!.status].label} ·{" "}
+                              {formatRelativeDate(recovery[m]!.lastTrainedAt)}
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-semibold tabular-nums">{value}%</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-secondary">
+                        <div
+                          className="h-full bg-primary transition-all"
+                          style={{ width: `${value}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
         </>
+      )}
+
+      {hasWorkouts && section === "cardio" && <CardioSummary workouts={workouts ?? []} />}
+
+      {hasWorkouts && section === "milestones" && (
+        <Milestones workouts={workouts ?? []} totalPRs={allPRs?.length ?? 0} />
+      )}
+
+      {drilldownMuscle && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/40">
+          <div className="w-full rounded-t-2xl bg-card p-5">
+            <div className="mb-3 flex justify-between">
+              <h3 className="font-semibold">{drilldownMuscle}</h3>
+              <button onClick={closeDrilldown} className="text-sm text-muted-foreground">
+                Close
+              </button>
+            </div>
+
+            {muscleActivity.some((p) => p.score > 0) && (
+              <div className="mb-4">
+                <div className="flex gap-2">
+                  {(["week", "month"] as const).map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setDrilldownGranularity(g)}
+                      className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                        drilldownGranularity === g
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-muted-foreground active:bg-secondary/70"
+                      }`}
+                    >
+                      {g === "week" ? "Weekly" : "Monthly"}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-3 h-32 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={muscleActivity}
+                      margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
+                    >
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                        axisLine={{ stroke: "var(--border)" }}
+                        tickLine={false}
+                        interval={drilldownGranularity === "week" ? 1 : 0}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={28}
+                      />
+                      <Tooltip
+                        cursor={{ fill: "var(--muted)", radius: 4 }}
+                        formatter={(value: number) => [`${Math.round(value * 10) / 10}`, "Sets"]}
+                        contentStyle={{
+                          background: "var(--card)",
+                          border: "1px solid var(--border)",
+                          borderRadius: 8,
+                          fontSize: 12,
+                        }}
+                      />
+                      <Bar dataKey="score" fill="var(--primary)" radius={[3, 3, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {muscleContributions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No recent workouts have trained this muscle yet.
+              </p>
+            ) : (
+              <div className="mb-4 flex max-h-72 flex-col gap-3 overflow-y-auto">
+                {muscleContributions.map((c) => (
+                  <div
+                    key={c.workoutId}
+                    onClick={() =>
+                      navigate({ to: "/history/$id", params: { id: String(c.workoutId) } })
+                    }
+                    className="cursor-pointer rounded-xl bg-secondary/20 p-3 active:opacity-70"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        {formatRelativeDate(c.startedAt)}
+                      </p>
+                    </div>
+                    <p className="text-sm font-semibold">{c.workoutName}</p>
+                    <ul className="mt-1 text-xs text-muted-foreground">
+                      {c.exerciseNames.map((name, i) => (
+                        <li key={i}>• {name}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={closeDrilldown}
+              className="w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground"
+            >
+              Done
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
+}
+
+interface MuscleContribution {
+  workoutId: number;
+  workoutName: string;
+  startedAt: number;
+  exerciseNames: string[];
+}
+
+/** Recent workouts where any exercise's primary or secondary muscle
+ *  matches — same primary/secondary weighting computeMuscleIntensity uses,
+ *  just listing contributing workouts instead of a number. Moved verbatim
+ *  from the old Overview page. */
+function computeMuscleContributions(
+  workouts: Workout[],
+  muscle: MuscleGroup,
+  limit: number,
+): MuscleContribution[] {
+  const out: MuscleContribution[] = [];
+  for (const w of workouts) {
+    const names: string[] = [];
+    for (const ex of w.exercises) {
+      if (!ex.sets.some((s) => s.completed)) continue;
+      const def = getExercise(ex.exerciseId);
+      if (!def) continue;
+      if (def.muscle === muscle || def.secondary?.includes(muscle)) {
+        names.push(def.name);
+      }
+    }
+    if (names.length > 0 && w.id != null) {
+      out.push({
+        workoutId: w.id,
+        workoutName: w.name,
+        startedAt: w.startedAt,
+        exerciseNames: names,
+      });
+    }
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/** Moved verbatim from the old Overview page. Weights completed sets by
+ *  primary (1.0) / secondary (0.5) muscle involvement, normalized against
+ *  the highest-scoring muscle in the given window. */
+function computeMuscleIntensity(workouts: Workout[]): Partial<Record<MuscleGroup, number>> {
+  const totals: Partial<Record<MuscleGroup, number>> = {};
+
+  for (const w of workouts) {
+    for (const e of w.exercises) {
+      const def = getExercise(e.exerciseId);
+      if (!def) continue;
+      const completed = e.sets.filter((s) => s.completed).length;
+      totals[def.muscle] = (totals[def.muscle] ?? 0) + completed;
+      for (const sec of def.secondary ?? []) {
+        totals[sec] = (totals[sec] ?? 0) + completed * 0.5;
+      }
+    }
+  }
+
+  const max = Math.max(1, ...Object.values(totals));
+  const normalized: Partial<Record<MuscleGroup, number>> = {};
+  for (const k of Object.keys(totals) as MuscleGroup[]) {
+    normalized[k] = (totals[k] ?? 0) / max;
+  }
+  return normalized;
 }
