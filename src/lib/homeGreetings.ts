@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db";
+import { getCalendarWeekStart } from "@/lib/format";
 
 /**
  * The home screen's opening greeting — the counterpart to
@@ -14,6 +15,14 @@ import { getDb } from "@/lib/db";
  * purpose — pickIndex/DAY_MS/WEEK_MS below are small enough that
  * duplicating them here outweighs the risk of touching the completion
  * system for a marginal de-duplication win.
+ *
+ * One deliberate exception: getCalendarWeekStart (from @/lib/format) IS
+ * imported below, for the momentum ("3+ workouts this week") check
+ * specifically — not as a general policy change, but because Overview's
+ * mini heatmap and Training Signal's consistency candidate both claim
+ * "this week" using that exact Monday-start definition, and this file's
+ * own copy would otherwise silently disagree with what's visually on
+ * screen right next to it. See the redesign review's point 5.
  *
  * Selection is randomized on every call, not tied to the day or any
  * other deterministic key — that was the previous design (day-of-year
@@ -244,7 +253,7 @@ export async function selectHomeGreeting(): Promise<HomeGreeting> {
     return { headline: pickVaried(STREAK_MESSAGES), kind: "streak" };
   }
 
-  const workoutsThisWeek = recent.filter((w) => now - w.startedAt < WEEK_MS).length;
+  const workoutsThisWeek = recent.filter((w) => w.startedAt >= getCalendarWeekStart(now)).length;
   if (workoutsThisWeek >= 3) {
     return { headline: pickVaried(MOMENTUM_MESSAGES), kind: "momentum" };
   }

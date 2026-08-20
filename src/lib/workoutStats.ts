@@ -502,3 +502,47 @@ export function volumeTrendConfidence(recentCount: number, priorCount: number): 
     ? "established"
     : "early";
 }
+
+/** Session count + total volume for an arbitrary set of workouts — the
+ *  shared arithmetic behind both Overview's bare Totals snapshot and
+ *  Insights' period-toggled Totals. Callers decide the period by
+ *  filtering `workouts` before calling this. */
+export function computeSessionsAndVolume(workouts: Workout[]): {
+  sessions: number;
+  volume: number;
+} {
+  return {
+    sessions: workouts.length,
+    volume: workouts.reduce((acc, w) => acc + computeWorkoutStats(w.exercises).totalVolume, 0),
+  };
+}
+
+function inCalendarMonth(w: Workout, year: number, month: number): boolean {
+  const d = new Date(w.startedAt);
+  return d.getFullYear() === year && d.getMonth() === month;
+}
+
+/** This calendar month vs the previous one, as sessions+volume pairs.
+ *  Shared by Insights' Totals (period="month" caption) and its Training
+ *  tab's promoted month-over-month comparison — both need the exact same
+ *  "which workouts count as this month" filtering. */
+export function computeMonthOverMonth(
+  workouts: Workout[],
+  now: number = Date.now(),
+): {
+  thisMonth: { sessions: number; volume: number };
+  lastMonth: { sessions: number; volume: number };
+} {
+  const nowDate = new Date(now);
+  const thisMonthWorkouts = workouts.filter((w) =>
+    inCalendarMonth(w, nowDate.getFullYear(), nowDate.getMonth()),
+  );
+  const prevDate = new Date(nowDate.getFullYear(), nowDate.getMonth() - 1, 1);
+  const lastMonthWorkouts = workouts.filter((w) =>
+    inCalendarMonth(w, prevDate.getFullYear(), prevDate.getMonth()),
+  );
+  return {
+    thisMonth: computeSessionsAndVolume(thisMonthWorkouts),
+    lastMonth: computeSessionsAndVolume(lastMonthWorkouts),
+  };
+}

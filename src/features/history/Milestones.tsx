@@ -28,8 +28,6 @@ export function Milestones({ workouts, totalPRs }: MilestonesProps) {
 
   return (
     <section>
-      <h2 className="mb-3 text-base font-semibold">Milestones</h2>
-
       <div className="grid grid-cols-3 gap-3">
         <SummaryStat
           icon={<Flame className="h-4 w-4" />}

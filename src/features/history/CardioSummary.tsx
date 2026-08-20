@@ -35,7 +35,6 @@ export function CardioSummary({ workouts }: CardioSummaryProps) {
   return (
     <section>
       <div className="mb-3">
-        <h2 className="text-base font-semibold">Cardio</h2>
         <p className="text-xs text-muted-foreground">Your cardio counts too.</p>
       </div>
 

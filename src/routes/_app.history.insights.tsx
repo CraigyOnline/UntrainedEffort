@@ -9,10 +9,21 @@ import {
   computeVolumeByPeriod,
   computeVolumeTrend,
   volumeTrendConfidence,
+  computeMonthOverMonth,
   type VolumePeriodGranularity,
 } from "@/lib/workoutStats";
-import { trendConfidenceLabel, type Trend } from "@/lib/exerciseProgress";
 import {
+  trendConfidenceLabel,
+  getTrendConfidence,
+  getRecentlyTrainedExercises,
+  computeExerciseStatus,
+  formatMetricValue,
+  EXERCISE_STATUS_COPY,
+  type Trend,
+  type ExerciseStatus,
+} from "@/lib/exerciseProgress";
+import {
+  computeAggregateMuscleIntensity,
   computeMuscleActivityByPeriod,
   computeMuscleRecovery,
   MUSCLE_RECOVERY_COPY,
@@ -34,13 +45,13 @@ export const Route = createFileRoute("/_app/history/insights")({
   component: InsightsPage,
 });
 
-type InsightsSection = "training" | "strength" | "cardio" | "milestones";
+type InsightsSection = "training" | "strength" | "cardio" | "achievements";
 
-const SECTIONS: { id: InsightsSection; label: string }[] = [
-  { id: "training", label: "Training" },
-  { id: "strength", label: "Strength" },
-  { id: "cardio", label: "Cardio" },
-  { id: "milestones", label: "Milestones" },
+const SECTIONS: { id: InsightsSection; label: string; question: string }[] = [
+  { id: "training", label: "Training", question: "How consistently are you training?" },
+  { id: "strength", label: "Strength", question: "Are you getting stronger?" },
+  { id: "cardio", label: "Cardio", question: "How's your cardio developing?" },
+  { id: "achievements", label: "Achievements", question: "What have you accomplished?" },
 ];
 
 type HeatmapRange = 7 | 30 | 90 | null;
@@ -51,6 +62,11 @@ const HEATMAP_RANGES: { label: string; value: HeatmapRange }[] = [
   { label: "90D", value: 90 },
   { label: "All", value: null },
 ];
+
+/** How many recently-trained exercises Exercise Progression shows —
+ *  wider than Overview's Recent Progress (3), since this is the deep-dive
+ *  destination, not the quick glance. See the redesign review's point 8. */
+const EXERCISE_PROGRESSION_COUNT = 10;
 
 // Section header style — bare text, no card, matching the "no-surface for
 // section labels" tier from the Overview redesign work.
@@ -82,6 +98,49 @@ function TrendLine({
   return <p className="mt-1 text-base font-bold text-muted-foreground">→ {flatLabel}</p>;
 }
 
+function StatusArrow({ status }: { status: ExerciseStatus }) {
+  const { icon, tone } = EXERCISE_STATUS_COPY[status];
+  return <span className={`shrink-0 text-sm font-medium ${tone}`}>{icon}</span>;
+}
+
+/**
+ * This month vs last month, promoted above the full monthly list per
+ * point 11 — the list itself is real, useful data, but a scrolling
+ * database of past months isn't an *insight* on its own. Shares
+ * computeMonthOverMonth with Totals' own "Month" toggle position.
+ */
+function MonthComparison({ workouts }: { workouts: Workout[] }) {
+  const { thisMonth, lastMonth } = useMemo(() => computeMonthOverMonth(workouts), [workouts]);
+
+  const sessionsDelta = thisMonth.sessions - lastMonth.sessions;
+  const sessionsCaption =
+    lastMonth.sessions === 0
+      ? null
+      : sessionsDelta === 0
+        ? "same as last month"
+        : `${sessionsDelta > 0 ? "+" : ""}${sessionsDelta} vs last month`;
+
+  const volumePct =
+    lastMonth.volume > 0
+      ? Math.round(((thisMonth.volume - lastMonth.volume) / lastMonth.volume) * 100)
+      : null;
+  const volumeCaption =
+    volumePct === null ? null : `${volumePct > 0 ? "+" : ""}${volumePct}% vs last month`;
+
+  return (
+    <div className="rounded-2xl bg-card p-4">
+      <div className="flex items-start justify-between gap-4">
+        <p className="text-2xl font-bold">{thisMonth.sessions.toLocaleString()} workouts</p>
+        <p className="text-2xl font-bold">{Math.round(thisMonth.volume).toLocaleString()} kg</p>
+      </div>
+      <div className="mt-1 flex items-start justify-between gap-4">
+        <p className="text-xs text-muted-foreground">{sessionsCaption}</p>
+        <p className="text-xs text-muted-foreground">{volumeCaption}</p>
+      </div>
+    </div>
+  );
+}
+
 function InsightsPage() {
   const navigate = useNavigate();
 
@@ -100,6 +159,7 @@ function InsightsPage() {
   ) as PRRecord[] | undefined;
 
   const [section, setSection] = useState<InsightsSection>("training");
+  const [monthsExpanded, setMonthsExpanded] = useState(false);
 
   const [volumeGranularity, setVolumeGranularity] = useState<VolumePeriodGranularity>("week");
   const volumeTrend = useMemo(() => computeVolumeTrend(workouts ?? []), [workouts]);
@@ -113,10 +173,25 @@ function InsightsPage() {
     [workouts, volumeGranularity],
   );
 
-  // Full interactive muscle exploration — relocated here from the old
-  // Overview page (before the redesign compacted Overview's own muscle
-  // section down to a per-workout thumbnail). This is the deep-dive
-  // counterpart to that quick glance, not a duplicate of it.
+  // Exercise Progression — every recently-trained exercise with enough
+  // evidence to say something, not just the 3 Overview shows.
+  const exerciseProgression = useMemo(() => {
+    const ids = getRecentlyTrainedExercises(workouts ?? [], EXERCISE_PROGRESSION_COUNT);
+    return ids
+      .map((exerciseId) => {
+        const def = getExercise(exerciseId);
+        const result = computeExerciseStatus(workouts ?? [], exerciseId);
+        const [current, previous] = result.values;
+        const evidence =
+          current != null && previous != null
+            ? `${formatMetricValue(result.metricKind, previous, result.distanceUnit)} → ${formatMetricValue(result.metricKind, current, result.distanceUnit)}`
+            : null;
+        return { exerciseId, name: def?.name ?? exerciseId, ...result, evidence };
+      })
+      .filter((ex) => getTrendConfidence(ex.sampleSize) !== null);
+  }, [workouts]);
+
+  // Full interactive muscle exploration.
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | null>(null);
   const [drilldownMuscle, setDrilldownMuscle] = useState<MuscleGroup | null>(null);
   const [drilldownGranularity, setDrilldownGranularity] = useState<VolumePeriodGranularity>("week");
@@ -128,7 +203,10 @@ function InsightsPage() {
     return workouts.filter((w) => w.startedAt >= since);
   }, [workouts, heatmapRange]);
 
-  const intensity = useMemo(() => computeMuscleIntensity(heatmapWorkouts ?? []), [heatmapWorkouts]);
+  const intensity = useMemo(
+    () => computeAggregateMuscleIntensity(heatmapWorkouts ?? []),
+    [heatmapWorkouts],
+  );
   const recovery = useMemo(() => computeMuscleRecovery(workouts ?? []), [workouts]);
 
   const balance = useMemo(() => {
@@ -175,6 +253,7 @@ function InsightsPage() {
   useDismissOnBack(!!drilldownMuscle, closeDrilldown);
 
   const hasWorkouts = !!workouts?.length;
+  const activeSection = SECTIONS.find((s) => s.id === section)!;
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-4 pb-8">
@@ -204,6 +283,8 @@ function InsightsPage() {
         </button>
       </div>
 
+      {hasWorkouts && <p className="text-xs text-muted-foreground">{activeSection.question}</p>}
+
       {!hasWorkouts && (
         <EmptyState
           message="No workouts yet."
@@ -214,10 +295,22 @@ function InsightsPage() {
       {hasWorkouts && section === "training" && (
         <>
           <Totals workouts={workouts ?? []} />
-          <SectionLabel>Training Consistency</SectionLabel>
+
+          <SectionLabel>Consistency</SectionLabel>
           <TrainingConsistencyHeatmap workouts={workouts ?? []} />
-          <SectionLabel>Monthly Summaries</SectionLabel>
-          <MonthlySummaries workouts={workouts ?? []} />
+
+          <SectionLabel>This month</SectionLabel>
+          <MonthComparison workouts={workouts ?? []} />
+          {!monthsExpanded ? (
+            <button
+              onClick={() => setMonthsExpanded(true)}
+              className="text-left text-xs font-medium text-primary active:opacity-70"
+            >
+              View all months →
+            </button>
+          ) : (
+            <MonthlySummaries workouts={workouts ?? []} />
+          )}
         </>
       )}
 
@@ -408,12 +501,38 @@ function InsightsPage() {
                 })}
             </div>
           </div>
+
+          <SectionLabel>Exercise Progression</SectionLabel>
+          {exerciseProgression.length === 0 ? (
+            <p className="text-xs text-muted-foreground/70">
+              Keep training — progression shows up here once an exercise has a couple of sessions
+              logged.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {exerciseProgression.map((ex) => (
+                <div
+                  key={ex.exerciseId}
+                  onClick={() => navigate({ to: "/exercise/$id", params: { id: ex.exerciseId } })}
+                  className="flex cursor-pointer items-center justify-between gap-3 active:opacity-70"
+                >
+                  <span className="truncate text-sm">{ex.name}</span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {ex.evidence && (
+                      <span className="text-xs text-muted-foreground">{ex.evidence}</span>
+                    )}
+                    <StatusArrow status={ex.status} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
 
       {hasWorkouts && section === "cardio" && <CardioSummary workouts={workouts ?? []} />}
 
-      {hasWorkouts && section === "milestones" && (
+      {hasWorkouts && section === "achievements" && (
         <Milestones workouts={workouts ?? []} totalPRs={allPRs?.length ?? 0} />
       )}
 
@@ -533,9 +652,8 @@ interface MuscleContribution {
 }
 
 /** Recent workouts where any exercise's primary or secondary muscle
- *  matches — same primary/secondary weighting computeMuscleIntensity uses,
- *  just listing contributing workouts instead of a number. Moved verbatim
- *  from the old Overview page. */
+ *  matches — same primary/secondary weighting computeAggregateMuscleIntensity
+ *  uses, just listing contributing workouts instead of a number. */
 function computeMuscleContributions(
   workouts: Workout[],
   muscle: MuscleGroup,
@@ -563,30 +681,4 @@ function computeMuscleContributions(
     if (out.length >= limit) break;
   }
   return out;
-}
-
-/** Moved verbatim from the old Overview page. Weights completed sets by
- *  primary (1.0) / secondary (0.5) muscle involvement, normalized against
- *  the highest-scoring muscle in the given window. */
-function computeMuscleIntensity(workouts: Workout[]): Partial<Record<MuscleGroup, number>> {
-  const totals: Partial<Record<MuscleGroup, number>> = {};
-
-  for (const w of workouts) {
-    for (const e of w.exercises) {
-      const def = getExercise(e.exerciseId);
-      if (!def) continue;
-      const completed = e.sets.filter((s) => s.completed).length;
-      totals[def.muscle] = (totals[def.muscle] ?? 0) + completed;
-      for (const sec of def.secondary ?? []) {
-        totals[sec] = (totals[sec] ?? 0) + completed * 0.5;
-      }
-    }
-  }
-
-  const max = Math.max(1, ...Object.values(totals));
-  const normalized: Partial<Record<MuscleGroup, number>> = {};
-  for (const k of Object.keys(totals) as MuscleGroup[]) {
-    normalized[k] = (totals[k] ?? 0) / max;
-  }
-  return normalized;
 }

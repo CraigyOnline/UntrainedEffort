@@ -1,28 +1,30 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo } from "react";
-import { getDb, type Workout, type WorkoutSet, type PRRecord } from "@/lib/db";
-import { getExercise, getExerciseLoggingSchema, type DistanceUnit } from "@/lib/exercises";
+import { getDb, type Workout, type PRRecord } from "@/lib/db";
+import { getExercise, type MuscleGroup } from "@/lib/exercises";
 import {
   computeWorkoutDisplayStats,
   formatCardioActivity,
   type CardioActivityStats,
 } from "@/lib/workoutStats";
 import {
-  getPrimaryMetric,
-  getPrimaryMetricKind,
-  computeExerciseStatusFromValues,
+  computeExerciseStatus,
+  getRecentlyTrainedExercises,
+  getTrendConfidence,
+  formatMetricValue,
   EXERCISE_STATUS_COPY,
-  type MetricKind,
   type ExerciseStatus,
 } from "@/lib/exerciseProgress";
+import { computeAggregateMuscleIntensity } from "@/lib/muscles";
 import { selectHomeGreeting } from "@/lib/homeGreetings";
 import { selectTrainingSignal } from "@/lib/trainingSignal";
 import { formatTimeTrained } from "@/features/history/duration";
 import { PageHeader } from "@/components/PageHeader";
-import { WeekActivityStrip } from "@/components/WeekActivityStrip";
-import { WorkoutSummary } from "@/components/WorkoutSummary";
-import { Totals } from "@/features/history/Totals";
+import { MiniConsistencyHeatmap } from "@/components/MiniConsistencyHeatmap";
+import { LastWorkoutCard } from "@/components/LastWorkoutCard";
+import { MuscleMap } from "@/components/MuscleMap";
+import { OverviewTotals } from "@/features/history/OverviewTotals";
 
 export const Route = createFileRoute("/_app/overview")({
   head: () => ({
@@ -34,15 +36,22 @@ export const Route = createFileRoute("/_app/overview")({
   component: OverviewPage,
 });
 
-/** Below this many logged sessions, trend/status data is too thin to
- *  produce a genuine conclusion — matches the "established" threshold
- *  already used by getTrendConfidence/volumeTrendConfidence elsewhere in
- *  this codebase (exerciseProgress.ts), reused rather than re-decided
- *  here. See the redesign spec §4's "1–3 workouts" state. */
-const ESTABLISHED_THRESHOLD = 4;
-
 /** §5's "returning after a gap" modifier trigger. */
 const GAP_THRESHOLD_DAYS = 7;
+
+/** Muscle Activity's own eligibility floor — at least this many workouts
+ *  within MUSCLE_ACTIVITY_WINDOW_DAYS, not "N workouts ever, whenever
+ *  they happened." Replaces the old blanket workouts.length>=4 check,
+ *  which would happily unlock this section for four workouts spread
+ *  across a year. See the redesign review's point 6. */
+const MUSCLE_ACTIVITY_WINDOW_DAYS = 30;
+const MUSCLE_ACTIVITY_MIN_SESSIONS = 3;
+
+/** Number of recently-trained exercises scanned for Training Signal's
+ *  improvement candidate — broadened from "just the most recent one" per
+ *  the redesign review's point 4. Recent Progress shows the top 3 of
+ *  this same set. */
+const RECENT_EXERCISE_SCAN_COUNT = 6;
 
 function OverviewPage() {
   const navigate = useNavigate();
@@ -73,52 +82,70 @@ function OverviewPage() {
 
   const stats = useMemo(() => computeCardioStats(workouts ?? []), [workouts]);
 
+  const recentWorkoutsForMuscle = useMemo(() => {
+    const since = Date.now() - MUSCLE_ACTIVITY_WINDOW_DAYS * 86400000;
+    return (workouts ?? []).filter((w) => w.startedAt >= since);
+  }, [workouts]);
+  const muscleActivityEligible = recentWorkoutsForMuscle.length >= MUSCLE_ACTIVITY_MIN_SESSIONS;
+  const intensity = useMemo(
+    () => computeAggregateMuscleIntensity(recentWorkoutsForMuscle),
+    [recentWorkoutsForMuscle],
+  );
+
   const recentExerciseIds = useMemo(
-    () => getRecentlyTrainedExercises(workouts ?? [], 6),
+    () => getRecentlyTrainedExercises(workouts ?? [], RECENT_EXERCISE_SCAN_COUNT),
     [workouts],
   );
 
-  const currentFocus = useMemo(() => {
-    const exerciseId = recentExerciseIds[0];
-    if (!exerciseId) return null;
-    const def = getExercise(exerciseId);
-    const { status, best, metricKind, distanceUnit, sampleSize } = computeExerciseStatus(
-      workouts ?? [],
-      exerciseId,
-    );
-    const lastTrainedAt = (workouts ?? []).find((w) =>
-      w.exercises.some((e) => e.exerciseId === exerciseId && e.sets.some((s) => s.completed)),
-    )?.startedAt;
-    return {
-      exerciseId,
-      name: def?.name ?? exerciseId,
-      status,
-      best,
-      metricKind,
-      distanceUnit,
-      sampleSize,
-      lastTrainedAt: lastTrainedAt ?? 0,
-    };
-  }, [recentExerciseIds, workouts]);
-
-  const recentProgress = useMemo(() => {
-    return recentExerciseIds.slice(0, 3).map((exerciseId) => {
+  // Every recently-trained exercise's status, not just the single most
+  // recent one — this is what Training Signal now scans (point 4), and
+  // Recent Progress shows the top 3 of. Carries `values` too (beyond what
+  // RecentExerciseStatus itself declares) so Recent Progress's evidence
+  // line doesn't need a second computeExerciseStatus pass per exercise.
+  const recentExerciseStatuses = useMemo(() => {
+    return recentExerciseIds.map((exerciseId) => {
       const def = getExercise(exerciseId);
-      const { status, best, metricKind, distanceUnit } = computeExerciseStatus(
+      const { status, best, metricKind, distanceUnit, sampleSize, values } = computeExerciseStatus(
         workouts ?? [],
         exerciseId,
       );
-      return { exerciseId, name: def?.name ?? exerciseId, status, best, metricKind, distanceUnit };
+      const lastTrainedAt = (workouts ?? []).find((w) =>
+        w.exercises.some((e) => e.exerciseId === exerciseId && e.sets.some((s) => s.completed)),
+      )?.startedAt;
+      return {
+        exerciseId,
+        name: def?.name ?? exerciseId,
+        status,
+        best,
+        metricKind,
+        distanceUnit,
+        sampleSize,
+        lastTrainedAt: lastTrainedAt ?? 0,
+        values,
+      };
     });
   }, [recentExerciseIds, workouts]);
 
+  const recentProgress = useMemo(() => {
+    return recentExerciseStatuses
+      .filter((ex) => getTrendConfidence(ex.sampleSize) !== null)
+      .slice(0, 3)
+      .map((ex) => {
+        const [current, previous] = ex.values;
+        const evidence =
+          current != null && previous != null
+            ? `${formatMetricValue(ex.metricKind, previous, ex.distanceUnit)} → ${formatMetricValue(ex.metricKind, current, ex.distanceUnit)}`
+            : null;
+        return { ...ex, evidence };
+      });
+  }, [recentExerciseStatuses]);
+
   const trainingSignal = useMemo(
-    () => selectTrainingSignal(workouts ?? [], prRecords ?? [], currentFocus),
-    [workouts, prRecords, currentFocus],
+    () => selectTrainingSignal(workouts ?? [], prRecords ?? [], recentExerciseStatuses),
+    [workouts, prRecords, recentExerciseStatuses],
   );
 
   const hasWorkouts = !!workouts?.length;
-  const isEstablished = (workouts?.length ?? 0) >= ESTABLISHED_THRESHOLD;
 
   return (
     <div className="flex flex-col gap-6 px-4 pt-6 pb-8">
@@ -126,7 +153,9 @@ function OverviewPage() {
         <PageHeader eyebrow="Overview">
           {greeting && <p className="text-lg font-semibold leading-snug">{greeting.headline}</p>}
         </PageHeader>
-        {hasWorkouts && !isReturningAfterGap && <WeekActivityStrip trainedDays={trainedDays} />}
+        {hasWorkouts && !isReturningAfterGap && (
+          <MiniConsistencyHeatmap trainedDays={trainedDays} weeks={4} />
+        )}
       </div>
 
       {!hasWorkouts && workouts !== undefined && (
@@ -143,22 +172,11 @@ function OverviewPage() {
           <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Last workout
           </p>
-          <div
-            onClick={() => navigate({ to: "/history/$id", params: { id: String(lastWorkout.id) } })}
-            className="cursor-pointer active:scale-[0.99] transition"
-          >
-            <WorkoutSummary
-              name={lastWorkout.name}
-              durationSec={lastWorkout.durationSec}
-              exercises={lastWorkout.exercises}
-              showName
-              mapHeight={110}
-            />
-          </div>
+          <LastWorkoutCard workout={lastWorkout} />
         </section>
       )}
 
-      {hasWorkouts && isEstablished && trainingSignal && (
+      {hasWorkouts && trainingSignal && (
         <section>
           <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Training signal
@@ -185,11 +203,43 @@ function OverviewPage() {
           <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Training at a glance
           </p>
-          <Totals workouts={workouts ?? []} />
+          <OverviewTotals workouts={workouts ?? []} />
         </section>
       )}
 
-      {hasWorkouts && isEstablished && recentProgress.length > 0 && (
+      {hasWorkouts && muscleActivityEligible && (
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+              Muscle activity
+            </p>
+            <button
+              onClick={() => navigate({ to: "/history/insights" })}
+              className="text-xs font-medium text-primary active:opacity-70"
+            >
+              View muscle activity →
+            </button>
+          </div>
+          <div className="rounded-2xl bg-card p-4">
+            <MuscleMap intensity={intensity} height={110} className="mx-auto" />
+            <div className="mt-3 flex flex-col gap-2">
+              {topMuscles(intensity).map(({ muscle, value }) => (
+                <div key={muscle} className="flex items-center gap-3 text-xs">
+                  <span className="w-20 shrink-0 text-muted-foreground">{muscle}</span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${Math.round(value * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {hasWorkouts && recentProgress.length > 0 && (
         <section>
           <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             Recent progress
@@ -202,7 +252,12 @@ function OverviewPage() {
                 className="flex items-center justify-between gap-3 cursor-pointer active:opacity-70"
               >
                 <span className="truncate text-sm">{row.name}</span>
-                <StatusArrow status={row.status} />
+                <div className="flex shrink-0 items-center gap-2">
+                  {row.evidence && (
+                    <span className="text-xs text-muted-foreground">{row.evidence}</span>
+                  )}
+                  <StatusArrow status={row.status} />
+                </div>
               </div>
             ))}
           </div>
@@ -215,7 +270,7 @@ function OverviewPage() {
         </section>
       )}
 
-      {hasWorkouts && isEstablished && stats.cardio.sessions > 0 && (
+      {hasWorkouts && stats.cardio.sessions > 0 && (
         <section>
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
@@ -242,6 +297,16 @@ function OverviewPage() {
       )}
     </div>
   );
+}
+
+/** Top 3 muscles by intensity, Cardio excluded — same convention Insights'
+ *  full Balance Snapshot uses for its own entries filter. */
+function topMuscles(intensity: Partial<Record<MuscleGroup, number>>) {
+  return (Object.entries(intensity) as [MuscleGroup, number][])
+    .filter(([m]) => m !== "Cardio")
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([muscle, value]) => ({ muscle, value }));
 }
 
 function StatusArrow({ status }: { status: ExerciseStatus }) {
@@ -300,50 +365,4 @@ function computeCardioStats(workouts: Workout[]) {
       ),
     },
   };
-}
-
-/** Distinct exercise ids appearing in completed sets, most-recently-first. */
-function getRecentlyTrainedExercises(workouts: Workout[], count: number): string[] {
-  const seen: string[] = [];
-  for (const w of workouts) {
-    for (const ex of w.exercises) {
-      if (ex.sets.some((s) => s.completed) && !seen.includes(ex.exerciseId)) {
-        seen.push(ex.exerciseId);
-      }
-    }
-    if (seen.length >= count) break;
-  }
-  return seen.slice(0, count);
-}
-
-function computeExerciseStatus(
-  workouts: Workout[],
-  exerciseId: string,
-): {
-  status: ExerciseStatus;
-  best: number | null;
-  metricKind: MetricKind;
-  distanceUnit?: DistanceUnit;
-  sampleSize: number;
-} {
-  const def = getExercise(exerciseId);
-  const schema = getExerciseLoggingSchema(def);
-
-  const sessionSets: WorkoutSet[][] = [];
-  for (const w of workouts) {
-    const log = w.exercises.find((e) => e.exerciseId === exerciseId);
-    if (!log) continue;
-    const completed = log.sets.filter((s) => s.completed);
-    if (completed.length > 0) sessionSets.push(completed);
-  }
-
-  const metricKind = getPrimaryMetricKind(schema);
-  const distanceUnit = schema.distanceUnit;
-  const values = sessionSets
-    .map((sets) => getPrimaryMetric(metricKind, sets))
-    .filter((v): v is number => v != null);
-
-  const best = values.length > 0 ? Math.max(...values) : null;
-  const status = computeExerciseStatusFromValues(values);
-  return { status, best, metricKind, distanceUnit, sampleSize: values.length };
 }

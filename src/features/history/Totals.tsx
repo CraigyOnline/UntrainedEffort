@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Workout } from "@/lib/db";
-import { computeWorkoutStats } from "@/lib/workoutStats";
+import { computeSessionsAndVolume, computeMonthOverMonth } from "@/lib/workoutStats";
 
 type Period = "all" | "year" | "month";
 
@@ -67,20 +67,8 @@ interface PeriodTotals {
   caption: string | null;
 }
 
-function sessionsAndVolume(ws: Workout[]): { sessions: number; volume: number } {
-  return {
-    sessions: ws.length,
-    volume: ws.reduce((acc, w) => acc + computeWorkoutStats(w.exercises).totalVolume, 0),
-  };
-}
-
 function inYear(w: Workout, year: number): boolean {
   return new Date(w.startedAt).getFullYear() === year;
-}
-
-function inMonth(w: Workout, year: number, month: number): boolean {
-  const d = new Date(w.startedAt);
-  return d.getFullYear() === year && d.getMonth() === month;
 }
 
 /** Percent change from previous → current, or null when there's no prior
@@ -133,7 +121,7 @@ function computeTotalsForPeriod(workouts: Workout[], period: Period): PeriodTota
   const now = new Date();
 
   if (period === "all") {
-    const { sessions, volume } = sessionsAndVolume(workouts);
+    const { sessions, volume } = computeSessionsAndVolume(workouts);
     const firstWorkoutAt = workouts.length
       ? Math.min(...workouts.map((w) => w.startedAt))
       : Date.now();
@@ -143,18 +131,16 @@ function computeTotalsForPeriod(workouts: Workout[], period: Period): PeriodTota
   if (period === "year") {
     const thisYear = workouts.filter((w) => inYear(w, now.getFullYear()));
     const lastYear = workouts.filter((w) => inYear(w, now.getFullYear() - 1));
-    const { sessions, volume } = sessionsAndVolume(thisYear);
-    const { volume: prevVolume } = sessionsAndVolume(lastYear);
+    const { sessions, volume } = computeSessionsAndVolume(thisYear);
+    const { volume: prevVolume } = computeSessionsAndVolume(lastYear);
     return { sessions, volume, caption: formatDelta(pctChange(volume, prevVolume), "last year") };
   }
 
   // period === "month"
-  const thisMonthWorkouts = workouts.filter((w) => inMonth(w, now.getFullYear(), now.getMonth()));
-  const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const prevMonthWorkouts = workouts.filter((w) =>
-    inMonth(w, prevMonthDate.getFullYear(), prevMonthDate.getMonth()),
-  );
-  const { sessions, volume } = sessionsAndVolume(thisMonthWorkouts);
-  const { volume: prevVolume } = sessionsAndVolume(prevMonthWorkouts);
-  return { sessions, volume, caption: formatDelta(pctChange(volume, prevVolume), "last month") };
+  const { thisMonth, lastMonth } = computeMonthOverMonth(workouts, now.getTime());
+  return {
+    sessions: thisMonth.sessions,
+    volume: thisMonth.volume,
+    caption: formatDelta(pctChange(thisMonth.volume, lastMonth.volume), "last month"),
+  };
 }

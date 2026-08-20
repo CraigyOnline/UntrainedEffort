@@ -1,5 +1,7 @@
 import type { Workout, WorkoutSet } from "@/lib/db";
 import {
+  getExercise,
+  getExerciseLoggingSchema,
   setPerformances,
   formatDistanceValue,
   type DistanceUnit,
@@ -435,4 +437,66 @@ export function computeExpectedRepRange(
     .filter((r): r is number => r != null && r > 0);
   if (observed.length < 2) return null;
   return { min: Math.min(...observed), max: Math.max(...observed) };
+}
+
+/**
+ * Distinct exercise ids appearing in completed sets, most-recently-first
+ * (relies on `workouts` already being sorted newest-first). Extracted
+ * here from what was originally Overview-only route-local code once
+ * Insights → Strength's Exercise Progression list needed the exact same
+ * "which exercises has this person actually been training lately" scan
+ * — a second, genuinely independent caller, not a speculative shared
+ * abstraction built in advance.
+ */
+export function getRecentlyTrainedExercises(workouts: Workout[], count: number): string[] {
+  const seen: string[] = [];
+  for (const w of workouts) {
+    for (const ex of w.exercises) {
+      if (ex.sets.some((s) => s.completed) && !seen.includes(ex.exerciseId)) {
+        seen.push(ex.exerciseId);
+      }
+    }
+    if (seen.length >= count) break;
+  }
+  return seen.slice(0, count);
+}
+
+export interface ExerciseStatusSummary {
+  status: ExerciseStatus;
+  best: number | null;
+  metricKind: MetricKind;
+  distanceUnit?: DistanceUnit;
+  sampleSize: number;
+  /** Session values, most-recent-first — values[0] is the most recent
+   *  session, values[1] the one before it. Used for a "15 → 17.5 kg"
+   *  style evidence line without a second pass over `workouts`. */
+  values: number[];
+}
+
+/** One exercise's status derived from its own logged history — same
+ *  extraction reasoning as getRecentlyTrainedExercises above. */
+export function computeExerciseStatus(
+  workouts: Workout[],
+  exerciseId: string,
+): ExerciseStatusSummary {
+  const def = getExercise(exerciseId);
+  const schema = getExerciseLoggingSchema(def);
+
+  const sessionSets: WorkoutSet[][] = [];
+  for (const w of workouts) {
+    const log = w.exercises.find((e) => e.exerciseId === exerciseId);
+    if (!log) continue;
+    const completed = log.sets.filter((s) => s.completed);
+    if (completed.length > 0) sessionSets.push(completed);
+  }
+
+  const metricKind = getPrimaryMetricKind(schema);
+  const distanceUnit = schema.distanceUnit;
+  const values = sessionSets
+    .map((sets) => getPrimaryMetric(metricKind, sets))
+    .filter((v): v is number => v != null);
+
+  const best = values.length > 0 ? Math.max(...values) : null;
+  const status = computeExerciseStatusFromValues(values);
+  return { status, best, metricKind, distanceUnit, sampleSize: values.length, values };
 }

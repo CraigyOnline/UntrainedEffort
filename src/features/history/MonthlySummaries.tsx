@@ -49,7 +49,6 @@ export function MonthlySummaries({ workouts }: MonthlySummariesProps) {
 
   return (
     <section>
-      <h2 className="mb-3 text-base font-semibold">Monthly Summaries</h2>
       <div className="flex flex-col gap-2">
         {visibleMonths.map((m) => (
           <div key={m.key} className="rounded-2xl bg-card p-4">

@@ -256,3 +256,38 @@ export function computeMuscleActivityByPeriod(
     }),
   );
 }
+
+/**
+ * Cross-workout muscle intensity, normalized against the highest-scoring
+ * muscle in the given window (not against the workout's own total, unlike
+ * computeIntensity above) — "how much of your typical Chest day is this,
+ * relative to your most-trained muscle." Used by both Overview's compact
+ * teaser and Insights → Strength's full exploration; callers control the
+ * window by filtering `workouts` before calling this, not via a param
+ * here, since Overview always uses a fixed recent window and Insights'
+ * range picker needs an arbitrary one.
+ */
+export function computeAggregateMuscleIntensity(
+  workouts: Workout[],
+): Partial<Record<MuscleGroup, number>> {
+  const totals: Partial<Record<MuscleGroup, number>> = {};
+
+  for (const w of workouts) {
+    for (const e of w.exercises) {
+      const def = getExercise(e.exerciseId);
+      if (!def) continue;
+      const completed = e.sets.filter((s) => s.completed).length;
+      totals[def.muscle] = (totals[def.muscle] ?? 0) + completed;
+      for (const sec of def.secondary ?? []) {
+        totals[sec] = (totals[sec] ?? 0) + completed * 0.5;
+      }
+    }
+  }
+
+  const max = Math.max(1, ...Object.values(totals));
+  const normalized: Partial<Record<MuscleGroup, number>> = {};
+  for (const k of Object.keys(totals) as MuscleGroup[]) {
+    normalized[k] = (totals[k] ?? 0) / max;
+  }
+  return normalized;
+}

@@ -3,6 +3,26 @@
  * that existed in _app.history.$id.tsx and _app.workout.tsx
  */
 
+/**
+ * Start of the current calendar week (Monday, local time), as a day-start
+ * timestamp. This is the one definition of "this week" used everywhere
+ * that phrase appears in the UI — the Week Activity Strip, the Training
+ * Signal consistency candidate, and the home-screen greeting's momentum
+ * copy. Before this, two of those three used a rolling 7-day window
+ * instead, which could silently disagree with what the strip was showing
+ * on the same screen (see the redesign review's point 5). Monday-start
+ * specifically, not just "any 7-day window," because the strip's
+ * future/past/today distinction only means something against a real
+ * calendar week — there's no such thing as "a future day" in a rolling
+ * window, since today is always its most recent day by construction.
+ */
+export function getCalendarWeekStart(now: number = Date.now()): number {
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  const isoDow = (d.getDay() + 6) % 7; // Mon=0 … Sun=6
+  return d.getTime() - isoDow * 86400000;
+}
+
 /** Format seconds as M:SS or H:MM:SS */
 export function formatDuration(sec: number): string {
   const h = Math.floor(sec / 3600);

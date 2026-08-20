@@ -154,10 +154,6 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
 
   return (
     <div className="flex flex-col gap-2">
-      <div>
-        <h2 className="text-base font-semibold">Training Consistency</h2>
-      </div>
-
       <div className="flex flex-col gap-1">
         {/* Month labels, aligned to the week columns below */}
         <div className="flex">
