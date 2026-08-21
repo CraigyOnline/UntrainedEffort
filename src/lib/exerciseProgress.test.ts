@@ -107,40 +107,59 @@ describe("formatStatusConfidence", () => {
 });
 
 describe("computeExpectedRepRange", () => {
+  const at = (weight: number, reps: number) => ({ weight, reps });
+
   it("returns null with fewer than 2 historical values at that set position", () => {
-    expect(computeExpectedRepRange([], 0)).toBeNull();
-    expect(computeExpectedRepRange([[10, 8, 6]], 0)).toBeNull();
+    expect(computeExpectedRepRange([], 0, 10)).toBeNull();
+    expect(computeExpectedRepRange([[at(10, 10), at(10, 8), at(10, 6)]], 0, 10)).toBeNull();
   });
 
-  it("returns the observed min/max at that exact set position", () => {
+  it("returns the observed min/max at that exact set position, at the matching weight", () => {
     const sessions = [
-      [10, 8, 6],
-      [9, 7],
-      [11, 9, 7],
+      [at(10, 10), at(10, 8), at(10, 6)],
+      [at(10, 9), at(10, 7)],
+      [at(10, 11), at(10, 9), at(10, 7)],
     ];
     // set index 0 (1st set): 10, 9, 11
-    expect(computeExpectedRepRange(sessions, 0)).toEqual({ min: 9, max: 11 });
+    expect(computeExpectedRepRange(sessions, 0, 10)).toEqual({ min: 9, max: 11 });
     // set index 1 (2nd set): 8, 7, 9
-    expect(computeExpectedRepRange(sessions, 1)).toEqual({ min: 7, max: 9 });
+    expect(computeExpectedRepRange(sessions, 1, 10)).toEqual({ min: 7, max: 9 });
   });
 
   it("ignores sessions that didn't reach that set position", () => {
     const sessions = [
-      [10, 8, 6],
-      [9], // only 1 set logged that session
+      [at(10, 10), at(10, 8), at(10, 6)],
+      [at(10, 9)], // only 1 set logged that session
     ];
     // set index 2 (3rd set) — only the first session has data there,
     // below the 2-value minimum
-    expect(computeExpectedRepRange(sessions, 2)).toBeNull();
+    expect(computeExpectedRepRange(sessions, 2, 10)).toBeNull();
   });
 
   it("ignores a zero rep count at that position (not a real set)", () => {
     const sessions = [
-      [10, 8],
-      [9, 0],
-      [11, 7],
+      [at(10, 10), at(10, 8)],
+      [at(10, 9), at(10, 0)],
+      [at(10, 11), at(10, 7)],
     ];
     // set index 1: 8, 0(excluded), 7 — only 2 real values, right at the floor
-    expect(computeExpectedRepRange(sessions, 1)).toEqual({ min: 7, max: 8 });
+    expect(computeExpectedRepRange(sessions, 1, 10)).toEqual({ min: 7, max: 8 });
+  });
+
+  it("only counts sessions logged at (near enough) the current weight", () => {
+    const sessions = [
+      [at(20, 10)], // heavy, low reps
+      [at(10, 20)], // light, high reps
+      [at(10, 18)],
+    ];
+    // Without weight-matching this would wrongly report {min:10, max:20}.
+    expect(computeExpectedRepRange(sessions, 0, 10)).toEqual({ min: 18, max: 20 });
+    // Only one session at 20kg — below the 2-value minimum.
+    expect(computeExpectedRepRange(sessions, 0, 20)).toBeNull();
+  });
+
+  it("treats near-identical weights as a match (float rounding), not different weights", () => {
+    const sessions = [[at(10.0000001, 10)], [at(9.9999999, 8)]];
+    expect(computeExpectedRepRange(sessions, 0, 10)).toEqual({ min: 8, max: 10 });
   });
 });

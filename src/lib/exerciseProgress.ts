@@ -404,37 +404,49 @@ export function computeLastTrainedAt(workouts: Workout[]): Map<string, number> {
   return map;
 }
 
+/** Floating point tolerance for weight equality — set entry is typically
+ *  stepped in 2.5kg increments, so this only exists to absorb rounding,
+ *  not to treat genuinely different weights as a match. */
+const WEIGHT_MATCH_EPSILON = 0.01;
+
 /**
  * Expected rep range for the Nth set (0-indexed) of an exercise, from
  * the observed range of reps logged at that exact set position across a
  * rolling window of recent past sessions of the same exercise —
- * "recentSessionReps" is that window, one entry per session, each a
- * list of that session's completed sets' rep counts in order. Later set
- * positions naturally read lower than earlier ones purely because
- * that's how they've actually gone recently — no explicit decay formula
- * needed, and no separate within-session fatigue model to keep in sync
- * with this one.
+ * "recentSessionData" is that window, one entry per session, each a
+ * list of that session's completed sets' {weight, reps} in order.
  *
- * Deliberately doesn't weight-match sessions to today's planned weight.
- * A short rolling window rarely spans a big enough weight change for
- * that to matter much in practice, and a tolerance-based match would be
- * real complexity for a comparatively rare case — worth revisiting if
- * it turns out wrong often enough to matter.
+ * Weight-matched against currentWeight: a session's set only counts as
+ * an observation if it was logged at (near enough) the same weight
+ * you're about to lift. Without this, an exercise you load differently
+ * session to session (e.g. 10 reps heavy, 20 reps light) produces a
+ * technically-true but useless "usually 10–20" range that doesn't
+ * describe what to expect at today's weight. Sessions at other weights
+ * are simply excluded rather than blended in — a smaller but honest
+ * range beats a wider misleading one.
  *
- * Needs at least 2 historical values at this exact position to report
- * anything — same "don't assert a confident-looking range from thin
- * data" floor as computeExerciseStatusFromValues' minimum sample size,
- * just a flat 2 rather than that function's early/established split
- * (there's no larger "established" tier here — with a 5-session window
- * this can never see more than 5 data points regardless).
+ * Needs at least 2 historical values at this exact position *and*
+ * weight to report anything — same "don't assert a confident-looking
+ * range from thin data" floor as computeExerciseStatusFromValues'
+ * minimum sample size, just a flat 2 rather than that function's
+ * early/established split (there's no larger "established" tier here —
+ * with a 5-session window this can never see more than 5 data points
+ * regardless, and weight-matching only ever narrows that further).
  */
 export function computeExpectedRepRange(
-  recentSessionReps: number[][],
+  recentSessionData: { weight: number; reps: number }[][],
   setIndex: number,
+  currentWeight: number,
 ): { min: number; max: number } | null {
-  const observed = recentSessionReps
+  const observed = recentSessionData
     .map((session) => session[setIndex])
-    .filter((r): r is number => r != null && r > 0);
+    .filter(
+      (entry): entry is { weight: number; reps: number } =>
+        entry != null &&
+        entry.reps > 0 &&
+        Math.abs(entry.weight - currentWeight) < WEIGHT_MATCH_EPSILON,
+    )
+    .map((entry) => entry.reps);
   if (observed.length < 2) return null;
   return { min: Math.min(...observed), max: Math.max(...observed) };
 }

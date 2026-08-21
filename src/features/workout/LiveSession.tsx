@@ -162,7 +162,7 @@ function ExerciseCard({
   ei: number;
   celebration: { exerciseId: string; setId: string | undefined } | null;
   previousSets: WorkoutSet[] | undefined;
-  recentReps: number[][] | undefined;
+  recentReps: { weight: number; reps: number }[][] | undefined;
   removeExercise: (ei: number) => void;
   updateIntervalConfig: (ei: number, patch: Partial<IntervalConfig>) => void;
   setIntervalState: (ei: number, next: IntervalTimerState | undefined) => void;
@@ -182,10 +182,13 @@ function ExerciseCard({
   // Historical rep-range guidance (computeExpectedRepRange) only ever
   // applies to the set you're actually about to do next, not every row —
   // so this is computed once here rather than per-row inside the map below.
+  // Weight-matched against that set's current weight value, so toggling
+  // the weight stepper before logging reps re-filters the range live.
   const firstIncompleteIndex = ex.sets.findIndex((set) => !set.completed);
+  const currentWeight = firstIncompleteIndex >= 0 ? (ex.sets[firstIncompleteIndex].weight ?? 0) : 0;
   const expectedRepRange =
     firstIncompleteIndex >= 0 && recentReps
-      ? computeExpectedRepRange(recentReps, firstIncompleteIndex)
+      ? computeExpectedRepRange(recentReps, firstIncompleteIndex, currentWeight)
       : null;
 
   return (
@@ -405,7 +408,7 @@ function ExerciseCard({
                     min={0}
                     size="normal"
                   />
-                  <div className="flex flex-col items-center gap-0.5">
+                  <div className="flex w-full flex-col items-center gap-0.5">
                     <StepperInput
                       value={s.reps ?? 0}
                       onCommit={(v) => updateSet(ei, si, { reps: v })}
@@ -413,14 +416,23 @@ function ExerciseCard({
                       min={0}
                       size="normal"
                     />
-                    {si === firstIncompleteIndex && expectedRepRange && (
-                      <span className="text-[10px] text-muted-foreground/70">
-                        Usually{" "}
-                        {expectedRepRange.min === expectedRepRange.max
+                    {/* Always rendered (never conditionally mounted) so every
+                        row reserves the same height — otherwise rows reflow
+                        and the whole list "wiggles" as firstIncompleteIndex
+                        moves, or as the hint appears/disappears while
+                        toggling weight. Only visibility toggles, not layout. */}
+                    <span
+                      className={`h-3 w-full text-center text-[10px] leading-3 text-muted-foreground ${
+                        si === firstIncompleteIndex && expectedRepRange ? "" : "invisible"
+                      }`}
+                    >
+                      Usually{" "}
+                      {expectedRepRange
+                        ? expectedRepRange.min === expectedRepRange.max
                           ? expectedRepRange.min
-                          : `${expectedRepRange.min}–${expectedRepRange.max}`}
-                      </span>
-                    )}
+                          : `${expectedRepRange.min}–${expectedRepRange.max}`
+                        : "0"}
+                    </span>
                   </div>
                 </>
               )}
@@ -500,10 +512,12 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
   // Rolling window for computeExpectedRepRange (exerciseProgress.ts) — same
   // until/each/remaining-set walk as previousByExerciseResult above, just
   // collecting up to REP_RANGE_SESSION_WINDOW sessions per exercise
-  // instead of stopping at the first, and storing rep counts rather than
-  // full sets.
-  const recentRepsByExerciseResult = useLiveQuery(async (): Promise<Map<string, number[][]>> => {
-    const map = new Map<string, number[][]>();
+  // instead of stopping at the first, and storing each completed set's
+  // weight alongside its reps so the range can be weight-matched.
+  const recentRepsByExerciseResult = useLiveQuery(async (): Promise<
+    Map<string, { weight: number; reps: number }[][]>
+  > => {
+    const map = new Map<string, { weight: number; reps: number }[][]>();
     if (typeof window === "undefined") return map;
 
     const remaining = new Set(exerciseIds);
@@ -517,7 +531,9 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
         if (w.startedAt === session.startedAt) return;
         for (const e of w.exercises) {
           if (!remaining.has(e.exerciseId)) continue;
-          const reps = e.sets.filter((s) => s.completed).map((s) => s.reps ?? 0);
+          const reps = e.sets
+            .filter((s) => s.completed)
+            .map((s) => ({ weight: s.weight ?? 0, reps: s.reps ?? 0 }));
           if (reps.length === 0) continue;
           const sessions = map.get(e.exerciseId) ?? [];
           sessions.push(reps);
@@ -529,7 +545,8 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
     return map;
   }, [exerciseIds.join(","), session.startedAt]);
 
-  const recentRepsByExercise: Map<string, number[][]> = recentRepsByExerciseResult ?? new Map();
+  const recentRepsByExercise: Map<string, { weight: number; reps: number }[][]> =
+    recentRepsByExerciseResult ?? new Map();
 
   const {
     undoItem: undo,
