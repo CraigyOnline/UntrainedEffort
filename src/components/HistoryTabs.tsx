@@ -4,8 +4,8 @@ import { Link, useLocation } from "@tanstack/react-router";
 // (_app.history.tsx) above its <Outlet />, so it stays put across both
 // sub-routes rather than being duplicated in each page.
 const tabs = [
-  { to: "/history/timeline", label: "Timeline" },
   { to: "/history/insights", label: "Insights" },
+  { to: "/history/timeline", label: "Timeline" },
 ] as const;
 
 export function HistoryTabs() {

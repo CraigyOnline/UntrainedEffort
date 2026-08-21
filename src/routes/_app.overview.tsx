@@ -149,14 +149,9 @@ function OverviewPage() {
 
   return (
     <div className="flex flex-col gap-6 px-4 pt-6 pb-8">
-      <div className="flex flex-col gap-3">
-        <PageHeader eyebrow="Overview">
-          {greeting && <p className="text-lg font-semibold leading-snug">{greeting.headline}</p>}
-        </PageHeader>
-        {hasWorkouts && !isReturningAfterGap && (
-          <MiniConsistencyHeatmap trainedDays={trainedDays} weeks={4} />
-        )}
-      </div>
+      <PageHeader eyebrow="Overview">
+        {greeting && <p className="text-lg font-semibold leading-snug">{greeting.headline}</p>}
+      </PageHeader>
 
       {!hasWorkouts && workouts !== undefined && (
         <button
@@ -165,6 +160,17 @@ function OverviewPage() {
         >
           Start a workout
         </button>
+      )}
+
+      {hasWorkouts && !isReturningAfterGap && (
+        <section>
+          <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Consistency
+          </p>
+          <div className="rounded-2xl bg-card p-4">
+            <MiniConsistencyHeatmap trainedDays={trainedDays} weeks={4} />
+          </div>
+        </section>
       )}
 
       {hasWorkouts && lastWorkout && (
