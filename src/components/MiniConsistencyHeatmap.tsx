@@ -37,8 +37,16 @@ interface MiniConsistencyHeatmapProps {
  * the caller (see Overview's "Consistency" section) rather than sitting
  * bare under the hero text, which read as an unbounded, unlabeled block
  * on-device — see the redesign follow-up review.
+ *
+ * Cells are a fixed size (not fluid/aspect-square like the full
+ * TrainingConsistencyHeatmap) deliberately: this card sits side-by-side
+ * with the "Training signal" card in a stretched flex row, so an
+ * unbounded width-driven cell size here would force that card to
+ * stretch to match an awkward height. weeks is instead the lever for
+ * using more of the available width — more history at a glance, not
+ * bigger dots.
  */
-export function MiniConsistencyHeatmap({ trainedDays, weeks = 4 }: MiniConsistencyHeatmapProps) {
+export function MiniConsistencyHeatmap({ trainedDays, weeks = 8 }: MiniConsistencyHeatmapProps) {
   const navigate = useNavigate();
   const today = dayStart(Date.now());
   const thisWeekStart = getCalendarWeekStart(Date.now());
@@ -61,9 +69,9 @@ export function MiniConsistencyHeatmap({ trainedDays, weeks = 4 }: MiniConsisten
     <button
       type="button"
       onClick={() => navigate({ to: "/history/insights" })}
-      className="flex w-full flex-col items-start gap-2 active:opacity-70"
+      className="flex h-full w-full flex-col items-start justify-center gap-3 active:opacity-70"
     >
-      <div className="flex gap-1">
+      <div className="flex gap-1.5">
         <div className="grid grid-rows-7 gap-1" style={{ width: DAY_LABEL_WIDTH }}>
           {Array.from({ length: 7 }, (_, row) => (
             <span key={row} className="text-[9px] leading-none text-muted-foreground">
@@ -77,7 +85,7 @@ export function MiniConsistencyHeatmap({ trainedDays, weeks = 4 }: MiniConsisten
               {col.map((d, di) => (
                 <div
                   key={di}
-                  className="h-2 w-2 rounded-sm"
+                  className="h-2.5 w-2.5 rounded-sm"
                   style={{
                     backgroundColor: d.isFuture
                       ? "var(--color-border)"

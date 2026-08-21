@@ -201,7 +201,7 @@ function OverviewPage() {
                 Consistency
               </p>
               <div className="flex-1 rounded-2xl bg-card p-4">
-                <MiniConsistencyHeatmap trainedDays={trainedDays} weeks={4} />
+                <MiniConsistencyHeatmap trainedDays={trainedDays} weeks={8} />
               </div>
             </section>
           )}

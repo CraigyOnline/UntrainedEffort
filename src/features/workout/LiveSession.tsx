@@ -408,7 +408,7 @@ function ExerciseCard({
                     min={0}
                     size="normal"
                   />
-                  <div className="flex w-full flex-col items-center gap-0.5">
+                  <div className="flex w-full flex-col items-start gap-0.5">
                     <StepperInput
                       value={s.reps ?? 0}
                       onCommit={(v) => updateSet(ei, si, { reps: v })}
@@ -420,9 +420,15 @@ function ExerciseCard({
                         row reserves the same height — otherwise rows reflow
                         and the whole list "wiggles" as firstIncompleteIndex
                         moves, or as the hint appears/disappears while
-                        toggling weight. Only visibility toggles, not layout. */}
+                        toggling weight. Only visibility toggles, not layout.
+                        Left-aligned (not centered) to match the KG stepper
+                        above and the "Reps" header label — StepperInput is
+                        deliberately w-fit (see NumberInput.tsx), so it never
+                        stretches to fill the column and sits flush left by
+                        default; centering only this row's hint drifted it
+                        rightward, out of line with everything else. */}
                     <span
-                      className={`h-3 w-full text-center text-[10px] leading-3 text-muted-foreground ${
+                      className={`h-3 w-full text-left text-[10px] leading-3 text-muted-foreground ${
                         si === firstIncompleteIndex && expectedRepRange ? "" : "invisible"
                       }`}
                     >
