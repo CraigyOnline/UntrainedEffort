@@ -162,17 +162,6 @@ function OverviewPage() {
         </button>
       )}
 
-      {hasWorkouts && !isReturningAfterGap && (
-        <section>
-          <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Consistency
-          </p>
-          <div className="rounded-2xl bg-card p-4">
-            <MiniConsistencyHeatmap trainedDays={trainedDays} weeks={4} />
-          </div>
-        </section>
-      )}
-
       {hasWorkouts && lastWorkout && (
         <section>
           <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
@@ -182,26 +171,41 @@ function OverviewPage() {
         </section>
       )}
 
-      {hasWorkouts && trainingSignal && (
-        <section>
-          <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Training signal
-          </p>
-          <div
-            className="rounded-2xl p-4"
-            style={{
-              backgroundColor: "color-mix(in oklch, var(--color-primary) 12%, transparent)",
-              border: "1px solid color-mix(in oklch, var(--color-primary) 35%, transparent)",
-            }}
-          >
-            <p className="text-sm font-semibold" style={{ color: "var(--color-primary)" }}>
-              {trainingSignal.headline}
-            </p>
-            {trainingSignal.detail && (
-              <p className="mt-1 text-xs text-muted-foreground">{trainingSignal.detail}</p>
-            )}
-          </div>
-        </section>
+      {hasWorkouts && (!isReturningAfterGap || trainingSignal) && (
+        <div className="flex gap-3">
+          {!isReturningAfterGap && (
+            <section className={`flex flex-col ${trainingSignal ? "flex-1" : "w-full"}`}>
+              <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Consistency
+              </p>
+              <div className="flex-1 rounded-2xl bg-card p-4">
+                <MiniConsistencyHeatmap trainedDays={trainedDays} weeks={4} />
+              </div>
+            </section>
+          )}
+
+          {trainingSignal && (
+            <section className={`flex flex-col ${isReturningAfterGap ? "w-full" : "flex-1"}`}>
+              <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Training signal
+              </p>
+              <div
+                className="flex flex-1 flex-col justify-center rounded-2xl p-4"
+                style={{
+                  backgroundColor: "color-mix(in oklch, var(--color-primary) 12%, transparent)",
+                  border: "1px solid color-mix(in oklch, var(--color-primary) 35%, transparent)",
+                }}
+              >
+                <p className="text-sm font-semibold" style={{ color: "var(--color-primary)" }}>
+                  {trainingSignal.headline}
+                </p>
+                {trainingSignal.detail && (
+                  <p className="mt-1 text-xs text-muted-foreground">{trainingSignal.detail}</p>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
       )}
 
       {hasWorkouts && (
