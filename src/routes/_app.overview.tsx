@@ -173,17 +173,6 @@ function OverviewPage() {
 
       {hasWorkouts && (!isReturningAfterGap || trainingSignal) && (
         <div className="flex gap-3">
-          {!isReturningAfterGap && (
-            <section className={`flex flex-col ${trainingSignal ? "flex-1" : "w-full"}`}>
-              <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                Consistency
-              </p>
-              <div className="flex-1 rounded-2xl bg-card p-4">
-                <MiniConsistencyHeatmap trainedDays={trainedDays} weeks={4} />
-              </div>
-            </section>
-          )}
-
           {trainingSignal && (
             <section className={`flex flex-col ${isReturningAfterGap ? "w-full" : "flex-1"}`}>
               <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
@@ -202,6 +191,17 @@ function OverviewPage() {
                 {trainingSignal.detail && (
                   <p className="mt-1 text-xs text-muted-foreground">{trainingSignal.detail}</p>
                 )}
+              </div>
+            </section>
+          )}
+
+          {!isReturningAfterGap && (
+            <section className={`flex flex-col ${trainingSignal ? "flex-1" : "w-full"}`}>
+              <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                Consistency
+              </p>
+              <div className="flex-1 rounded-2xl bg-card p-4">
+                <MiniConsistencyHeatmap trainedDays={trainedDays} weeks={4} />
               </div>
             </section>
           )}
