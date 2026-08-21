@@ -40,10 +40,13 @@ const MONTH_LABELS = [
 ];
 
 // GitHub-style: only label a subset of weekday rows to avoid clutter.
+// Row 0 is Monday (the grid's week starts on Monday — see the `days`
+// memo below), so labelled rows shift down from the old Sunday-first
+// 1/3/5 to 0/2/4.
 const DAY_LABEL_ROWS: Record<number, string> = {
-  1: "Mon",
-  3: "Wed",
-  5: "Fri",
+  0: "Mon",
+  2: "Wed",
+  4: "Fri",
 };
 
 function toDayKey(d: Date): string {
@@ -109,11 +112,11 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Start ~12 weeks back, then align to the start of that week (Sunday)
+    // Start ~12 weeks back, then align to the start of that week (Monday)
     // so the grid renders as complete week-columns instead of a ragged edge.
     const start = new Date(today);
     start.setDate(start.getDate() - (WEEKS * 7 - 1));
-    start.setDate(start.getDate() - start.getDay());
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
 
     const list: DayCell[] = [];
     const cursor = new Date(start);
