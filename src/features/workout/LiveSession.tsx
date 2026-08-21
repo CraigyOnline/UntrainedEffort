@@ -359,6 +359,20 @@ function ExerciseCard({
             <span />
           </div>
 
+          {!schema.distance && !schema.duration && (
+            <div className="mt-1 grid min-h-3 grid-cols-[24px_1fr_1fr_auto_auto] items-center gap-2">
+              <span />
+              <span />
+              <span className="text-left text-[10px] leading-3 text-muted-foreground">
+                {expectedRepRange
+                  ? `Usually ${expectedRepRange.min === expectedRepRange.max ? expectedRepRange.min : `${expectedRepRange.min}–${expectedRepRange.max}`}`
+                  : ""}
+              </span>
+              <span />
+              <span />
+            </div>
+          )}
+
           {ex.sets.map((s, si) => (
             <div
               key={si}
@@ -408,38 +422,13 @@ function ExerciseCard({
                     min={0}
                     size="normal"
                   />
-                  <div className="flex w-full flex-col items-start gap-0.5">
-                    <StepperInput
-                      value={s.reps ?? 0}
-                      onCommit={(v) => updateSet(ei, si, { reps: v })}
-                      step={1}
-                      min={0}
-                      size="normal"
-                    />
-                    {/* Always rendered (never conditionally mounted) so every
-                        row reserves the same height — otherwise rows reflow
-                        and the whole list "wiggles" as firstIncompleteIndex
-                        moves, or as the hint appears/disappears while
-                        toggling weight. Only visibility toggles, not layout.
-                        Left-aligned (not centered) to match the KG stepper
-                        above and the "Reps" header label — StepperInput is
-                        deliberately w-fit (see NumberInput.tsx), so it never
-                        stretches to fill the column and sits flush left by
-                        default; centering only this row's hint drifted it
-                        rightward, out of line with everything else. */}
-                    <span
-                      className={`h-3 w-full text-left text-[10px] leading-3 text-muted-foreground ${
-                        si === firstIncompleteIndex && expectedRepRange ? "" : "invisible"
-                      }`}
-                    >
-                      Usually{" "}
-                      {expectedRepRange
-                        ? expectedRepRange.min === expectedRepRange.max
-                          ? expectedRepRange.min
-                          : `${expectedRepRange.min}–${expectedRepRange.max}`
-                        : "0"}
-                    </span>
-                  </div>
+                  <StepperInput
+                    value={s.reps ?? 0}
+                    onCommit={(v) => updateSet(ei, si, { reps: v })}
+                    step={1}
+                    min={0}
+                    size="normal"
+                  />
                 </>
               )}
 
