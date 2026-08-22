@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Reorder, useDragControls } from "framer-motion";
 import { Check, GripVertical, Plus, Trash2, X } from "lucide-react";
@@ -147,6 +148,7 @@ function ExerciseCard({
   ei,
   celebration,
   previousSets,
+  previousWorkoutId,
   recentReps,
   removeExercise,
   updateIntervalConfig,
@@ -162,6 +164,7 @@ function ExerciseCard({
   ei: number;
   celebration: { exerciseId: string; setId: string | undefined } | null;
   previousSets: WorkoutSet[] | undefined;
+  previousWorkoutId: number | undefined;
   recentReps: { weight: number; reps: number }[][] | undefined;
   removeExercise: (ei: number) => void;
   updateIntervalConfig: (ei: number, patch: Partial<IntervalConfig>) => void;
@@ -178,6 +181,7 @@ function ExerciseCard({
   const defaultIntervalConfig = getIntervalConfig(def);
   const intervalConfig = ex.intervalConfig ?? defaultIntervalConfig;
   const dragControls = useDragControls();
+  const navigate = useNavigate();
 
   // Historical rep-range guidance (computeExpectedRepRange) only ever
   // applies to the set you're actually about to do next, not every row —
@@ -362,12 +366,22 @@ function ExerciseCard({
               ) : (
                 <span className="flex items-baseline gap-1 whitespace-nowrap">
                   <span>Reps</span>
-                  {expectedRepRange && (
-                    <span className="normal-case font-normal tracking-normal text-[9px]">
-                      Usually {expectedRepRange.min === expectedRepRange.max
-                        ? expectedRepRange.min
-                        : `${expectedRepRange.min}–${expectedRepRange.max}`}
-                    </span>
+                  {expectedRepRange && previousWorkoutId && (
+                    <>
+                      <span className="text-muted-foreground/60">·</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate({ to: "/history/$id", params: { id: String(previousWorkoutId) } })
+                        }
+                        className="normal-case font-normal tracking-normal text-[9px] text-primary underline underline-offset-2 active:opacity-70"
+                        aria-label="View previous workout"
+                      >
+                        Usually {expectedRepRange.min === expectedRepRange.max
+                          ? expectedRepRange.min
+                          : `${expectedRepRange.min}–${expectedRepRange.max}`}
+                      </button>
+                    </>
                   )}
                 </span>
               )}
@@ -479,8 +493,9 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
     return map;
   }, []);
 
-  const previousByExerciseResult = useLiveQuery(async (): Promise<Map<string, WorkoutSet[]>> => {
-    const map = new Map<string, WorkoutSet[]>();
+  const previousByExerciseResult = useLiveQuery(
+    async (): Promise<Map<string, { sets: WorkoutSet[]; workoutId: number }>> => {
+      const map = new Map<string, { sets: WorkoutSet[]; workoutId: number }>();
     if (typeof window === "undefined") return map;
 
     const remaining = new Set(exerciseIds);
@@ -496,16 +511,21 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
           if (!remaining.has(e.exerciseId)) continue;
           const done = e.sets.filter((s) => s.completed);
           if (done.length > 0) {
-            map.set(e.exerciseId, done);
-            remaining.delete(e.exerciseId);
+            if (w.id != null) {
+              map.set(e.exerciseId, { sets: done, workoutId: w.id });
+              remaining.delete(e.exerciseId);
+            }
           }
         }
       });
 
-    return map;
-  }, [exerciseIds.join(","), session.startedAt]);
+      return map;
+    },
+    [exerciseIds.join(","), session.startedAt],
+  );
 
-  const previousByExercise: Map<string, WorkoutSet[]> = previousByExerciseResult ?? new Map();
+  const previousByExercise: Map<string, { sets: WorkoutSet[]; workoutId: number }> =
+    previousByExerciseResult ?? new Map();
 
   // Rolling window for computeExpectedRepRange (exerciseProgress.ts) — same
   // until/each/remaining-set walk as previousByExerciseResult above, just
@@ -924,7 +944,8 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
             ex={ex}
             ei={ei}
             celebration={celebration}
-            previousSets={previousByExercise.get(ex.exerciseId)}
+            previousSets={previousByExercise.get(ex.exerciseId)?.sets}
+            previousWorkoutId={previousByExercise.get(ex.exerciseId)?.workoutId}
             recentReps={recentRepsByExercise.get(ex.exerciseId)}
             removeExercise={removeExercise}
             updateIntervalConfig={updateIntervalConfig}
