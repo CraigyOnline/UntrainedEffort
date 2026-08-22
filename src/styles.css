@@ -122,17 +122,20 @@
    *  more. */
   --circuit: oklch(0.7 0.19 335);
   /** Training-consistency heatmap's Mixed day color (a day with more than
-   *  one workout mode, or a workout already tagged "mixed"). Previously
-   *  just reused --chart-4 (also 0.7 lightness/~0.2 chroma, hue 310) —
-   *  25 degrees from --circuit's magenta (335) is too close at heatmap-
-   *  cell size, so Circuit and Mixed days read as the same color at a
-   *  glance despite being genuinely different categories shown side by
-   *  side in the same grid. A dedicated token, same pattern as --cardio
-   *  and --circuit above, landed further round the wheel (blue-violet,
-   *  265) into the gap between --cardio (195) and --circuit (335) —
-   *  clearly its own hue against both neighbors, and frees --chart-4
-   *  back up as a plain, uncommitted slot in the generic chart palette. */
-  --mixed: oklch(0.7 0.19 265);
+   *  one workout mode, or a workout already tagged "mixed"). Originally
+   *  reused --chart-4 (hue 310, magenta), only 25 degrees from --circuit's
+   *  335 — too close at heatmap-cell size. Moved to blue-violet (265) as
+   *  a first fix, but that just traded one collision for another: at this
+   *  lightness/chroma, 265 still reads as "blue" next to --cardio's cyan
+   *  (195) — the two are 70 degrees apart on paper but sit in the same
+   *  broad cool blue/cyan/violet perceptual family, so the four heatmap
+   *  colors still came down to only two visually distinct groups.
+   *  Moved again, this time out of the cool half of the wheel entirely:
+   *  gold (90) sits with Strength (green, 145), Cardio (cyan, 195), and
+   *  Circuit (magenta, 335) each occupying a genuinely separate color
+   *  family — green / cyan / magenta / gold — rather than another
+   *  degrees-apart neighbor within the same family as one of them. */
+  --mixed: oklch(0.78 0.16 90);
   /** Muscle map body-outline fill. Previously hardcoded as #2e343a inside
    *  each silhouette-*.svg asset, which happened to land at almost the
    *  same lightness as --card/--secondary behind it — the outline read as
