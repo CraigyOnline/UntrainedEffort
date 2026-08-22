@@ -41,6 +41,7 @@
   --color-circuit-rest: var(--circuit-rest);
   --color-cardio: var(--cardio);
   --color-circuit: var(--circuit);
+  --color-mixed: var(--mixed);
   --color-muscle-silhouette: var(--muscle-silhouette);
   --font-display: "Inter", system-ui, -apple-system, sans-serif;
 }
@@ -114,12 +115,24 @@
    *  mode cardio workouts, which also read as --intensity. A dedicated
    *  magenta keeps Circuit its own consistent identity everywhere it
    *  appears, distinct from Strength (green), Cardio (cyan, including
-   *  interval-pattern cardio — see --cardio above), and Mixed (chart-4
-   *  purple in the heatmap) — and leaves --intensity/--circuit-rest free
+   *  interval-pattern cardio — see --cardio above), and Mixed (see
+   *  --mixed below) — and leaves --intensity/--circuit-rest free
    *  to keep meaning exactly what their own comments say: live WORK/REST
    *  phase colors during an active interval or circuit timer, nothing
    *  more. */
   --circuit: oklch(0.7 0.19 335);
+  /** Training-consistency heatmap's Mixed day color (a day with more than
+   *  one workout mode, or a workout already tagged "mixed"). Previously
+   *  just reused --chart-4 (also 0.7 lightness/~0.2 chroma, hue 310) —
+   *  25 degrees from --circuit's magenta (335) is too close at heatmap-
+   *  cell size, so Circuit and Mixed days read as the same color at a
+   *  glance despite being genuinely different categories shown side by
+   *  side in the same grid. A dedicated token, same pattern as --cardio
+   *  and --circuit above, landed further round the wheel (blue-violet,
+   *  265) into the gap between --cardio (195) and --circuit (335) —
+   *  clearly its own hue against both neighbors, and frees --chart-4
+   *  back up as a plain, uncommitted slot in the generic chart palette. */
+  --mixed: oklch(0.7 0.19 265);
   /** Muscle map body-outline fill. Previously hardcoded as #2e343a inside
    *  each silhouette-*.svg asset, which happened to land at almost the
    *  same lightness as --card/--secondary behind it — the outline read as

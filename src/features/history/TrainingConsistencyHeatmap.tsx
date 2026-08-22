@@ -208,7 +208,7 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
                         : day.mode === "cardio" || day.mode === "interval"
                           ? "bg-cardio active:scale-90"
                           : day.mode === "mixed"
-                            ? "bg-chart-4 ring-1 ring-primary-foreground/70 active:scale-90"
+                            ? "bg-mixed ring-1 ring-primary-foreground/70 active:scale-90"
                             : "bg-primary active:scale-90"
                 }`}
               />
@@ -228,7 +228,7 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
           <span className="h-2.5 w-2.5 rounded-sm bg-circuit" /> Circuit
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-chart-4 ring-1 ring-primary-foreground/70" />{" "}
+          <span className="h-2.5 w-2.5 rounded-sm bg-mixed ring-1 ring-primary-foreground/70" />{" "}
           Mixed
         </span>
       </div>
