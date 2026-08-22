@@ -354,24 +354,27 @@ function ExerciseCard({
                   ? "Sec"
                   : "Kg"}
             </span>
-            <span>{schema.distance ? "Time" : schema.duration ? "" : "Reps"}</span>
+            <span>
+              {schema.distance ? (
+                "Time"
+              ) : schema.duration ? (
+                ""
+              ) : (
+                <span className="flex items-baseline gap-1 whitespace-nowrap">
+                  <span>Reps</span>
+                  {expectedRepRange && (
+                    <span className="normal-case font-normal tracking-normal text-[9px]">
+                      Usually {expectedRepRange.min === expectedRepRange.max
+                        ? expectedRepRange.min
+                        : `${expectedRepRange.min}–${expectedRepRange.max}`}
+                    </span>
+                  )}
+                </span>
+              )}
+            </span>
             <span />
             <span />
           </div>
-
-          {!schema.distance && !schema.duration && (
-            <div className="mt-1 grid min-h-3 grid-cols-[24px_1fr_1fr_auto_auto] items-center gap-2">
-              <span />
-              <span />
-              <span className="text-left text-[10px] leading-3 text-muted-foreground">
-                {expectedRepRange
-                  ? `Usually ${expectedRepRange.min === expectedRepRange.max ? expectedRepRange.min : `${expectedRepRange.min}–${expectedRepRange.max}`}`
-                  : ""}
-              </span>
-              <span />
-              <span />
-            </div>
-          )}
 
           {ex.sets.map((s, si) => (
             <div
