@@ -69,7 +69,7 @@ export function MiniConsistencyHeatmap({ trainedDays, weeks = 8 }: MiniConsisten
     <button
       type="button"
       onClick={() => navigate({ to: "/history/insights" })}
-      className="flex h-full w-full flex-col items-start justify-center gap-3 active:opacity-70"
+      className="flex h-full w-full flex-col items-center justify-center gap-3 active:opacity-70"
     >
       <div className="flex gap-1.5">
         <div className="grid grid-rows-7 gap-1" style={{ width: DAY_LABEL_WIDTH }}>
