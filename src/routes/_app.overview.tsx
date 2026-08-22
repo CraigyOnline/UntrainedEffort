@@ -287,7 +287,7 @@ function OverviewPage() {
               Cardio
             </p>
             <button
-              onClick={() => navigate({ to: "/history/insights" })}
+              onClick={() => navigate({ to: "/history/insights", search: { section: "cardio" } })}
               className="text-xs font-medium text-primary active:opacity-70"
             >
               View cardio →
