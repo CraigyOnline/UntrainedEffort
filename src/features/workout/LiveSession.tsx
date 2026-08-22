@@ -372,10 +372,10 @@ function ExerciseCard({
                       <button
                         type="button"
                         onClick={() =>
-                          navigate({ to: "/history/$id", params: { id: String(previousWorkoutId) } })
+                          navigate({ to: "/exercise/$id", params: { id: ex.exerciseId } })
                         }
                         className="normal-case font-normal tracking-normal text-[9px] text-primary underline underline-offset-2 active:opacity-70"
-                        aria-label="View previous workout"
+                        aria-label="View exercise history"
                       >
                         Usually {expectedRepRange.min === expectedRepRange.max
                           ? expectedRepRange.min
