@@ -224,7 +224,7 @@ function OverviewPage() {
               Muscle activity
             </p>
             <button
-              onClick={() => navigate({ to: "/history/insights" })}
+              onClick={() => navigate({ to: "/history/insights", search: { section: "strength" } })}
               className="text-xs font-medium text-primary active:opacity-70"
             >
               View muscle activity →

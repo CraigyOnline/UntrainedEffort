@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo, useState, type ReactNode } from "react";
+import { z } from "zod";
 import { Dumbbell } from "lucide-react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { getDb, type Workout, type PRRecord } from "@/lib/db";
@@ -38,13 +39,6 @@ import { CardioSummary } from "@/features/history/CardioSummary";
 import { EmptyState } from "@/components/EmptyState";
 import { MuscleMap } from "@/components/MuscleMap";
 
-export const Route = createFileRoute("/_app/history/insights")({
-  head: () => ({
-    meta: [{ title: "Insights · Untrained Effort" }],
-  }),
-  component: InsightsPage,
-});
-
 type InsightsSection = "training" | "strength" | "cardio" | "achievements";
 
 const SECTIONS: { id: InsightsSection; label: string; question: string }[] = [
@@ -53,6 +47,21 @@ const SECTIONS: { id: InsightsSection; label: string; question: string }[] = [
   { id: "cardio", label: "Cardio", question: "How's your cardio developing?" },
   { id: "achievements", label: "Achievements", question: "What have you accomplished?" },
 ];
+
+// Kept in the URL (section) so a direct link — e.g. Overview's "View
+// muscle activity" — can land on a specific tab instead of always the
+// "training" default, same rationale as timeline's own q/from/to.
+const insightsSearchSchema = z.object({
+  section: z.enum(["training", "strength", "cardio", "achievements"]).optional(),
+});
+
+export const Route = createFileRoute("/_app/history/insights")({
+  validateSearch: insightsSearchSchema,
+  head: () => ({
+    meta: [{ title: "Insights · Untrained Effort" }],
+  }),
+  component: InsightsPage,
+});
 
 type HeatmapRange = 7 | 30 | 90 | null;
 
@@ -158,7 +167,8 @@ function InsightsPage() {
     [],
   ) as PRRecord[] | undefined;
 
-  const [section, setSection] = useState<InsightsSection>("training");
+  const searchParams = Route.useSearch();
+  const [section, setSection] = useState<InsightsSection>(searchParams.section ?? "training");
   const [monthsExpanded, setMonthsExpanded] = useState(false);
 
   const [volumeGranularity, setVolumeGranularity] = useState<VolumePeriodGranularity>("week");
