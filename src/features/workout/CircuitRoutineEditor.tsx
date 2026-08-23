@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useBlocker } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
 import { getDb, type CircuitStation, type Routine } from "@/lib/db";
 import { getExercise } from "@/lib/exercises";
@@ -19,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { BOTTOM_NAV_HEIGHT } from "@/components/BottomTabs";
-import { useDismissOnBack } from "@/lib/backHandler";
+import { useDiscardConfirmation } from "@/features/workout/useDiscardConfirmation";
 
 // Defaults for a newly added station — a common HIIT work/rest split, not
 // meant to be authoritative. Every station's timing is independently
@@ -56,7 +55,6 @@ export function CircuitRoutineEditor({
     initial?.circuit?.roundRestEnabled ?? true,
   );
   const [picking, setPicking] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const hasChanges = useMemo(() => {
     if (!initial) return name.trim() !== "" || stations.length > 0;
@@ -77,32 +75,10 @@ export function CircuitRoutineEditor({
     });
   }, [name, stations, rounds, roundRestSeconds, roundRestEnabled, initial]);
 
-  const blocker = useBlocker({ shouldBlockFn: () => hasChanges, withResolver: true });
-
-  useEffect(() => {
-    if (blocker.status === "blocked") setConfirmOpen(true);
-  }, [blocker.status]);
-
-  const handleClose = useCallback(() => {
-    if (hasChanges) setConfirmOpen(true);
-    else onClose();
-  }, [hasChanges, onClose]);
-
-  // Same reasoning as RoutineEditor: this is a full-screen overlay within
-  // the /workout route, not a separate route, so Android back needs to
-  // close the editor rather than fall through to route history.
-  useDismissOnBack(true, handleClose);
-
-  const handleDiscard = useCallback(() => {
-    setConfirmOpen(false);
-    if (blocker.status === "blocked") blocker.proceed();
-    else onClose();
-  }, [blocker, onClose]);
-
-  const handleCancel = useCallback(() => {
-    setConfirmOpen(false);
-    if (blocker.status === "blocked") blocker.reset();
-  }, [blocker]);
+  const { confirmOpen, handleClose, handleDiscard, handleCancel } = useDiscardConfirmation(
+    hasChanges,
+    onClose,
+  );
 
   function moveUp(i: number) {
     if (i === 0) return;

@@ -159,13 +159,13 @@ function InsightsPage() {
         ? Promise.resolve<Workout[]>([])
         : getDb().workouts.orderBy("startedAt").reverse().toArray(),
     [],
-  ) as Workout[] | undefined;
+  );
 
   const allPRs = useLiveQuery(
     () =>
       typeof window === "undefined" ? Promise.resolve<PRRecord[]>([]) : getDb().prHistory.toArray(),
     [],
-  ) as PRRecord[] | undefined;
+  );
 
   const searchParams = Route.useSearch();
   const [section, setSection] = useState<InsightsSection>(searchParams.section ?? "training");

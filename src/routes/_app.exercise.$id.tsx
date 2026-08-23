@@ -87,7 +87,7 @@ function ExerciseProgressPage() {
   const prs = useLiveQuery(async () => {
     if (typeof window === "undefined") return [];
     return getDb().prHistory.where("exerciseId").equals(id).sortBy("createdAt");
-  }, [id]) as PRRecord[] | undefined;
+  }, [id]);
 
   // Most recent completed sessions containing this exercise — shared
   // source for both the list below and the chart

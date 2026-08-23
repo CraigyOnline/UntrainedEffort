@@ -10,7 +10,6 @@ import {
   type RoutineSet,
   type Workout,
   type WorkoutExerciseLog,
-  type PRRecord,
   type CircuitConfig,
 } from "@/lib/db";
 import {
@@ -128,7 +127,7 @@ function WorkoutPage() {
         ? Promise.resolve<Routine[]>([])
         : getDb().routines.orderBy("sortOrder").toArray(),
     [],
-  ) as Routine[] | undefined;
+  );
 
   const allWorkouts = useLiveQuery(
     () =>
@@ -136,7 +135,7 @@ function WorkoutPage() {
         ? Promise.resolve<Workout[]>([])
         : getDb().workouts.orderBy("startedAt").reverse().toArray(),
     [],
-  ) as Workout[] | undefined;
+  );
 
   const lastUsedByRoutine = useMemo(() => {
     const map = new Map<number, number>();
@@ -285,7 +284,7 @@ function WorkoutPage() {
   const summaryPRs = useLiveQuery(async () => {
     if (typeof window === "undefined" || !summary?.id) return [];
     return getDb().prHistory.where("workoutId").equals(summary.id).toArray();
-  }, [summary?.id]) as PRRecord[] | undefined;
+  }, [summary?.id]);
 
   useEffect(() => {
     // active === undefined means the draft is still loading — wait for it

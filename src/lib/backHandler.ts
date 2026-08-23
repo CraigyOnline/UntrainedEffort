@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 
 /**
  * A single, app-wide stack of "things that are currently open and should
@@ -13,14 +13,15 @@ import { useEffect } from "react";
  * matching how a stack of screens/sheets should unwind one at a time.
  */
 type CloseFn = () => void;
-const overlayStack: CloseFn[] = [];
+type OverlayEntry = { id: string; close: CloseFn };
+const overlayStack: OverlayEntry[] = [];
 
 /** Returns true if an overlay was open and got closed — callers of
  *  closeTopOverlay use this to know whether to also let the route navigate. */
 function closeTopOverlay(): boolean {
   const top = overlayStack[overlayStack.length - 1];
   if (!top) return false;
-  top();
+  top.close();
   return true;
 }
 
@@ -29,16 +30,31 @@ function closeTopOverlay(): boolean {
  * `open` is true. Call this from any overlay/dialog/sheet component,
  * passing whatever function actually closes it (respecting any internal
  * guard, e.g. an unsaved-changes check) rather than a raw setState.
+ *
+ * Entries are keyed by a stable per-hook-instance id (useId), not by the
+ * `onClose` reference itself — a caller whose `onClose` is a fresh inline
+ * function on every render (rather than memoized) would otherwise cause
+ * this effect to remove-then-repush on every render, moving it to the top
+ * of the stack even though nothing about it actually opened or closed.
+ * With a stable id, that same churn just replaces this entry in place,
+ * so an unmemoized `onClose` can no longer disturb the ordering of other
+ * overlays that are simultaneously open.
  */
 export function useDismissOnBack(open: boolean, onClose: () => void) {
+  const id = useId();
   useEffect(() => {
     if (!open) return;
-    overlayStack.push(onClose);
+    const index = overlayStack.findIndex((e) => e.id === id);
+    if (index !== -1) {
+      overlayStack[index] = { id, close: onClose };
+    } else {
+      overlayStack.push({ id, close: onClose });
+    }
     return () => {
-      const i = overlayStack.lastIndexOf(onClose);
+      const i = overlayStack.findIndex((e) => e.id === id);
       if (i !== -1) overlayStack.splice(i, 1);
     };
-  }, [open, onClose]);
+  }, [open, onClose, id]);
 }
 
 /** Used only by the single central listener in __root.tsx. */

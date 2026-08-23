@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo } from "react";
-import { getDb, type Workout, type PRRecord } from "@/lib/db";
+import { getDb, type Workout } from "@/lib/db";
 import { getExercise, type MuscleGroup } from "@/lib/exercises";
 import {
   computeWorkoutDisplayStats,
@@ -64,7 +64,7 @@ function OverviewPage() {
   const prRecords = useLiveQuery(async () => {
     if (typeof window === "undefined") return [];
     return getDb().prHistory.toArray();
-  }, []) as PRRecord[] | undefined;
+  }, []);
 
   const greeting = useLiveQuery(() => selectHomeGreeting(), []);
 

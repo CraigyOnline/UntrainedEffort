@@ -81,7 +81,7 @@ function WorkoutTimeline() {
         ? Promise.resolve<Workout[]>([])
         : getDb().workouts.orderBy("startedAt").reverse().toArray(),
     [],
-  ) as Workout[] | undefined;
+  );
 
   const filteredWorkouts = useMemo(
     () =>
@@ -104,7 +104,7 @@ function WorkoutTimeline() {
     () =>
       typeof window === "undefined" ? Promise.resolve<PRRecord[]>([]) : getDb().prHistory.toArray(),
     [],
-  ) as PRRecord[] | undefined;
+  );
 
   // Map workoutId → PR count
   const prCountByWorkout = (() => {

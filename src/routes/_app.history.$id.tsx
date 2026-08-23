@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUndo } from "@/hooks/useUndo";
 import { useLiveQuery } from "dexie-react-hooks";
 import { ArrowLeft, Check, Trash2, X, Pencil, Save, Share2 } from "lucide-react";
-import { getDb, type Workout, type WorkoutExerciseLog, type PRRecord } from "@/lib/db";
+import { getDb, type Workout, type WorkoutExerciseLog } from "@/lib/db";
 import {
   getExercise,
   isCardio,
@@ -55,7 +55,7 @@ function HistoryDetailPage() {
   const workoutPRs = useLiveQuery(async () => {
     if (typeof window === "undefined" || !workout?.id) return [];
     return getDb().prHistory.where("workoutId").equals(workout.id).toArray();
-  }, [workout?.id]) as PRRecord[] | undefined;
+  }, [workout?.id]);
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Workout | null>(null);

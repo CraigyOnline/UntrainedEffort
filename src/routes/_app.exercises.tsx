@@ -46,7 +46,7 @@ function ExercisesListPage() {
         ? Promise.resolve<Workout[]>([])
         : getDb().workouts.orderBy("startedAt").reverse().toArray(),
     [],
-  ) as Workout[] | undefined;
+  );
 
   const lastTrainedAt = useMemo(() => computeLastTrainedAt(workouts ?? []), [workouts]);
 
