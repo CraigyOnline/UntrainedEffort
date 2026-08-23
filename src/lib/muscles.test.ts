@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Workout, WorkoutSet } from "@/lib/db";
 import {
+  computeAggregateMuscleIntensity,
   computeIntensity,
   computeMuscleActivityByPeriod,
   computeMuscleRecovery,
@@ -115,6 +116,51 @@ describe("intensityFromExerciseIds", () => {
 
   it("returns an empty object for an empty list", () => {
     expect(intensityFromExerciseIds([])).toEqual({});
+  });
+});
+
+describe("computeAggregateMuscleIntensity", () => {
+  function makeWorkout(startedAt: number, exercises: Workout["exercises"]): Workout {
+    return { id: 1, startedAt, exercises } as Workout;
+  }
+
+  it("normalizes every muscle against the highest-scoring one", () => {
+    const workouts = [
+      makeWorkout(0, makeExercises([["bench-press", [makeSet(), makeSet()]]])), // Chest x2
+      makeWorkout(1, makeExercises([["bench-press", [makeSet()]]])), // Chest x1 more
+    ];
+    const intensity = computeAggregateMuscleIntensity(workouts);
+    expect(intensity.Chest).toBe(1); // highest-scoring muscle normalizes to 1
+    expect(intensity.Triceps).toBe(0.5); // secondary, half weight throughout
+  });
+
+  it("excludes Cardio from the output, same as computeIntensity and intensityFromExerciseIds", () => {
+    const workouts = [makeWorkout(0, makeExercises([["treadmill", [makeSet()]]]))];
+    const intensity = computeAggregateMuscleIntensity(workouts);
+    expect(intensity.Cardio).toBeUndefined();
+    expect("Cardio" in intensity).toBe(false);
+    // secondary muscles from the cardio exercise still register
+    expect(intensity.Quads).toBe(0.5);
+  });
+
+  it("does not let a cardio-heavy window deflate real muscles' relative intensity", () => {
+    // 4 cardio sets (Cardio total 4, secondaries at 2 each) vs. 3 chest sets
+    // (Chest total 3). Before the fix, Cardio's own total of 4 fed into
+    // totals and became the max() denominator (4 > 3), so Chest normalized
+    // to 3/4 = 0.75 instead of the 1 it should get as the actual
+    // highest-scoring real muscle in this window.
+    const workouts = [
+      makeWorkout(
+        0,
+        makeExercises([
+          ["treadmill", Array.from({ length: 4 }, () => makeSet())],
+          ["bench-press", [makeSet(), makeSet(), makeSet()]],
+        ]),
+      ),
+    ];
+    const intensity = computeAggregateMuscleIntensity(workouts);
+    expect(intensity.Chest).toBe(1);
+    expect(intensity.Cardio).toBeUndefined();
   });
 });
 

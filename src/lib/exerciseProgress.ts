@@ -65,7 +65,7 @@ export function getPrimaryMetricBySide(kind: MetricKind, sets: WorkoutSet[]): Ar
  * The best value for one session's sets, given an already-decided metric
  * kind — the first (or only) side. A thin wrapper over
  * getPrimaryMetricBySide so every existing caller (Exercise Detail's
- * chart, Profile's Current Focus and Recent Progress) keeps working
+ * chart, Overview's Current Focus and Recent Progress) keeps working
  * completely unchanged.
  */
 export function getPrimaryMetric(kind: MetricKind, sets: WorkoutSet[]): number | null {
@@ -303,7 +303,7 @@ export function formatStatusConfidence(sampleSize: number): string | null {
 
 /**
  * Single source of truth for how each ExerciseStatus reads and looks —
- * shared by Profile's Current Focus card, its Recent Progress list, and
+ * shared by Overview's Current Focus card, its Recent Progress list, and
  * the Exercise Detail page's chart header, so a future wording or glyph
  * change happens in one place rather than three. `tone` is a Tailwind
  * text-color class, not a raw color, matching how the rest of this file
@@ -384,10 +384,10 @@ export function formatCardioInsight(schema: ExerciseLoggingSchema, trend: Cardio
  * per-row badge.
  *
  * Deliberately just a timestamp rather than reusing/extending
- * computeExerciseStatus (Profile's improving/plateauing status) — that
+ * computeExerciseStatus (Overview's improving/plateauing status) — that
  * function does a full best-value and two-session trend comparison *per
  * exercise it's asked about*, which is fine for the handful of exercises
- * Profile's Recent Progress shows, but would mean one full pass over
+ * Overview's Recent Progress shows, but would mean one full pass over
  * `workouts` for every exercise in the whole catalog here. This is a
  * single O(workouts) pass regardless of catalog size.
  */

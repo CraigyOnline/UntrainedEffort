@@ -377,7 +377,7 @@ export interface VolumePeriod {
  *
  * "week" uses rolling 7-day windows counted back from `now` (matching the
  * "last 4 weeks vs. prior 4" language computeVolumeTrend already uses on
- * Profile) rather than calendar (Mon-Sun) weeks. "month" uses actual
+ * Overview) rather than calendar (Mon-Sun) weeks. "month" uses actual
  * calendar months instead — rolling 30-day windows would drift against the
  * month labels a chart would otherwise want to show.
  */

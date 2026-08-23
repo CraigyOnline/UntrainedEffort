@@ -15,6 +15,7 @@ import {
   type SetSide,
 } from "@/lib/exercises";
 import { syncWorkoutIntegrity } from "@/lib/workoutIntegrity";
+import { newId } from "@/features/workout/workoutHelpers";
 import { ExercisePicker } from "@/components/forms/ExercisePicker";
 import { MmSsInput } from "@/components/forms/MmSsInput";
 import { StepperInput } from "@/components/forms/NumberInput";
@@ -119,11 +120,6 @@ function HistoryDetailPage() {
     },
   });
 
-  function newSetId(): string {
-    if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-    return `s_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-  }
-
   useEffect(() => {
     const n = Number(id);
     if (!Number.isFinite(n)) {
@@ -223,7 +219,7 @@ function HistoryDetailPage() {
               const def = getExercise(e.exerciseId);
               const last = e.sets.at(-1);
               const next = seedUnilateralSide(def, {
-                id: newSetId(),
+                id: newId(),
                 weight: last?.weight ?? 0,
                 reps: last?.reps ?? 0,
                 duration: last?.duration ?? 0,
@@ -254,7 +250,7 @@ function HistoryDetailPage() {
                 exerciseId: id,
                 sets: [
                   seedUnilateralSide(getExercise(id), {
-                    id: newSetId(),
+                    id: newId(),
                     weight: 0,
                     reps: 0,
                     duration: 0,

@@ -162,7 +162,7 @@ export const MUSCLE_RECOVERY_COPY: Record<MuscleRecoveryStatus, { label: string;
  * "how much of this workout's volume went to it".
  *
  * Scans the full workout history, independent of any display-range
- * filter a caller might otherwise apply elsewhere (e.g. Profile's
+ * filter a caller might otherwise apply elsewhere (e.g. Overview's
  * heatmap range) — recovery status should reflect the actual last time
  * a muscle was trained, not be silently capped by an unrelated UI filter.
  *
@@ -266,6 +266,11 @@ export function computeMuscleActivityByPeriod(
  * window by filtering `workouts` before calling this, not via a param
  * here, since Overview always uses a fixed recent window and Insights'
  * range picker needs an arbitrary one.
+ *
+ * "Cardio" is excluded, same as computeIntensity and intensityFromExerciseIds
+ * above — no SVG body-map region, and left in it could also dominate the
+ * max() below on a cardio-heavy window, understating every real muscle's
+ * intensity relative to the others.
  */
 export function computeAggregateMuscleIntensity(
   workouts: Workout[],
@@ -277,7 +282,9 @@ export function computeAggregateMuscleIntensity(
       const def = getExercise(e.exerciseId);
       if (!def) continue;
       const completed = e.sets.filter((s) => s.completed).length;
-      totals[def.muscle] = (totals[def.muscle] ?? 0) + completed;
+      if (def.muscle !== "Cardio") {
+        totals[def.muscle] = (totals[def.muscle] ?? 0) + completed;
+      }
       for (const sec of def.secondary ?? []) {
         totals[sec] = (totals[sec] ?? 0) + completed * 0.5;
       }

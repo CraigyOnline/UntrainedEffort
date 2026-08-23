@@ -96,13 +96,23 @@ export function useActiveWorkoutDraft(): [
   // unmounted (route navigation, back button) — the two realistic windows
   // in which a debounced write could otherwise be lost.
   useEffect(() => {
+    let cancelled = false;
     let removeListener: (() => void) | undefined;
     CapacitorApp.addListener("appStateChange", ({ isActive }) => {
       if (!isActive) flushPending();
     }).then((handle) => {
+      // The effect may already have been cleaned up (component unmounted)
+      // by the time this native round-trip resolves. Without this guard the
+      // listener would leak, kept alive against this instance's now-stale
+      // latestRef, and could later fire and clobber a newer instance's draft.
+      if (cancelled) {
+        handle.remove();
+        return;
+      }
       removeListener = () => handle.remove();
     });
     return () => {
+      cancelled = true;
       removeListener?.();
       flushPending();
     };

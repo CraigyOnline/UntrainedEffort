@@ -3,7 +3,9 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
-// Commit 2: enable SPA mode.
+// This config runs TanStack Start in SPA mode (no SSR server) — the
+// prerendered output is served as a static file bundle inside the Capacitor
+// Android shell.
 // tanstackStart's spa option is confirmed in TanStackStartViteInputConfig at
 // @tanstack/start-plugin-core@1.169.6 (dist/esm/vite/schema.d.ts lines 6623-6707).
 //
@@ -14,11 +16,8 @@ import tailwindcss from "@tailwindcss/vite";
 // spa.prerender.crawlLinks — discovers all routes automatically
 // spa.maskPath             — the URL path Capacitor serves the shell from
 //
-// dist/client/ remains the output directory (established in Commit 1).
-// capacitor.config.json webDir already points at dist/client (Commit 1b).
-//
-// src/server.ts and src/start.ts are now dead code — the SSR server is not
-// built in SPA mode. They will be removed in Commit 3.
+// dist/client/ is the output directory; capacitor.config.json's webDir
+// points there.
 
 export default defineConfig({
   plugins: [

@@ -136,7 +136,7 @@ function ExerciseProgressPage() {
       : null;
 
   // chartData is oldest-first (for the chart's x-axis); the classifier
-  // wants most-recent-first, same convention as Profile's own values array.
+  // wants most-recent-first, same convention as Overview's own values array.
   const exerciseStatus: ExerciseStatus = computeExerciseStatusFromValues(
     [...chartData].reverse().map((p) => p.value),
     schema.paceConvention?.style === "pace",

@@ -367,7 +367,7 @@ function SettingsPage() {
           <div className="min-w-0">
             <p className="text-sm">Muscle map body type</p>
             <p className="text-xs text-muted-foreground">
-              Which body is shown on the muscle map (Profile, workout summaries, and the live HUD).
+              Which body is shown on the muscle map (Overview, workout summaries, and the live HUD).
               Purely visual — doesn't affect exercise data.
             </p>
           </div>

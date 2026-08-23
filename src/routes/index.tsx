@@ -18,7 +18,7 @@ const FADE_MS = 350;
 
 /**
  * The very first thing the app shows on open: the logo and one line from
- * the same greeting pool the Profile screen itself uses (selectHomeGreeting,
+ * the same greeting pool the Overview screen itself uses (selectHomeGreeting,
  * see src/lib/homeGreetings.ts) — not a separate message system. This is
  * the counterpart to the Workout Complete screen's opening acknowledgment,
  * and deliberately matches its typography/motion (text-3xl, tracking-tight,

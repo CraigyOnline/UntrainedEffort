@@ -26,10 +26,9 @@ function formatMuscle(mg: string) {
 /**
  * The one full, browsable list of every exercise in the catalog — search
  * plus a row per exercise, each linking to its progress page
- * (/exercise/$id). Reachable from both Profile (Recent Progress's "See
- * all") and Progress (the "Exercises" pill next to "Timeline"), rather
- * than being nested under either — neither page owns exercise browsing,
- * they both just link into it.
+ * (/exercise/$id). Reachable from both Overview (Recent Progress's "See
+ * all") and History → Insights, rather than being nested under either —
+ * neither page owns exercise browsing, they both just link into it.
  *
  * Same search/list shape as Settings → Exercise Rest Times, but unfiltered
  * (that list drops cardio/interval exercises since they can't get a rest

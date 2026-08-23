@@ -18,7 +18,7 @@ const TRANSITION_MS = 300;
 /**
  * Persistent reminder of the in-progress workout, mounted once from the
  * shared `_app` layout so it appears identically above every page's own
- * content — Profile, History, Settings, Exercise Detail, etc. — without
+ * content — Overview, History, Settings, Exercise Detail, etc. — without
  * each route needing to know it exists. Hidden on the workout screen
  * itself, which already has the floating WorkoutHUD for this.
  *
