@@ -377,7 +377,8 @@ function ExerciseCard({
                         className="normal-case font-normal tracking-normal text-[9px] text-primary underline underline-offset-2 active:opacity-70"
                         aria-label="View exercise history"
                       >
-                        Usually {expectedRepRange.min === expectedRepRange.max
+                        Usually{" "}
+                        {expectedRepRange.min === expectedRepRange.max
                           ? expectedRepRange.min
                           : `${expectedRepRange.min}–${expectedRepRange.max}`}
                       </button>
@@ -493,9 +494,10 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
     return map;
   }, []);
 
-  const previousByExerciseResult = useLiveQuery(
-    async (): Promise<Map<string, { sets: WorkoutSet[]; workoutId: number }>> => {
-      const map = new Map<string, { sets: WorkoutSet[]; workoutId: number }>();
+  const previousByExerciseResult = useLiveQuery(async (): Promise<
+    Map<string, { sets: WorkoutSet[]; workoutId: number }>
+  > => {
+    const map = new Map<string, { sets: WorkoutSet[]; workoutId: number }>();
     if (typeof window === "undefined") return map;
 
     const remaining = new Set(exerciseIds);
@@ -519,10 +521,8 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
         }
       });
 
-      return map;
-    },
-    [exerciseIds.join(","), session.startedAt],
-  );
+    return map;
+  }, [exerciseIds.join(","), session.startedAt]);
 
   const previousByExercise: Map<string, { sets: WorkoutSet[]; workoutId: number }> =
     previousByExerciseResult ?? new Map();
