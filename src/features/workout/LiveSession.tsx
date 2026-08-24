@@ -571,17 +571,24 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
     secondsLeft: undoSecondsLeft,
     trigger: triggerUndo,
     undo: undoDelete,
-  } = useUndo<{ exerciseId: string; set: LiveWorkoutSet }>({
+    dismiss: dismissUndo,
+  } = useUndo<{ exerciseId: string; set: LiveWorkoutSet; index: number }>({
     duration: 3,
-    onUndo: ({ exerciseId, set }) => {
+    onUndo: ({ exerciseId, set, index }) => {
       setSession((s) => {
         if (!s) return s;
         const exIdx = s.exercises.findIndex((e) => e.exerciseId === exerciseId);
         if (exIdx === -1) return s;
         const ex = s.exercises[exIdx];
         if (set.id && ex.sets.some((x) => x.id === set.id)) return s;
+        // Reinsert at the original position rather than appending — clamped
+        // in case other sets were removed/added in the meantime, so
+        // restoring past the current length just appends instead of
+        // throwing.
+        const newSets = [...ex.sets];
+        newSets.splice(Math.min(index, newSets.length), 0, set);
         const newExercises = [...s.exercises];
-        newExercises[exIdx] = { ...ex, sets: [...ex.sets, set] };
+        newExercises[exIdx] = { ...ex, sets: newSets };
         return { ...s, exercises: newExercises };
       });
     },
@@ -815,7 +822,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
     setSession((s) => {
       if (!s) return s;
       const setToDelete = s.exercises[ei].sets[si];
-      triggerUndo({ exerciseId: s.exercises[ei].exerciseId, set: setToDelete });
+      triggerUndo({ exerciseId: s.exercises[ei].exerciseId, set: setToDelete, index: si });
       return {
         ...s,
         exercises: s.exercises.map((e, i) =>
@@ -826,6 +833,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
   }
 
   function removeExercise(ei: number) {
+    if (undo?.exerciseId === session.exercises[ei].exerciseId) dismissUndo();
     setSession((s) => (s ? { ...s, exercises: s.exercises.filter((_, i) => i !== ei) } : s));
   }
 

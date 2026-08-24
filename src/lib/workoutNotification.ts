@@ -47,18 +47,6 @@ async function ensureWorkoutNotificationPermission(): Promise<void> {
 }
 
 /**
- * Builds the notification's text from the same shared calculations the
- * floating Workout HUD uses — computeWorkoutStats() for sets/volume,
- * getCurrentExerciseName() for what's next, formatDuration() for elapsed
- * time. Nothing here re-derives a number that already has a home
- * elsewhere; workoutStats.ts is the single place both this and the
- * Active Workout Card resolve "current exercise" from.
- *
- * `body` is the single-line collapsed form; `largeBody` is the Android
- * big-text style shown once expanded, so the collapsed line stays short
- * while the expanded view gets the full breakdown.
- */
-/**
  * "Resting Xm Ys" / "Ready ✓", or undefined when no rest timer has ever
  * started this workout. Computed fresh from `endsAt` each time the
  * notification is (re)built, the same live-derived approach the HUD's
@@ -76,6 +64,18 @@ function restStatusLine(draft: ActiveWorkoutDraft): string | undefined {
   return remaining > 0 ? `Resting: ${formatDuration(remaining)}` : "Ready ✓";
 }
 
+/**
+ * Builds the notification's text from the same shared calculations the
+ * floating Workout HUD uses — computeWorkoutStats() for sets/volume,
+ * getCurrentExerciseName() for what's next, formatDuration() for elapsed
+ * time. Nothing here re-derives a number that already has a home
+ * elsewhere; workoutStats.ts is the single place both this and the
+ * Active Workout Card resolve "current exercise" from.
+ *
+ * `body` is the single-line collapsed form; `largeBody` is the Android
+ * big-text style shown once expanded, so the collapsed line stays short
+ * while the expanded view gets the full breakdown.
+ */
 function buildWorkoutNotificationContent(draft: ActiveWorkoutDraft): {
   title: string;
   body: string;

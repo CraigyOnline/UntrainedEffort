@@ -6,6 +6,7 @@ import { getDb, type Workout } from "@/lib/db";
 import { EXERCISES, matchesExerciseQuery } from "@/lib/exercises";
 import { computeLastTrainedAt } from "@/lib/exerciseProgress";
 import { formatRelativeDate } from "@/lib/format";
+import { formatMuscleGroup } from "@/lib/muscles";
 
 export const Route = createFileRoute("/_app/exercises")({
   head: () => ({
@@ -16,12 +17,6 @@ export const Route = createFileRoute("/_app/exercises")({
   }),
   component: ExercisesListPage,
 });
-
-function formatMuscle(mg: string) {
-  if (mg === "UpperBack") return "Upper Back";
-  if (mg === "LowerBack") return "Lower Back";
-  return mg;
-}
 
 /**
  * The one full, browsable list of every exercise in the catalog — search
@@ -124,7 +119,7 @@ function ExercisesListPage() {
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{e.name}</p>
-                <p className="text-xs text-muted-foreground">{formatMuscle(e.muscle)}</p>
+                <p className="text-xs text-muted-foreground">{formatMuscleGroup(e.muscle)}</p>
               </div>
               <span className="shrink-0 pl-3 text-xs text-muted-foreground">
                 {trainedAt != null

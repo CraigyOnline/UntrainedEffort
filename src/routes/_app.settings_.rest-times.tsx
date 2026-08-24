@@ -5,6 +5,7 @@ import { ArrowLeft, Search } from "lucide-react";
 import { EXERCISES, getRestDurationSec, matchesExerciseQuery } from "@/lib/exercises";
 import { getAllExerciseSettings } from "@/lib/exerciseSettings";
 import { formatTime } from "@/lib/format";
+import { formatMuscleGroup } from "@/lib/muscles";
 
 export const Route = createFileRoute("/_app/settings_/rest-times")({
   head: () => ({
@@ -25,12 +26,6 @@ export const Route = createFileRoute("/_app/settings_/rest-times")({
 // would have nothing to apply to. Computed once at module load since the
 // catalog itself is static.
 const OVERRIDABLE_EXERCISES = EXERCISES.filter((e) => getRestDurationSec(e) !== undefined);
-
-function formatMuscle(mg: string) {
-  if (mg === "UpperBack") return "Upper Back";
-  if (mg === "LowerBack") return "Lower Back";
-  return mg;
-}
 
 function RestTimesListPage() {
   const navigate = useNavigate();
@@ -93,7 +88,7 @@ function RestTimesListPage() {
             >
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{e.name}</p>
-                <p className="text-xs text-muted-foreground">{formatMuscle(e.muscle)}</p>
+                <p className="text-xs text-muted-foreground">{formatMuscleGroup(e.muscle)}</p>
               </div>
               <span className="shrink-0 pl-3 text-xs text-muted-foreground">
                 {overrideSec !== undefined

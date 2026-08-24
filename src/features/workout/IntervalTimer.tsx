@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { IntervalTimerState } from "@/lib/db";
 import type { IntervalConfig } from "@/lib/exercises";
 import { isIntervalDone } from "@/features/workout/intervalTimer";
+import { formatTime } from "@/lib/format";
 
 export interface IntervalTimerProps {
   config: IntervalConfig;
@@ -104,12 +105,6 @@ export function IntervalTimer({ config, state, onChange, onComplete }: IntervalT
       ? state.status.remaining
       : Math.max(0, Math.ceil((state.status.endsAt - Date.now()) / 1000));
 
-  function fmt(s: number) {
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${String(sec).padStart(2, "0")}`;
-  }
-
   function toggle() {
     if (done) return;
     if (!state) {
@@ -137,9 +132,6 @@ export function IntervalTimer({ config, state, onChange, onComplete }: IntervalT
     onChange(undefined);
   }
 
-  const mm = Math.floor(Math.max(0, remaining) / 60);
-  const ss = Math.max(0, remaining) % 60;
-
   return (
     <div className="mt-3 space-y-2">
       <div className="rounded-lg bg-secondary/50 px-3 py-2 text-xs">
@@ -151,10 +143,10 @@ export function IntervalTimer({ config, state, onChange, onComplete }: IntervalT
             Rounds: <b>{config.rounds}</b>
           </span>
           <span>
-            Work: <b>{fmt(config.workSeconds)}</b>
+            Work: <b>{formatTime(config.workSeconds)}</b>
           </span>
           <span>
-            Rest: <b>{fmt(config.restSeconds)}</b>
+            Rest: <b>{formatTime(config.restSeconds)}</b>
           </span>
         </div>
       </div>
@@ -189,7 +181,7 @@ export function IntervalTimer({ config, state, onChange, onComplete }: IntervalT
           </div>
           <div className="flex items-center gap-2">
             <span className="tabular-nums text-2xl font-bold">
-              {mm}:{String(ss).padStart(2, "0")}
+              {formatTime(Math.max(0, remaining))}
             </span>
             {!done && (
               <button

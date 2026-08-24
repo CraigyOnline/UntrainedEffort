@@ -104,17 +104,24 @@ function HistoryDetailPage() {
     secondsLeft: timeLeft,
     trigger: triggerUndo,
     undo: undoDeleteSet,
-  } = useUndo<{ exerciseId: string; set: WorkoutExerciseLog["sets"][0] }>({
+    dismiss: dismissUndo,
+  } = useUndo<{ exerciseId: string; set: WorkoutExerciseLog["sets"][0]; index: number }>({
     duration: 3,
-    onUndo: ({ exerciseId, set }) => {
+    onUndo: ({ exerciseId, set, index }) => {
       setDraft((d) => {
         if (!d) return d;
         const exIdx = d.exercises.findIndex((e) => e.exerciseId === exerciseId);
         if (exIdx === -1) return d;
         const ex = d.exercises[exIdx];
         if (set.id && ex.sets.some((x) => x.id === set.id)) return d;
+        // Reinsert at the original position rather than appending — clamped
+        // in case other sets were removed/added in the meantime, so
+        // restoring past the current length just appends instead of
+        // throwing.
+        const newSets = [...ex.sets];
+        newSets.splice(Math.min(index, newSets.length), 0, set);
         const newExercises = [...d.exercises];
-        newExercises[exIdx] = { ...ex, sets: [...ex.sets, set] };
+        newExercises[exIdx] = { ...ex, sets: newSets };
         return { ...d, exercises: newExercises };
       });
     },
@@ -178,7 +185,7 @@ function HistoryDetailPage() {
       i !== ei ? e : { ...e, sets: e.sets.filter((_, j) => j !== si) },
     );
     setDraft({ ...draft, exercises: newExercises });
-    triggerUndo({ exerciseId: draft.exercises[ei].exerciseId, set: setToDelete });
+    triggerUndo({ exerciseId: draft.exercises[ei].exerciseId, set: setToDelete, index: si });
   }
 
   function patchSet(
@@ -236,6 +243,7 @@ function HistoryDetailPage() {
   }
 
   function removeExercise(ei: number) {
+    if (draft && undo?.exerciseId === draft.exercises[ei].exerciseId) dismissUndo();
     setDraft((d) => (d ? { ...d, exercises: d.exercises.filter((_, i) => i !== ei) } : d));
   }
 

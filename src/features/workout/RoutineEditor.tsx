@@ -73,6 +73,16 @@ export function RoutineEditor({
     });
   }
 
+  function updateSet(i: number, si: number, patch: Partial<RoutineSet>) {
+    setExercises((xs) =>
+      xs.map((x, idx) =>
+        idx !== i
+          ? x
+          : { ...x, sets: x.sets.map((rs, ri) => (ri === si ? { ...rs, ...patch } : rs)) },
+      ),
+    );
+  }
+
   async function save() {
     const trimmed = name.trim();
     if (!trimmed || exercises.length === 0) return;
@@ -173,20 +183,7 @@ export function RoutineEditor({
                                 <>
                                   <StepperInput
                                     value={s.targetWeight ?? 0}
-                                    onCommit={(v) =>
-                                      setExercises((xs) =>
-                                        xs.map((x, idx) =>
-                                          idx !== i
-                                            ? x
-                                            : {
-                                                ...x,
-                                                sets: x.sets.map((rs, ri) =>
-                                                  ri === si ? { ...rs, targetWeight: v } : rs,
-                                                ),
-                                              },
-                                        ),
-                                      )
-                                    }
+                                    onCommit={(v) => updateSet(i, si, { targetWeight: v })}
                                     step={0.1}
                                     decimal
                                     min={0}
@@ -194,40 +191,14 @@ export function RoutineEditor({
                                   />
                                   <MmSsInput
                                     seconds={s.targetDuration ?? 0}
-                                    onCommit={(secs) =>
-                                      setExercises((xs) =>
-                                        xs.map((x, idx) =>
-                                          idx !== i
-                                            ? x
-                                            : {
-                                                ...x,
-                                                sets: x.sets.map((rs, ri) =>
-                                                  ri === si ? { ...rs, targetDuration: secs } : rs,
-                                                ),
-                                              },
-                                        ),
-                                      )
-                                    }
+                                    onCommit={(secs) => updateSet(i, si, { targetDuration: secs })}
                                   />
                                 </>
                               ) : schema.duration ? (
                                 <>
                                   <MmSsInput
                                     seconds={s.targetDuration ?? 0}
-                                    onCommit={(secs) =>
-                                      setExercises((xs) =>
-                                        xs.map((x, idx) =>
-                                          idx !== i
-                                            ? x
-                                            : {
-                                                ...x,
-                                                sets: x.sets.map((rs, ri) =>
-                                                  ri === si ? { ...rs, targetDuration: secs } : rs,
-                                                ),
-                                              },
-                                        ),
-                                      )
-                                    }
+                                    onCommit={(secs) => updateSet(i, si, { targetDuration: secs })}
                                   />
                                   <span />
                                 </>
@@ -235,20 +206,7 @@ export function RoutineEditor({
                                 <>
                                   <StepperInput
                                     value={s.targetWeight ?? 0}
-                                    onCommit={(v) =>
-                                      setExercises((xs) =>
-                                        xs.map((x, idx) =>
-                                          idx !== i
-                                            ? x
-                                            : {
-                                                ...x,
-                                                sets: x.sets.map((rs, ri) =>
-                                                  ri === si ? { ...rs, targetWeight: v } : rs,
-                                                ),
-                                              },
-                                        ),
-                                      )
-                                    }
+                                    onCommit={(v) => updateSet(i, si, { targetWeight: v })}
                                     step={2.5}
                                     decimal
                                     min={0}
@@ -256,20 +214,7 @@ export function RoutineEditor({
                                   />
                                   <StepperInput
                                     value={s.targetReps ?? 0}
-                                    onCommit={(v) =>
-                                      setExercises((xs) =>
-                                        xs.map((x, idx) =>
-                                          idx !== i
-                                            ? x
-                                            : {
-                                                ...x,
-                                                sets: x.sets.map((rs, ri) =>
-                                                  ri === si ? { ...rs, targetReps: v } : rs,
-                                                ),
-                                              },
-                                        ),
-                                      )
-                                    }
+                                    onCommit={(v) => updateSet(i, si, { targetReps: v })}
                                     step={1}
                                     min={0}
                                     size="compact"

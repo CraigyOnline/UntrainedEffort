@@ -2,6 +2,14 @@ import type { Workout } from "@/lib/db";
 import { getExercise, type MuscleGroup } from "@/lib/exercises";
 import { buildPeriodBuckets, type VolumePeriodGranularity } from "@/lib/workoutStats";
 
+/** Display label for a muscle group — title-cases the two compound names,
+ *  everything else is already a single word. */
+export function formatMuscleGroup(mg: string): string {
+  if (mg === "UpperBack") return "Upper Back";
+  if (mg === "LowerBack") return "Lower Back";
+  return mg;
+}
+
 /**
  * Maps each tracked MuscleGroup to the anatomical region(s) that light up
  * for it on the body map. A region name here is the base id used in

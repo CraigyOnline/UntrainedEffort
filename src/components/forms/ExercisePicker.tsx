@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, Check, Dumbbell, HeartPulse, Timer } from "lucide-react";
 import { EXERCISES, matchesExerciseQuery, type MuscleGroup, type Equipment } from "@/lib/exercises";
+import { formatMuscleGroup } from "@/lib/muscles";
 import { BOTTOM_NAV_HEIGHT } from "@/components/BottomTabs";
 import { useDismissOnBack } from "@/lib/backHandler";
 
@@ -123,12 +124,6 @@ export function ExercisePicker({
     }
   }
 
-  function formatMuscle(mg: string) {
-    if (mg === "UpperBack") return "Upper Back";
-    if (mg === "LowerBack") return "Lower Back";
-    return mg;
-  }
-
   return (
     <div
       className="fixed inset-x-0 top-0 z-[60] flex justify-center bg-background pt-[env(safe-area-inset-top)]"
@@ -206,7 +201,7 @@ export function ExercisePicker({
                       : "bg-secondary text-muted-foreground"
                   }`}
                 >
-                  {formatMuscle(mg)}
+                  {formatMuscleGroup(mg)}
                 </button>
               ))}
             </div>
@@ -253,7 +248,7 @@ export function ExercisePicker({
             ? groups.map(({ label, exercises: exs }) => (
                 <div key={label}>
                   <p className="px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground bg-background sticky top-0">
-                    {formatMuscle(label)}
+                    {formatMuscleGroup(label)}
                   </p>
                   {exs.map((e) => (
                     <ExerciseRow
