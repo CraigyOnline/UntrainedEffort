@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Flame, CalendarRange, Trophy } from "lucide-react";
 import type { Workout } from "@/lib/db";
 import { SummaryStat } from "@/features/history/SummaryStat";
+import { EmptyState } from "@/components/EmptyState";
 
 // Workout-count thresholds worth celebrating. Deliberately one-directional:
 // once reached, a milestone stays unlocked forever — nothing on this page
@@ -62,12 +63,20 @@ export function Milestones({ workouts, totalPRs }: MilestonesProps) {
         </div>
       )}
 
-      {nextThreshold && (
+      {nextThreshold && unlockedThresholds.length > 0 && (
         <p className="mt-2 text-xs text-muted-foreground">
           {nextThreshold - stats.totalSessions}{" "}
           {nextThreshold - stats.totalSessions === 1 ? "workout" : "workouts"} to your next
           milestone
         </p>
+      )}
+
+      {unlockedThresholds.length === 0 && (
+        <div className="mt-3">
+          <EmptyState
+            message={`Your first milestone unlocks at ${WORKOUT_MILESTONES[0]} workouts — keep going.`}
+          />
+        </div>
       )}
     </section>
   );

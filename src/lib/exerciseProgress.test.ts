@@ -1,11 +1,31 @@
 import { describe, expect, it } from "vitest";
+import type { Workout, WorkoutSet } from "@/lib/db";
 import {
+  computeExerciseStatus,
   computeExerciseStatusFromValues,
   computeExpectedRepRange,
   formatStatusConfidence,
   getTrendConfidence,
   trendConfidenceLabel,
 } from "@/lib/exerciseProgress";
+
+function makeSet(weight: number): WorkoutSet {
+  return { weight, reps: 10, completed: true };
+}
+
+/** Sessions most-recent-first, one completed set of the given weight each —
+ *  matches how computeExerciseStatus expects `workouts` to already be
+ *  ordered (see ExerciseStatusSummary.values' doc comment). */
+function makeSessions(exerciseId: string, weightsMostRecentFirst: number[]): Workout[] {
+  return weightsMostRecentFirst.map((weight, i) => ({
+    id: i,
+    name: "Workout",
+    startedAt: Date.now() - i * 86400000,
+    endedAt: Date.now() - i * 86400000,
+    durationSec: 1800,
+    exercises: [{ exerciseId, sets: [makeSet(weight)] }],
+  }));
+}
 
 describe("computeExerciseStatusFromValues", () => {
   it("returns needs-more-data with fewer than 2 sessions", () => {
@@ -60,6 +80,35 @@ describe("computeExerciseStatusFromValues", () => {
       expect(computeExerciseStatusFromValues([300, 300], true)).toBe("stable");
       expect(computeExerciseStatusFromValues([300, 280, 310, 300], true)).toBe("plateauing");
     });
+  });
+});
+
+describe("computeExerciseStatus", () => {
+  it("pairs comparisonPrevious with values[1] below the plateau window (2-3 sessions)", () => {
+    const result = computeExerciseStatus(makeSessions("bench-press", [110, 100]), "bench-press");
+    expect(result.values).toEqual([110, 100]);
+    expect(result.comparisonPrevious).toBe(100);
+    expect(result.status).toBe("improving");
+  });
+
+  it("pairs comparisonPrevious with values[3] at the plateau window (4+ sessions), not values[1]", () => {
+    // The bug this replaces: an evidence line built from values[0]/values[1]
+    // could show two equal numbers ("15 → 15") right next to an "improving"
+    // arrow, because the status compares against 4 sessions back, not the
+    // immediately-prior one.
+    const result = computeExerciseStatus(
+      makeSessions("bench-press", [15, 15, 15, 10]),
+      "bench-press",
+    );
+    expect(result.status).toBe("improving");
+    expect(result.comparisonPrevious).toBe(10);
+    expect(result.values[1]).toBe(15); // the mismatched value the bug displayed
+  });
+
+  it("returns a null comparisonPrevious below 2 sessions", () => {
+    const result = computeExerciseStatus(makeSessions("bench-press", [100]), "bench-press");
+    expect(result.comparisonPrevious).toBeNull();
+    expect(result.status).toBe("needs-more-data");
   });
 });
 

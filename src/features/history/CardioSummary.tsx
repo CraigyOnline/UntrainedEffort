@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Activity, Clock3, MapPin } from "lucide-react";
 import type { Workout } from "@/lib/db";
 import {
@@ -8,6 +9,14 @@ import {
 } from "@/lib/workoutStats";
 import { formatTimeTrained } from "@/features/history/duration";
 import { SummaryStat } from "@/features/history/SummaryStat";
+import { EmptyState } from "@/components/EmptyState";
+
+// Below this, the section is real but thin enough to leave a lot of blank
+// space under it (this tab has no page-filling list the way Strength's
+// exercise history does) — see the review note this responds to. Not a
+// guarantee against empty space at every screen height/session count, just
+// a reasonable, legible threshold rather than measuring rendered height.
+const THIN_SESSION_COUNT = 3;
 
 interface CardioSummaryProps {
   workouts: Workout[];
@@ -28,6 +37,7 @@ interface ActivitySummary {
  * are different measures and must never be added together.
  */
 export function CardioSummary({ workouts }: CardioSummaryProps) {
+  const navigate = useNavigate();
   const stats = useMemo(() => computeCardioSummary(workouts), [workouts]);
 
   if (stats.sessions === 0) return null;
@@ -79,6 +89,15 @@ export function CardioSummary({ workouts }: CardioSummaryProps) {
           </p>
         )}
       </div>
+
+      {stats.sessions < THIN_SESSION_COUNT && (
+        <div className="mt-3">
+          <EmptyState
+            message="Log a few more cardio sessions to start seeing trends here."
+            action={{ label: "Start a workout", onClick: () => navigate({ to: "/workout" }) }}
+          />
+        </div>
+      )}
     </section>
   );
 }

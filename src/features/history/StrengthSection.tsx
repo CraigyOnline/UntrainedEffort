@@ -121,6 +121,26 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * Explicit, guaranteed-ascending ticks for the volume chart's Y-axis —
+ * 0 and 4 even steps up to a "nice" round number at or above the data's
+ * max. Recharts' own auto-generated ticks were observed rendering out of
+ * order (e.g. 4000, 500, 7000, 3500, 0) with nothing custom in this file
+ * to explain it, pointing at a ResponsiveContainer measurement/mount-
+ * timing issue rather than a formatting bug. Computing the ticks
+ * ourselves sidesteps that code path entirely regardless of the exact
+ * cause.
+ */
+function computeVolumeAxisTicks(dataMax: number): number[] {
+  if (dataMax <= 0) return [0, 1, 2, 3, 4];
+  const magnitude = 10 ** Math.floor(Math.log10(dataMax / 4));
+  const niceMultiples = [1, 2, 2.5, 5, 10];
+  const step =
+    niceMultiples.map((m) => m * magnitude).find((candidate) => candidate * 4 >= dataMax) ??
+    10 * magnitude;
+  return [0, step, step * 2, step * 3, step * 4];
+}
+
+/**
  * Insights → Strength: "Are you getting stronger?" — volume trend and
  * chart, the interactive muscle map with training-balance callout and
  * per-muscle drill-down, and exercise progression. Only rendered while
@@ -137,6 +157,10 @@ export function StrengthSection({ workouts }: { workouts: Workout[] }) {
     () => computeVolumeByPeriod(workouts, volumeGranularity, volumeGranularity === "week" ? 8 : 6),
     [workouts, volumeGranularity],
   );
+  const volumeAxisTicks = useMemo(
+    () => computeVolumeAxisTicks(Math.max(0, ...volumeSeries.map((d) => d.volume))),
+    [volumeSeries],
+  );
 
   // Exercise Progression — every recently-trained exercise with enough
   // evidence to say something, not just the 3 Overview shows.
@@ -146,7 +170,8 @@ export function StrengthSection({ workouts }: { workouts: Workout[] }) {
       .map((exerciseId) => {
         const def = getExercise(exerciseId);
         const result = computeExerciseStatus(workouts, exerciseId);
-        const [current, previous] = result.values;
+        const current = result.values[0];
+        const previous = result.comparisonPrevious;
         const evidence =
           current != null && previous != null
             ? `${formatMetricValue(result.metricKind, previous, result.distanceUnit)} → ${formatMetricValue(result.metricKind, current, result.distanceUnit)}`
@@ -275,6 +300,8 @@ export function StrengthSection({ workouts }: { workouts: Workout[] }) {
                 axisLine={false}
                 tickLine={false}
                 width={32}
+                domain={[0, volumeAxisTicks[volumeAxisTicks.length - 1]]}
+                ticks={volumeAxisTicks}
               />
               <Tooltip
                 cursor={{ fill: "var(--muted)", radius: 4 }}

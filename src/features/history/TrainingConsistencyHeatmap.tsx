@@ -187,7 +187,17 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
             className="grid flex-1 gap-1"
             style={{
               ...gridColumnStyle,
-              gridTemplateRows: "repeat(7, 1fr)",
+              // auto, not 1fr: 1fr row tracks and aspect-square children
+              // were fighting over height in this auto-height grid (no
+              // explicit container height for 1fr to divide up), which is
+              // what produced one visibly oversized cell — observed on
+              // this component's narrower Overview usage specifically,
+              // not its full-width Insights usage, consistent with a
+              // sizing conflict that only surfaces at some widths. Every
+              // column is the same 1fr width, so aspect-square already
+              // gives every cell in a row the same natural height — auto
+              // sizing has nothing left to resolve ambiguously.
+              gridTemplateRows: "repeat(7, auto)",
               gridAutoFlow: "column",
             }}
           >

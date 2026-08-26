@@ -99,16 +99,15 @@ function OverviewPage() {
 
   // Every recently-trained exercise's status, not just the single most
   // recent one — this is what Training Signal now scans (point 4), and
-  // Recent Progress shows the top 3 of. Carries `values` too (beyond what
-  // RecentExerciseStatus itself declares) so Recent Progress's evidence
-  // line doesn't need a second computeExerciseStatus pass per exercise.
+  // Recent Progress shows the top 3 of. Carries `values` and
+  // `comparisonPrevious` too (beyond what RecentExerciseStatus itself
+  // declares) so Recent Progress's evidence line doesn't need a second
+  // computeExerciseStatus pass per exercise.
   const recentExerciseStatuses = useMemo(() => {
     return recentExerciseIds.map((exerciseId) => {
       const def = getExercise(exerciseId);
-      const { status, best, metricKind, distanceUnit, sampleSize, values } = computeExerciseStatus(
-        workouts ?? [],
-        exerciseId,
-      );
+      const { status, best, metricKind, distanceUnit, sampleSize, values, comparisonPrevious } =
+        computeExerciseStatus(workouts ?? [], exerciseId);
       const lastTrainedAt = (workouts ?? []).find((w) =>
         w.exercises.some((e) => e.exerciseId === exerciseId && e.sets.some((s) => s.completed)),
       )?.startedAt;
@@ -122,6 +121,7 @@ function OverviewPage() {
         sampleSize,
         lastTrainedAt: lastTrainedAt ?? 0,
         values,
+        comparisonPrevious,
       };
     });
   }, [recentExerciseIds, workouts]);
@@ -131,7 +131,8 @@ function OverviewPage() {
       .filter((ex) => getTrendConfidence(ex.sampleSize) !== null)
       .slice(0, 3)
       .map((ex) => {
-        const [current, previous] = ex.values;
+        const current = ex.values[0];
+        const previous = ex.comparisonPrevious;
         const evidence =
           current != null && previous != null
             ? `${formatMetricValue(ex.metricKind, previous, ex.distanceUnit)} → ${formatMetricValue(ex.metricKind, current, ex.distanceUnit)}`

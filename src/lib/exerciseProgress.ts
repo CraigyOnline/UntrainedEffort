@@ -480,9 +480,18 @@ export interface ExerciseStatusSummary {
   distanceUnit?: DistanceUnit;
   sampleSize: number;
   /** Session values, most-recent-first — values[0] is the most recent
-   *  session, values[1] the one before it. Used for a "15 → 17.5 kg"
-   *  style evidence line without a second pass over `workouts`. */
+   *  session. Raw per-session history; not guaranteed to be the pair
+   *  `status` was actually computed from once PLATEAU_WINDOW applies —
+   *  pair values[0] with `comparisonPrevious` for an evidence line that
+   *  always agrees with `status`, not values[1]. */
   values: number[];
+  /** The session value `status` was actually compared against —
+   *  values[PLATEAU_WINDOW - 1] once windowed, values[1] below that;
+   *  same rule computeExerciseStatusFromValues itself uses. Null below
+   *  2 sessions, matching "needs-more-data". A "15 → 17.5 kg" evidence
+   *  line built from values[0] and this can never disagree with the
+   *  status/arrow shown next to it. */
+  comparisonPrevious: number | null;
 }
 
 /** One exercise's status derived from its own logged history — same
@@ -510,5 +519,19 @@ export function computeExerciseStatus(
 
   const best = values.length > 0 ? Math.max(...values) : null;
   const status = computeExerciseStatusFromValues(values);
-  return { status, best, metricKind, distanceUnit, sampleSize: values.length, values };
+  // Same windowing rule as computeExerciseStatusFromValues itself, so this
+  // always names whichever session the status was actually compared
+  // against — see comparisonPrevious's doc comment.
+  const windowed = values.length >= PLATEAU_WINDOW;
+  const comparisonPrevious =
+    values.length < 2 ? null : windowed ? values[PLATEAU_WINDOW - 1] : values[1];
+  return {
+    status,
+    best,
+    metricKind,
+    distanceUnit,
+    sampleSize: values.length,
+    values,
+    comparisonPrevious,
+  };
 }
