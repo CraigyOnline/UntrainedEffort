@@ -22,6 +22,16 @@ import { NumberInput, StepperInput } from "@/components/forms/NumberInput";
 import { MmSsInput } from "@/components/forms/MmSsInput";
 import { UnilateralSetInputs } from "@/components/forms/UnilateralSetInputs";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { SetTimer, TimerToggleButton } from "./WorkoutTimer";
 import { IntervalTimer } from "./IntervalTimer";
 import { WorkoutHUD, WORKOUT_HUD_HEIGHT, type WorkoutHUDCelebration } from "./WorkoutHUD";
@@ -195,6 +205,20 @@ function ExerciseCard({
       ? computeExpectedRepRange(recentReps, firstIncompleteIndex, currentWeight)
       : null;
 
+  // Deleting a set is a single quiet tap (see SetActionButtons above) with
+  // only a brief undo toast as the safety net — gate it behind the same
+  // AlertDialog pattern used for delete/discard confirmations elsewhere in
+  // the app, rather than relying on undo alone to catch a mis-tap. Undo
+  // still fires as before once the delete is confirmed.
+  const [pendingDeleteSi, setPendingDeleteSi] = useState<number | null>(null);
+
+  function confirmDeleteSet() {
+    if (pendingDeleteSi === null) return;
+    haptics.delete();
+    removeSet(ei, pendingDeleteSi);
+    setPendingDeleteSi(null);
+  }
+
   return (
     <Reorder.Item
       value={ex.exerciseId}
@@ -306,7 +330,7 @@ function ExerciseCard({
                     <SetActionButtons
                       completed={s.completed}
                       onToggleComplete={() => toggleSetCompletion(ei, si)}
-                      onDelete={() => removeSet(ei, si)}
+                      onDelete={() => setPendingDeleteSi(si)}
                     />
                   </div>
                 </div>
@@ -453,7 +477,7 @@ function ExerciseCard({
               <SetActionButtons
                 completed={s.completed}
                 onToggleComplete={() => toggleSetCompletion(ei, si)}
-                onDelete={() => removeSet(ei, si)}
+                onDelete={() => setPendingDeleteSi(si)}
               />
             </div>
           ))}
@@ -466,6 +490,29 @@ function ExerciseCard({
           </button>
         </>
       )}
+
+      <AlertDialog
+        open={pendingDeleteSi !== null}
+        onOpenChange={(open) => !open && setPendingDeleteSi(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete set?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Set {(pendingDeleteSi ?? 0) + 1} will be removed from this exercise.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteSet}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Reorder.Item>
   );
 }
