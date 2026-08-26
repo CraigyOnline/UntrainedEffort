@@ -141,6 +141,18 @@ function computeVolumeAxisTicks(dataMax: number): number[] {
 }
 
 /**
+ * Compact axis label — computeVolumeAxisTicks can produce 5-digit values
+ * (e.g. 20000) that overflow the YAxis's fixed width={32} and get clipped
+ * on the left. "20k" fits; the exact figure is still available via the
+ * Tooltip's toLocaleString() formatting below.
+ */
+function formatVolumeAxisTick(value: number): string {
+  if (value < 1000) return String(value);
+  const thousands = value / 1000;
+  return `${Number.isInteger(thousands) ? thousands : thousands.toFixed(1)}k`;
+}
+
+/**
  * Insights → Strength: "Are you getting stronger?" — volume trend and
  * chart, the interactive muscle map with training-balance callout and
  * per-muscle drill-down, and exercise progression. Only rendered while
@@ -302,6 +314,7 @@ export function StrengthSection({ workouts }: { workouts: Workout[] }) {
                 width={32}
                 domain={[0, volumeAxisTicks[volumeAxisTicks.length - 1]]}
                 ticks={volumeAxisTicks}
+                tickFormatter={formatVolumeAxisTick}
               />
               <Tooltip
                 cursor={{ fill: "var(--muted)", radius: 4 }}
