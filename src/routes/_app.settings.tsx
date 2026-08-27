@@ -43,7 +43,13 @@ import {
   setRoutineUpdatePromptEnabled,
 } from "@/lib/routineUpdatePrompt";
 import { useDatabaseStats } from "@/hooks/useDatabaseStats";
-import { exportBackup, isBackupPayload, SCHEMA_VERSION, type BackupPayload } from "@/lib/backup";
+import {
+  exportBackup,
+  isBackupPayload,
+  remapRoutineId,
+  SCHEMA_VERSION,
+  type BackupPayload,
+} from "@/lib/backup";
 import { formatDate, formatBytes } from "@/lib/format";
 import { syncWorkoutIntegrity } from "@/lib/workoutIntegrity";
 
@@ -246,6 +252,16 @@ function SettingsPage() {
             if (selected.exerciseSettings) await db.exerciseSettings.clear();
           }
 
+          // Old routine id (as it was in the backup) → new id assigned by
+          // this import. Routines are always re-added with a fresh
+          // auto-increment key (see remapRoutineId's doc comment for why
+          // their old id can never be preserved), so any imported
+          // workout's routineId has to be translated through this map
+          // rather than carried over verbatim — otherwise it either points
+          // at nothing, or worse, at an unrelated routine that now
+          // happens to occupy that old number.
+          const routineIdMap = new Map<number, number>();
+
           if (selected.routines) {
             // sortOrder is assigned by each routine's position within the
             // imported list rather than copied from the payload directly.
@@ -260,15 +276,22 @@ function SettingsPage() {
               nextSortOrder = (last?.sortOrder ?? -1) + 1;
             }
             for (const r of payload.routines) {
-              const { id: _id, sortOrder: _sortOrder, ...rest } = r;
-              await db.routines.add({ ...rest, sortOrder: nextSortOrder } as Routine);
+              const { id: oldId, sortOrder: _sortOrder, ...rest } = r;
+              const newId = await db.routines.add({
+                ...rest,
+                sortOrder: nextSortOrder,
+              } as Routine);
+              if (oldId !== undefined) routineIdMap.set(oldId, newId);
               nextSortOrder++;
             }
           }
           if (selected.workouts) {
             for (const w of payload.workouts) {
-              const { id: _id, ...rest } = w;
-              await db.workouts.add(rest as Workout);
+              const { id: _id, routineId, ...rest } = w;
+              await db.workouts.add({
+                ...rest,
+                routineId: remapRoutineId(routineId, routineIdMap),
+              } as Workout);
             }
           }
           if (selected.exerciseSettings) {

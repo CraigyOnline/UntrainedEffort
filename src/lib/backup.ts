@@ -36,6 +36,34 @@ export function isBackupPayload(x: unknown): x is BackupPayload {
   );
 }
 
+/**
+ * Translates one imported workout's routineId from the backup file's
+ * numbering to the id newly assigned (by the caller, via Dexie's
+ * auto-increment) to that same routine during this import.
+ *
+ * This can't be skipped: a routine's id is never preserved across an
+ * import (routines are always re-added with a fresh auto-increment key,
+ * on both merge and replace — IndexedDB's key generator isn't reset by
+ * clear() and never reuses a deleted id), so a workout's routineId taken
+ * verbatim from the backup would at best point at nothing in the
+ * destination database, and at worst — if some unrelated routine happens
+ * to now occupy that old numeric id — silently attach the workout to the
+ * wrong routine.
+ *
+ * idMap covers only the routines actually re-added during this same
+ * import operation. A routineId with no entry (its routine wasn't part
+ * of this import, or the workout had none to begin with) is cleared to
+ * undefined rather than left pointing at a stale, unrelated number —
+ * there's no destination id it could correctly mean.
+ */
+export function remapRoutineId(
+  routineId: number | undefined,
+  idMap: ReadonlyMap<number, number>,
+): number | undefined {
+  if (routineId === undefined) return undefined;
+  return idMap.get(routineId);
+}
+
 export interface BackupSelection {
   routines?: boolean;
   workouts?: boolean;
