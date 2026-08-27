@@ -67,6 +67,14 @@ export const Route = createFileRoute("/_app/settings")({
 
 type Category = "routines" | "workouts" | "prHistory" | "exerciseSettings";
 
+// PR Records is deliberately excluded from import: Personal Records are
+// always fully recalculated from whichever workouts exist after an import
+// (see runImport below), never written from a backup's prHistory data, so
+// it was never a real, independent selection to begin with. Export keeps
+// the full Category list — prHistory there genuinely is written to the
+// file and is a meaningful thing to include or leave out.
+type ImportCategory = Exclude<Category, "prHistory">;
+
 function categoryLabel(c: Category): string {
   if (c === "routines") return "Routines";
   if (c === "workouts") return "Workout History";
@@ -98,10 +106,9 @@ function SettingsPage() {
   // ── Import dialog state ─────────────────────────────────────────────
   const [importMode, setImportMode] = useState<"merge" | "replace">("merge");
   const [importPayload, setImportPayload] = useState<BackupPayload | null>(null);
-  const [importSelected, setImportSelected] = useState<Record<Category, boolean>>({
+  const [importSelected, setImportSelected] = useState<Record<ImportCategory, boolean>>({
     routines: true,
     workouts: true,
-    prHistory: true,
     exerciseSettings: true,
   });
   const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false);
@@ -208,7 +215,6 @@ function SettingsPage() {
       setImportSelected({
         routines: parsed.routines.length > 0,
         workouts: parsed.workouts.length > 0,
-        prHistory: parsed.prHistory.length > 0,
         exerciseSettings: (parsed.exerciseSettings?.length ?? 0) > 0,
       });
     } catch (err) {
@@ -579,29 +585,30 @@ function SettingsPage() {
           {importPayload && (
             <>
               <div className="flex flex-col gap-3 py-2">
-                {(["routines", "workouts", "prHistory", "exerciseSettings"] as Category[]).map(
-                  (c) => {
-                    const count = importCategoryCount(importPayload, c);
-                    return (
-                      <label key={c} className="flex items-center justify-between gap-3">
-                        <span className="flex items-center gap-2 text-sm">
-                          <Checkbox
-                            checked={importSelected[c]}
-                            disabled={count === 0}
-                            onCheckedChange={(v) =>
-                              setImportSelected((s) => ({ ...s, [c]: v === true }))
-                            }
-                          />
-                          {categoryLabel(c)}
-                        </span>
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                          {count} {count === 0 ? "(empty)" : ""}
-                        </span>
-                      </label>
-                    );
-                  },
-                )}
+                {(["routines", "workouts", "exerciseSettings"] as ImportCategory[]).map((c) => {
+                  const count = importCategoryCount(importPayload, c);
+                  return (
+                    <label key={c} className="flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={importSelected[c]}
+                          disabled={count === 0}
+                          onCheckedChange={(v) =>
+                            setImportSelected((s) => ({ ...s, [c]: v === true }))
+                          }
+                        />
+                        {categoryLabel(c)}
+                      </span>
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {count} {count === 0 ? "(empty)" : ""}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
+              <p className="text-xs text-muted-foreground">
+                Personal Records are recalculated automatically from imported workout history.
+              </p>
 
               <div className="flex gap-2 rounded-lg bg-secondary/50 p-1">
                 <button
