@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, Check, Dumbbell, HeartPulse, Timer } from "lucide-react";
 import { EXERCISES, matchesExerciseQuery, type MuscleGroup, type Equipment } from "@/lib/exercises";
 import { formatMuscleGroup } from "@/lib/muscles";
+import { ExerciseFormViewer } from "@/components/ExerciseFormViewer";
 import { BOTTOM_NAV_HEIGHT } from "@/components/BottomTabs";
 import { useDismissOnBack } from "@/lib/backHandler";
 
@@ -284,8 +285,16 @@ function ExerciseRow({
   onPick: (id: string) => void;
 }) {
   return (
-    <button
+    // A div, not a button — ExerciseFormViewer below renders its own
+    // button, and buttons can't nest. onTriggerClick stops the pick from
+    // also firing when that inner trigger is tapped.
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onPick(exercise.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onPick(exercise.id);
+      }}
       className={`flex w-full items-center justify-between border-b border-border px-4 py-3 text-left active:bg-card ${
         added ? "opacity-50" : ""
       }`}
@@ -294,7 +303,14 @@ function ExerciseRow({
         <p className="font-medium text-sm truncate">{exercise.name}</p>
         <p className="text-xs text-muted-foreground">{exercise.muscle}</p>
       </div>
-      {added && <Check className="h-4 w-4 shrink-0 text-primary" />}
-    </button>
+      <div className="flex shrink-0 items-center gap-1">
+        <ExerciseFormViewer
+          exerciseId={exercise.id}
+          exerciseName={exercise.name}
+          onTriggerClick={(e) => e.stopPropagation()}
+        />
+        {added && <Check className="h-4 w-4 text-primary" />}
+      </div>
+    </div>
   );
 }

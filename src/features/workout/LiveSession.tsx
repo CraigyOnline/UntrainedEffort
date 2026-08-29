@@ -18,6 +18,7 @@ import {
 } from "@/lib/exercises";
 import { useUndo } from "@/hooks/useUndo";
 import { getAllExerciseSettings } from "@/lib/exerciseSettings";
+import { ExerciseFormViewer } from "@/components/ExerciseFormViewer";
 import { NumberInput, StepperInput } from "@/components/forms/NumberInput";
 import { MmSsInput } from "@/components/forms/MmSsInput";
 import { UnilateralSetInputs } from "@/components/forms/UnilateralSetInputs";
@@ -241,6 +242,7 @@ function ExerciseCard({
           <p className="truncate font-semibold">{def?.name ?? ex.exerciseId}</p>
           <p className="text-xs text-muted-foreground">{def?.muscle}</p>
         </div>
+        <ExerciseFormViewer exerciseId={ex.exerciseId} exerciseName={def?.name ?? ex.exerciseId} />
         <button
           onClick={() => removeExercise(ei)}
           aria-label="Remove exercise"
