@@ -7,8 +7,13 @@ import {
   hasExerciseImages,
   type ExerciseImageShot,
 } from "@/lib/exerciseImages";
+import { getExerciseFormNotes } from "@/lib/exerciseFormNotes";
 
 const SHOTS: ExerciseImageShot[] = ["setup", "movement"];
+const SHOT_LABELS: Record<ExerciseImageShot, string> = {
+  setup: "Setup",
+  movement: "Movement",
+};
 
 interface ExerciseFormViewerProps {
   exerciseId: string;
@@ -23,13 +28,17 @@ interface ExerciseFormViewerProps {
 
 /**
  * Small "view form" trigger that opens a dialog with the setup/movement
- * reference images for one exercise, matching the body type already set
- * for the muscle map (see @/lib/bodyType — same preference, read the same
- * once-at-mount way MuscleMap does).
+ * reference images and captions for one exercise. Images come from
+ * @/lib/exerciseImages (matching the body type already set for the muscle
+ * map — same preference, read the same once-at-mount way MuscleMap does);
+ * captions come from @/lib/exerciseFormNotes. The two are added on
+ * different schedules — every exercise has a caption, but images arrive
+ * exercise-by-exercise as they're generated — so each shot renders
+ * whichever of the two it actually has rather than requiring both.
  *
- * Renders nothing for exercises without images yet (see
- * hasExerciseImages), so the catalog can grow this art incrementally
- * rather than needing every exercise covered before it can ship.
+ * Renders nothing for an exercise with neither an image nor a caption,
+ * so the catalog can grow either independently without every exercise
+ * needing full coverage before this can ship.
  *
  * Built on the existing Dialog component for the same reasons as
  * ExpandableMuscleMap: tap-outside-to-dismiss, a close button, and Android
@@ -43,9 +52,10 @@ export function ExerciseFormViewer({
 }: ExerciseFormViewerProps) {
   const [open, setOpen] = useState(false);
   const [bodyType] = useState(() => getBodyType());
-  const [broken, setBroken] = useState<Set<ExerciseImageShot>>(new Set());
+  const [brokenShots, setBrokenShots] = useState<Set<ExerciseImageShot>>(new Set());
 
-  if (!hasExerciseImages(exerciseId)) return null;
+  const notes = getExerciseFormNotes(exerciseId);
+  if (!hasExerciseImages(exerciseId) && !notes) return null;
 
   return (
     <>
@@ -65,22 +75,30 @@ export function ExerciseFormViewer({
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-md">
           <DialogTitle className="text-base">{exerciseName}</DialogTitle>
-          <div className="grid grid-cols-2 gap-3">
-            {SHOTS.filter((shot) => !broken.has(shot)).map((shot) => (
-              <figure key={shot} className="min-w-0">
-                <img
-                  src={getExerciseImagePath(exerciseId, bodyType, shot)}
-                  alt={`${exerciseName} — ${shot}`}
-                  className="w-full rounded-lg bg-secondary object-contain"
-                  onError={() => setBroken((prev) => new Set(prev).add(shot))}
-                />
-                <figcaption className="mt-1 text-center text-xs capitalize text-muted-foreground">
-                  {shot}
-                </figcaption>
-              </figure>
-            ))}
+          <div className="flex flex-col gap-4">
+            {SHOTS.map((shot) => {
+              const caption = notes?.[shot];
+              const showImage = !brokenShots.has(shot);
+              if (!showImage && !caption) return null;
+              return (
+                <figure key={shot}>
+                  {showImage && (
+                    <img
+                      src={getExerciseImagePath(exerciseId, bodyType, shot)}
+                      alt={`${exerciseName} — ${shot}`}
+                      className="w-full rounded-lg bg-secondary object-contain"
+                      onError={() => setBrokenShots((prev) => new Set(prev).add(shot))}
+                    />
+                  )}
+                  <figcaption className="mt-1.5">
+                    <p className="text-xs font-semibold">{SHOT_LABELS[shot]}</p>
+                    {caption && <p className="text-xs text-muted-foreground">{caption}</p>}
+                  </figcaption>
+                </figure>
+              );
+            })}
           </div>
         </DialogContent>
       </Dialog>
