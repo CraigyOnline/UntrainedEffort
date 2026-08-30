@@ -37,9 +37,11 @@ Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownershi
 - Rich Android workout notifications
 - Automatic rest timers, tuned per exercise, with per-exercise overrides
 - Cardio & interval workouts, tracked in the right unit for each activity (km, meters, floors)
+- Circuit & HIIT workouts — ordered exercise stations with independent work/rest timing, optional round rest, and a dedicated live circuit HUD; quick, ad-hoc circuits with no routine required
 - A wide and growing exercise library, spanning strength, functional, and cardio movements
 - Unilateral exercise support
-- Live, set-by-set expected rep range in the Workout HUD, based on your recent performance at that same set position
+- Live, set-by-set expected rep range in the Workout HUD, based on your recent performance at that same set position, matched to the weight you're using
+- Exercise form guidance — tap-to-view setup & movement demonstration images (male/female variants), plain-language coaching notes, and tiered technique/safety warnings, rolling out exercise by exercise
 
 ### Progress
 
@@ -49,7 +51,8 @@ Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownershi
 - Exercise progress charts
 - Exercise detail pages
 - Browse & search the full exercise library
-- Profile dashboard
+- Overview dashboard — at-a-glance totals, last workout, a notable-only training signal, and teasers into your muscle activity and recent progress
+- History, split into a chronological Timeline and an Insights view (Training/Strength/Cardio/Milestones)
 - Muscle activity maps, with date-range filtering (7/30/90 days or all-time)
 - Muscle recovery indicators — a recovered/recent/overdue status per muscle, based on days since it was last trained
 - Muscle activity trends — a per-muscle weekly or monthly training-activity chart, from the muscle map drilldown
@@ -85,7 +88,6 @@ Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownershi
 - Goal tracking
 - Optional cloud sync
 - Wear OS support
-- Illustrated exercise form guidance (start/end position art)
 
 ---
 
