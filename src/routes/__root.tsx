@@ -138,9 +138,14 @@ function RootComponent() {
     let remove: (() => void) | undefined;
     CapacitorApp.addListener("backButton", () => {
       handleGlobalBackPress(() => {
-        // "/" always redirects (replace) to "/overview", so that's the
-        // one true root of the history stack — only exit there.
-        if (router.state.location.pathname === "/overview") {
+        // "/" always redirects (replace) to either "/overview" or, on a
+        // fresh install, "/onboarding" — see index.tsx and
+        // @/lib/onboarding's resolveLaunchDestination(). Both are "the"
+        // root of the history stack depending on which one "/" resolved
+        // to, so only exit at one of those; anywhere else, actually go
+        // back.
+        const path = router.state.location.pathname;
+        if (path === "/overview" || path === "/onboarding") {
           CapacitorApp.exitApp();
         } else {
           router.history.back();

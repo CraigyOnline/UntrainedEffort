@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import icon from "@/assets/brand/icon.png";
 import { selectHomeGreeting, type HomeGreeting } from "@/lib/homeGreetings";
+import { resolveLaunchDestination } from "@/lib/onboarding";
 
 export const Route = createFileRoute("/")({
   component: LaunchScreen,
@@ -36,9 +37,12 @@ const FADE_MS = 350;
  * Renders outside the `_app` shell (this route has no `_app.` prefix), so
  * it deliberately doesn't get the bottom tab bar or active-workout card —
  * it's a moment before the app itself, not a page within it. Navigates
- * with `replace: true` so it never sits in history — same reasoning
- * __root.tsx already applies to "/overview" being the app's true root for
- * the Android back button.
+ * with `replace: true` so it never sits in history, on to wherever
+ * resolveLaunchDestination() (@/lib/onboarding) decides: Overview
+ * normally, or the one-time Onboarding screen for a genuinely fresh
+ * install. Either way this route itself never lingers in history — same
+ * reasoning __root.tsx applies to both of those as the app's two possible
+ * true roots for the Android back button.
  */
 function LaunchScreen() {
   const navigate = useNavigate();
@@ -72,7 +76,9 @@ function LaunchScreen() {
 
   useEffect(() => {
     if (!leaving) return;
-    const t = setTimeout(() => navigate({ to: "/overview", replace: true }), FADE_MS);
+    const t = setTimeout(() => {
+      resolveLaunchDestination().then((to) => navigate({ to, replace: true }));
+    }, FADE_MS);
     return () => clearTimeout(t);
   }, [leaving, navigate]);
 
