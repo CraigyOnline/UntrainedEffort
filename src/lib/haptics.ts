@@ -5,8 +5,8 @@ import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
  *
  * Same storage approach as keepAwake.ts: a single boolean isn't worth a
  * Dexie table/schema migration, so it lives in localStorage. Defaults to
- * enabled — haptics are opt-out, matching the fitness apps this is modeled
- * on (Hevy, Strong).
+ * enabled — haptics are opt-out, matching convention in most fitness-tracking
+ * apps.
  */
 const STORAGE_KEY = "hapticsEnabled";
 

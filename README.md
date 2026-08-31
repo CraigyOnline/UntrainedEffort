@@ -2,7 +2,7 @@
 
 An open-source, local-first Android workout tracker built for people who want to focus on training—not subscriptions, social feeds, or paywalls.
 
-Inspired by apps like **Hevy** and **wger**, with an emphasis on speed, ownership of your data, and a polished workout experience.
+Built with an emphasis on speed, ownership of your data, and a polished workout experience.
 
 > **Personal project.** This app is built primarily for my own use. It's shared publicly and open-source, but it isn't a polished commercial product and comes with no support guarantees.
 >

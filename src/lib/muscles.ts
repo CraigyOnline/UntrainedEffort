@@ -53,7 +53,7 @@ export const muscleGroupToRegions: Record<Exclude<MuscleGroup, "Cardio">, string
  * exercise — ever targets. Rendered at all times for anatomical
  * completeness, at the same resting baseline as an untrained tracked
  * muscle, and dimmed the same way when another muscle is selected. Today
- * this is just serratus-anterior; unlike the old wger-derived asset set,
+ * this is just serratus-anterior; unlike the previous asset set,
  * this new one has no equivalent "LowerCalves" gap — soleus is a normal
  * part of Calves above and highlights like any other tracked region.
  */
