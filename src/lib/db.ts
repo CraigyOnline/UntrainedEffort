@@ -14,6 +14,21 @@ export interface RoutineExercise {
   exerciseId: string;
   /** Ordered list of target sets. Length determines how many set rows are created when starting a workout. */
   sets: RoutineSet[];
+  /** Progression-suggestion bookkeeping — absent until the feature has
+   *  evaluated this exercise at least once. See progressionSuggestions.ts.
+   *  Scoped to whichever weight is recorded here; a mismatch against the
+   *  exercise's current targetWeight means this is stale (the weight
+   *  moved on some other way) and gets treated as a fresh start. */
+  progressionState?: {
+    weight: number;
+    /** The reps this weight started at — the floor of its implicit range. */
+    repFloor: number;
+    /** The worst-set rep count from the last suggestion shown (and
+     *  answered, either way) at this weight — avoids repeating a
+     *  suggestion for a level already discussed. */
+    lastPromptedReps: number;
+    lastPromptedAt: number;
+  };
 }
 
 /**

@@ -10,6 +10,10 @@ import {
   setRoutineUpdatePromptEnabled,
 } from "@/lib/routineUpdatePrompt";
 import { getBodyType, setBodyType, type BodyType } from "@/lib/bodyType";
+import {
+  getProgressionSuggestionsEnabled,
+  setProgressionSuggestionsEnabled,
+} from "@/lib/progressionSuggestions";
 import { setOnboardingComplete } from "@/lib/onboarding";
 
 export const Route = createFileRoute("/onboarding")({
@@ -27,7 +31,8 @@ export const Route = createFileRoute("/onboarding")({
  *
  * Every control here reads and writes through the exact same get/set
  * module Settings itself uses (keepAwake.ts, haptics.ts,
- * routineUpdatePrompt.ts, bodyType.ts), with the same defaults — so
+ * routineUpdatePrompt.ts, bodyType.ts, progressionSuggestions.ts), with
+ * the same defaults — so
  * skipping this screen entirely leaves someone in exactly the state
  * they'd have been in before this screen existed. Nothing here is a
  * one-way door: every one of these has the identical control sitting in
@@ -50,6 +55,9 @@ function OnboardingScreen() {
     getRoutineUpdatePromptEnabled,
   );
   const [bodyType, setBodyTypeState] = useState<BodyType>(getBodyType);
+  const [progressionSuggestionsEnabled, setProgressionSuggestionsEnabledState] = useState(
+    getProgressionSuggestionsEnabled,
+  );
 
   function finish() {
     setOnboardingComplete();
@@ -141,6 +149,23 @@ function OnboardingScreen() {
                 Female
               </label>
             </RadioGroup>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-border/50 pt-4">
+            <div className="min-w-0">
+              <p className="text-sm">Progression suggestions</p>
+              <p className="text-xs text-muted-foreground">
+                Occasionally suggest a rep or a bit of weight — or easing off — based on how recent
+                sessions went.
+              </p>
+            </div>
+            <Switch
+              checked={progressionSuggestionsEnabled}
+              onCheckedChange={(checked) => {
+                setProgressionSuggestionsEnabledState(checked);
+                setProgressionSuggestionsEnabled(checked);
+              }}
+            />
           </div>
         </div>
       </div>

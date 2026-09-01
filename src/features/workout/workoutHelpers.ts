@@ -10,6 +10,10 @@ import { DEFAULT_REST_DURATION_SEC } from "@/lib/exercises";
 import { recordNewWorkoutPRs } from "@/lib/workoutIntegrity";
 import { haptics } from "@/lib/haptics";
 import { selectCompletionMessage, type CompletionMessage } from "@/lib/completionMessages";
+import {
+  evaluateExerciseProgression,
+  type ProgressionSuggestion,
+} from "@/lib/progressionSuggestions";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Domain types
@@ -116,6 +120,80 @@ export function detectRoutineChange(
   const finalIds = finishedExercises.map((e) => e.exerciseId);
   if (originalIds.length !== finalIds.length) return true;
   return !originalIds.every((id, i) => id === finalIds[i]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Progression suggestions — see @/lib/progressionSuggestions for the
+// decision logic; this is the glue reading real Routine/Workout data into
+// it. Only ever checked when detectRoutineChange() above is false — an
+// exercise-list change and a progression suggestion are kept mutually
+// exclusive so a workout never surfaces two completion prompts at once.
+// See resolvePendingProgressionSuggestion in _app.workout.tsx.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Reduces one exercise's logged sets to the single point the progression
+ *  check reasons about: whichever weight most of the completed sets used,
+ *  and the worst (lowest) rep count among sets at that weight — the
+ *  binding number, since every set needs to clear a bar for it to count. */
+function sessionPoint(log: WorkoutExerciseLog): { weight: number; worstReps: number } | null {
+  const completed = log.sets.filter((s) => s.completed && s.weight > 0);
+  if (completed.length === 0) return null;
+
+  const counts = new Map<number, number>();
+  for (const s of completed) counts.set(s.weight, (counts.get(s.weight) ?? 0) + 1);
+  let dominantWeight = completed[0].weight;
+  let bestCount = 0;
+  for (const [weight, count] of counts) {
+    if (count > bestCount) {
+      dominantWeight = weight;
+      bestCount = count;
+    }
+  }
+
+  const repsAtWeight = completed.filter((s) => s.weight === dominantWeight).map((s) => s.reps);
+  return { weight: dominantWeight, worstReps: Math.min(...repsAtWeight) };
+}
+
+/** Checks every weighted exercise in `routine` against how it went in
+ *  `finishedWorkout` and its most recent prior session (found by scanning
+ *  `allWorkouts`, newest first), returning the first qualifying
+ *  suggestion. Duration-based and circuit exercises aren't evaluated —
+ *  only ones with a routine-defined target weight and reps. */
+export function findProgressionSuggestion(
+  routine: Routine,
+  finishedWorkout: Workout,
+  allWorkouts: Workout[],
+): ProgressionSuggestion | null {
+  for (const exercise of routine.exercises) {
+    const target = exercise.sets[0];
+    if (!target?.targetWeight || !target?.targetReps) continue;
+
+    const finishedLog = finishedWorkout.exercises.find((e) => e.exerciseId === exercise.exerciseId);
+    const latest = finishedLog ? sessionPoint(finishedLog) : null;
+    if (!latest) continue;
+
+    let previous: { weight: number; worstReps: number } | undefined;
+    for (const w of allWorkouts) {
+      if (w.id === finishedWorkout.id) continue;
+      const log = w.exercises.find((e) => e.exerciseId === exercise.exerciseId);
+      const point = log ? sessionPoint(log) : null;
+      if (point) {
+        previous = point;
+        break;
+      }
+    }
+
+    const suggestion = evaluateExerciseProgression(
+      exercise.exerciseId,
+      target.targetReps,
+      exercise.progressionState,
+      previous,
+      latest,
+      Date.now(),
+    );
+    if (suggestion) return suggestion;
+  }
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

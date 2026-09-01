@@ -42,6 +42,10 @@ import {
   getRoutineUpdatePromptEnabled,
   setRoutineUpdatePromptEnabled,
 } from "@/lib/routineUpdatePrompt";
+import {
+  getProgressionSuggestionsEnabled,
+  setProgressionSuggestionsEnabled,
+} from "@/lib/progressionSuggestions";
 import { useDatabaseStats } from "@/hooks/useDatabaseStats";
 import {
   exportBackup,
@@ -159,6 +163,17 @@ function SettingsPage() {
   function handleRoutineUpdatePromptChange(checked: boolean) {
     setRoutineUpdatePromptEnabledState(checked);
     setRoutineUpdatePromptEnabled(checked);
+  }
+
+  // ── Progression suggestions ──────────────────────────────────────────
+  const [progressionSuggestionsEnabled, setProgressionSuggestionsEnabledState] = useState(true);
+  useEffect(() => {
+    setProgressionSuggestionsEnabledState(getProgressionSuggestionsEnabled());
+  }, []);
+
+  function handleProgressionSuggestionsChange(checked: boolean) {
+    setProgressionSuggestionsEnabledState(checked);
+    setProgressionSuggestionsEnabled(checked);
   }
 
   // ── Export flow ──────────────────────────────────────────────────────
@@ -414,6 +429,20 @@ function SettingsPage() {
               Female
             </label>
           </RadioGroup>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-border/50 pt-4">
+          <div className="min-w-0">
+            <p className="text-sm">Progression suggestions</p>
+            <p className="text-xs text-muted-foreground">
+              After a workout, occasionally suggest adding a rep or a bit of weight — or easing off
+              — based on how the last couple of sessions went.
+            </p>
+          </div>
+          <Switch
+            checked={progressionSuggestionsEnabled}
+            onCheckedChange={handleProgressionSuggestionsChange}
+          />
         </div>
 
         <Link
