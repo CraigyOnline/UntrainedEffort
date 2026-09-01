@@ -157,13 +157,16 @@ function sessionPoint(log: WorkoutExerciseLog): { weight: number; worstReps: num
 /** Checks every weighted exercise in `routine` against how it went in
  *  `finishedWorkout` and its most recent prior session (found by scanning
  *  `allWorkouts`, newest first), returning the first qualifying
- *  suggestion. Duration-based and circuit exercises aren't evaluated —
+ *  every qualifying exercise, not just the first — see
+ *  ProgressionSuggestionsDialog, which lets each be accepted or snoozed
+ *  independently. Duration-based and circuit exercises aren't evaluated —
  *  only ones with a routine-defined target weight and reps. */
-export function findProgressionSuggestion(
+export function findProgressionSuggestions(
   routine: Routine,
   finishedWorkout: Workout,
   allWorkouts: Workout[],
-): ProgressionSuggestion | null {
+): ProgressionSuggestion[] {
+  const suggestions: ProgressionSuggestion[] = [];
   for (const exercise of routine.exercises) {
     const target = exercise.sets[0];
     if (!target?.targetWeight || !target?.targetReps) continue;
@@ -191,9 +194,9 @@ export function findProgressionSuggestion(
       latest,
       Date.now(),
     );
-    if (suggestion) return suggestion;
+    if (suggestion) suggestions.push(suggestion);
   }
-  return null;
+  return suggestions;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

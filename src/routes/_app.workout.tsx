@@ -32,10 +32,11 @@ import { useDismissOnBack } from "@/lib/backHandler";
 import {
   detectRoutineChange,
   doSaveWorkout,
-  findProgressionSuggestion,
+  findProgressionSuggestions,
   makeSet,
   sessionHasData,
 } from "@/features/workout/workoutHelpers";
+import { ProgressionSuggestionsDialog } from "@/features/workout/ProgressionSuggestionsDialog";
 import { getRoutineUpdatePromptEnabled } from "@/lib/routineUpdatePrompt";
 import {
   getProgressionSuggestionsEnabled,
@@ -126,10 +127,12 @@ function WorkoutPage() {
   } | null>(null);
   // Only ever raised when the routine's exercise list DIDN'T change (see
   // leaveSummary below) — kept mutually exclusive with the prompt above
-  // so a workout never surfaces two completion dialogs at once.
-  const [pendingProgressionSuggestion, setPendingProgressionSuggestion] = useState<{
+  // so a workout never surfaces two completion dialogs at once. Holds
+  // every qualifying exercise at once — see ProgressionSuggestionsDialog,
+  // which lets each be accepted or snoozed independently.
+  const [pendingProgressionSuggestions, setPendingProgressionSuggestions] = useState<{
     routine: Routine;
-    suggestion: ProgressionSuggestion;
+    suggestions: ProgressionSuggestion[];
   } | null>(null);
   const [completionMessage, setCompletionMessage] = useState<CompletionMessage | null>(null);
   // "new-standard"/"new-circuit" distinguish which editor a brand-new
@@ -166,20 +169,20 @@ function WorkoutPage() {
         : false;
 
     // Only worth checking when the exercise list itself didn't change —
-    // see findProgressionSuggestion's doc comment for why these two stay
+    // see findProgressionSuggestions's doc comment for why these two stay
     // mutually exclusive.
-    const suggestion =
+    const suggestions =
       routine && !changed && getProgressionSuggestionsEnabled()
-        ? findProgressionSuggestion(routine, summary, allWorkouts ?? [])
-        : null;
+        ? findProgressionSuggestions(routine, summary, allWorkouts ?? [])
+        : [];
 
     setSummary(null);
     if (routine && changed) {
       setPendingRoutineUpdate({ routine, finishedExercises: summary.exercises });
       return true;
     }
-    if (routine && suggestion) {
-      setPendingProgressionSuggestion({ routine, suggestion });
+    if (routine && suggestions.length > 0) {
+      setPendingProgressionSuggestions({ routine, suggestions });
       return true;
     }
     return false;
@@ -353,18 +356,22 @@ function WorkoutPage() {
     navigate({ to: "/history" });
   }
 
-  // Resolves the progression-suggestion prompt. progressionState always
-  // gets written either way — accepting or declining both count as
-  // "this level has been discussed" for evaluateExerciseProgression's
-  // anti-repeat check next time — but targetWeight/targetReps only
-  // change on accept.
-  async function resolvePendingProgressionSuggestion(accepted: boolean) {
-    const pending = pendingProgressionSuggestion;
-    setPendingProgressionSuggestion(null);
+  // Resolves the progression-suggestions prompt. Every suggestion shown
+  // gets its progressionState written regardless of its own decision —
+  // accepting or snoozing both count as "this level has been discussed"
+  // for evaluateExerciseProgression's anti-repeat check next time — but
+  // targetWeight/targetReps only change for the ones marked true in
+  // `decisions`. An exercise with no entry in `decisions` (dialog closed
+  // without tapping Done) is treated as snoozed, same as an explicit false.
+  async function resolvePendingProgressionSuggestions(decisions: Map<string, boolean>) {
+    const pending = pendingProgressionSuggestions;
+    setPendingProgressionSuggestions(null);
     if (pending && pending.routine.id != null) {
-      const { suggestion } = pending;
+      const bySuggestion = new Map(pending.suggestions.map((s) => [s.exerciseId, s]));
       const updated: RoutineExercise[] = pending.routine.exercises.map((e) => {
-        if (e.exerciseId !== suggestion.exerciseId) return e;
+        const suggestion = bySuggestion.get(e.exerciseId);
+        if (!suggestion) return e;
+        const accepted = decisions.get(e.exerciseId) ?? false;
         return {
           ...e,
           sets: accepted
@@ -380,32 +387,6 @@ function WorkoutPage() {
       await getDb().routines.update(pending.routine.id, { exercises: updated });
     }
     navigate({ to: "/history" });
-  }
-
-  function describeProgressionSuggestion(suggestion: ProgressionSuggestion) {
-    const name = getExercise(suggestion.exerciseId)?.name ?? suggestion.exerciseId;
-    if (suggestion.kind === "add-weight") {
-      return {
-        title: "Ready to add weight?",
-        description: `You've cleared the top of the range for ${name} at ${suggestion.currentWeight}kg for 2 sessions running.`,
-        keepLabel: `Keep at ${suggestion.currentWeight}kg`,
-        changeLabel: `Try ${suggestion.proposedWeight}kg next time`,
-      };
-    }
-    if (suggestion.kind === "ease-off") {
-      return {
-        title: `Still working at ${suggestion.currentWeight}kg?`,
-        description: `${name} has fallen short of ${suggestion.currentReps} reps for 2 sessions running.`,
-        keepLabel: `Keep at ${suggestion.currentWeight}kg`,
-        changeLabel: `Try ${suggestion.proposedWeight}kg next time`,
-      };
-    }
-    return {
-      title: "Ready for another rep?",
-      description: `You've cleared ${suggestion.currentReps}+ reps at ${suggestion.currentWeight}kg on ${name} for 2 sessions running.`,
-      keepLabel: `Keep at ${suggestion.currentReps} reps`,
-      changeLabel: `Try ${suggestion.proposedReps} reps next time`,
-    };
   }
 
   // Swaps sortOrder with the adjacent routine in the given direction — only
@@ -837,31 +818,15 @@ function WorkoutPage() {
       </AlertDialog>
 
       <AlertDialog
-        open={!!pendingProgressionSuggestion}
-        onOpenChange={(open) => !open && resolvePendingProgressionSuggestion(false)}
+        open={!!pendingProgressionSuggestions}
+        onOpenChange={(open) => !open && resolvePendingProgressionSuggestions(new Map())}
       >
-        <AlertDialogContent>
-          {pendingProgressionSuggestion &&
-            (() => {
-              const copy = describeProgressionSuggestion(pendingProgressionSuggestion.suggestion);
-              return (
-                <>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>{copy.title}</AlertDialogTitle>
-                    <AlertDialogDescription>{copy.description}</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => resolvePendingProgressionSuggestion(false)}>
-                      {copy.keepLabel}
-                    </AlertDialogCancel>
-                    <AlertDialogAction onClick={() => resolvePendingProgressionSuggestion(true)}>
-                      {copy.changeLabel}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </>
-              );
-            })()}
-        </AlertDialogContent>
+        {pendingProgressionSuggestions && (
+          <ProgressionSuggestionsDialog
+            suggestions={pendingProgressionSuggestions.suggestions}
+            onResolve={resolvePendingProgressionSuggestions}
+          />
+        )}
       </AlertDialog>
     </div>
   );
