@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Reorder, useDragControls } from "framer-motion";
-import { Check, GripVertical, Plus, Trash2, X } from "lucide-react";
+import { Check, GripVertical, Link2, Link2Off, Plus, Trash2, X } from "lucide-react";
 import { getDb, type WorkoutSet, type LiveWorkoutSet } from "@/lib/db";
 import {
   getExercise,
@@ -95,6 +95,7 @@ export interface LiveSessionProps {
   setSession: React.Dispatch<React.SetStateAction<ActiveSession | null>>;
   onAddExercise: () => void;
   onFinish: (save: boolean) => void;
+  onToggleSidesLinked: (exerciseId: string) => void;
 }
 
 // Shared by both the unilateral and standard set rows below — same two
@@ -149,6 +150,26 @@ function SetActionButtons({
   );
 }
 
+// A single toggle per unilateral exercise — not per set, unlike
+// SetActionButtons above — since sidesLinked is one exercise-wide choice.
+// Same sizing/tap-target treatment as SetActionButtons' completion button;
+// see editSide in UnilateralSetInputs.tsx for what flipping this actually
+// changes about set entry. Undefined sidesLinked (never explicitly
+// toggled) renders as linked, matching today's default in-sync behavior —
+// the first tap commits an explicit false, and every tap after that just
+// flips true/false.
+function SidesLinkButton({ linked, onClick }: { linked: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={linked ? "Unlink left and right" : "Link left and right"}
+      className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors after:absolute after:-inset-2 after:content-[''] ${linked ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}
+    >
+      {linked ? <Link2 className="h-4 w-4" /> : <Link2Off className="h-4 w-4" />}
+    </button>
+  );
+}
+
 // One exercise's card during a live workout — pulled out of LiveSession's
 // render so each card can own its own useDragControls() (a hook, and so
 // can't be called once per iteration inside a .map callback). Behaviour is
@@ -170,6 +191,7 @@ function ExerciseCard({
   updateSet,
   toggleTimer,
   addSet,
+  onToggleSidesLinked,
 }: {
   ex: ActiveSessionExercise;
   ei: number;
@@ -186,6 +208,7 @@ function ExerciseCard({
   updateSet: (ei: number, si: number, patch: Partial<LiveWorkoutSet>) => void;
   toggleTimer: (ei: number, si: number, side?: "primary" | "secondary") => void;
   addSet: (ei: number) => void;
+  onToggleSidesLinked: (exerciseId: string) => void;
 }) {
   const def = getExercise(ex.exerciseId);
   const schema = getExerciseLoggingSchema(def);
@@ -243,6 +266,12 @@ function ExerciseCard({
           <p className="text-xs text-muted-foreground">{def?.muscle}</p>
         </div>
         <ExerciseFormViewer exerciseId={ex.exerciseId} exerciseName={def?.name ?? ex.exerciseId} />
+        {!intervalConfig && schema.unilateral && (
+          <SidesLinkButton
+            linked={ex.sidesLinked ?? true}
+            onClick={() => onToggleSidesLinked(ex.exerciseId)}
+          />
+        )}
         <button
           onClick={() => removeExercise(ei)}
           aria-label="Remove exercise"
@@ -342,6 +371,7 @@ function ExerciseCard({
                     primary={primary}
                     secondary={secondary}
                     size="large"
+                    linked={ex.sidesLinked}
                     mode={{
                       kind: "live",
                       timerStart: {
@@ -519,7 +549,13 @@ function ExerciseCard({
   );
 }
 
-export function LiveSession({ session, setSession, onAddExercise, onFinish }: LiveSessionProps) {
+export function LiveSession({
+  session,
+  setSession,
+  onAddExercise,
+  onFinish,
+  onToggleSidesLinked,
+}: LiveSessionProps) {
   // Kept in sync with WorkoutHUD's real rendered height via onHeightChange
   // below — starts at the pre-rest-timer fallback so there's no layout
   // jump before the first measurement lands (effectively immediate, since
@@ -1013,6 +1049,7 @@ export function LiveSession({ session, setSession, onAddExercise, onFinish }: Li
             updateSet={updateSet}
             toggleTimer={toggleTimer}
             addSet={addSet}
+            onToggleSidesLinked={onToggleSidesLinked}
           />
         ))}
       </Reorder.Group>

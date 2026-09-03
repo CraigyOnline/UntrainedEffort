@@ -29,6 +29,16 @@ export interface RoutineExercise {
     lastPromptedReps: number;
     lastPromptedAt: number;
   };
+  /** Whether a unilateral exercise's two sides are forced in or out of
+   *  sync on every edit — undefined preserves the original behavior
+   *  (mirrors a primary-side edit onto the secondary side only while the
+   *  two happen to already be equal; see editSide in
+   *  UnilateralSetInputs.tsx), true/false make it unconditional in either
+   *  direction. Meaningless for a non-unilateral exercise. Set by the
+   *  link/unlink toggle in LiveSession, which writes it back here
+   *  immediately so the next workout from this routine starts the same
+   *  way. */
+  sidesLinked?: boolean;
 }
 
 /**
@@ -234,6 +244,11 @@ export interface ActiveSessionExercise {
    *  timer — that absence *is* the "not started yet" state, rather than a
    *  separate flag that could drift out of sync with it. */
   intervalState?: IntervalTimerState;
+  /** Copied from RoutineExercise.sidesLinked when the workout starts.
+   *  Absent for a Quick Workout (no routine to copy from) or an exercise
+   *  added mid-session (no routine entry yet). See RoutineExercise for
+   *  what the three states mean. */
+  sidesLinked?: boolean;
 }
 
 /**

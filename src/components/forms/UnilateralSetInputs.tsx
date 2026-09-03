@@ -33,37 +33,56 @@ export interface UnilateralSetInputsProps {
   onChange: (next: { primary: SetSide; secondary: SetSide }) => void;
   size?: "compact" | "large";
   mode: UnilateralSetInputsMode;
+  /** Passed straight through to editSide — see there for what each state
+   *  means. The toggle that sets this lives one level up, in LiveSession's
+   *  ExerciseCard, since it applies to the whole exercise rather than to
+   *  one set. */
+  linked?: boolean;
 }
 
 /**
- * Applies one field edit on one side, mirroring it onto the other side
- * only while that field was still in sync between them — the moment the
- * user edits a field on the second side directly, or the two happen to
- * already differ, this stops propagating for that field on its own. No
- * separate "has been manually edited" flag is stored anywhere for this;
- * it's derived purely by comparing the two sides' current values, the
- * same way this codebase already prefers absence-of-data over an extra
- * boolean elsewhere (e.g. IntervalTimerState).
+ * Applies one field edit on one side. `linked` decides how it affects the
+ * other side:
+ * - undefined (never explicitly toggled) — mirrors onto the other side
+ *   only while that field was still in sync between them, the same way
+ *   this codebase already prefers absence-of-data over an extra boolean
+ *   elsewhere (e.g. IntervalTimerState). The moment the two happen to
+ *   differ, or a direct secondary edit lands, this stops propagating for
+ *   that field on its own.
+ * - true (explicitly linked) — always mirrors the edit onto the other
+ *   side, in either direction, regardless of the sides' current values.
+ * - false (explicitly unlinked) — never mirrors, in either direction,
+ *   even when the two sides currently happen to match.
  *
  * Only ever called for a manual weight/reps/duration edit — starting or
  * stopping a live timer (mode.kind === "live") calls onToggleTimer
  * directly instead, bypassing this entirely, so the two sides' timers
- * are never mirrored or coupled to each other.
+ * are never mirrored or coupled to each other regardless of `linked`.
+ *
+ * Exported (unlike the rest of this module's internals) so the three
+ * `linked` states can be unit-tested directly — see
+ * UnilateralSetInputs.test.ts — rather than only indirectly through
+ * StepperInput/MmSsInput rendering, matching how this codebase already
+ * tests other pure logic.
  */
-function editSide(
+export function editSide(
   primary: SetSide,
   secondary: SetSide,
   edited: "primary" | "secondary",
   field: keyof SetSide,
   value: number,
+  linked?: boolean,
 ): { primary: SetSide; secondary: SetSide } {
   if (edited === "secondary") {
-    return { primary, secondary: { ...secondary, [field]: value } };
+    return linked === true
+      ? { primary: { ...primary, [field]: value }, secondary: { ...secondary, [field]: value } }
+      : { primary, secondary: { ...secondary, [field]: value } };
   }
-  const wasInSync = secondary[field] === primary[field];
+  const shouldMirror =
+    linked === true || (linked === undefined && secondary[field] === primary[field]);
   return {
     primary: { ...primary, [field]: value },
-    secondary: wasInSync ? { ...secondary, [field]: value } : secondary,
+    secondary: shouldMirror ? { ...secondary, [field]: value } : secondary,
   };
 }
 
@@ -83,6 +102,7 @@ export function UnilateralSetInputs({
   onChange,
   size = "large",
   mode,
+  linked,
 }: UnilateralSetInputsProps) {
   const rows: Array<{ key: "primary" | "secondary"; label: string; value: SetSide }> = [
     { key: "primary", label: sideLabel(0), value: primary },
@@ -132,7 +152,9 @@ export function UnilateralSetInputs({
               <div className="col-span-2">
                 <MmSsInput
                   seconds={row.value.duration ?? 0}
-                  onCommit={(v) => onChange(editSide(primary, secondary, row.key, "duration", v))}
+                  onCommit={(v) =>
+                    onChange(editSide(primary, secondary, row.key, "duration", v, linked))
+                  }
                 />
               </div>
             )
@@ -140,7 +162,9 @@ export function UnilateralSetInputs({
             <>
               <StepperInput
                 value={row.value.weight}
-                onCommit={(v) => onChange(editSide(primary, secondary, row.key, "weight", v))}
+                onCommit={(v) =>
+                  onChange(editSide(primary, secondary, row.key, "weight", v, linked))
+                }
                 step={2.5}
                 decimal
                 min={0}
@@ -148,7 +172,7 @@ export function UnilateralSetInputs({
               />
               <StepperInput
                 value={row.value.reps}
-                onCommit={(v) => onChange(editSide(primary, secondary, row.key, "reps", v))}
+                onCommit={(v) => onChange(editSide(primary, secondary, row.key, "reps", v, linked))}
                 step={1}
                 min={0}
                 size={size}

@@ -121,9 +121,20 @@ function WorkoutPage() {
   // just before `active` is cleared — used only to offer the post-workout
   // "Update Routine?" prompt below, never to alter the routine itself.
   const [startRoutineSnapshot, setStartRoutineSnapshot] = useState<Routine | null>(null);
+  // Sibling to startRoutineSnapshot above, captured at the same moment for
+  // the same reason: active.exercises is gone by the time leaveSummary/
+  // resolvePendingRoutineUpdate run below. WorkoutExerciseLog has no
+  // sidesLinked field of its own — it's routine configuration, not part
+  // of a completed workout's permanent record — so this is the only place
+  // that value survives long enough to fold back into the routine when an
+  // exercise added mid-workout gets added there too.
+  const [startSidesLinkedSnapshot, setStartSidesLinkedSnapshot] = useState<
+    Map<string, boolean | undefined>
+  >(new Map());
   const [pendingRoutineUpdate, setPendingRoutineUpdate] = useState<{
     routine: Routine;
     finishedExercises: WorkoutExerciseLog[];
+    sidesLinkedByExercise: Map<string, boolean | undefined>;
   } | null>(null);
   // Only ever raised when the routine's exercise list DIDN'T change (see
   // leaveSummary below) — kept mutually exclusive with the prompt above
@@ -178,7 +189,11 @@ function WorkoutPage() {
 
     setSummary(null);
     if (routine && changed) {
-      setPendingRoutineUpdate({ routine, finishedExercises: summary.exercises });
+      setPendingRoutineUpdate({
+        routine,
+        finishedExercises: summary.exercises,
+        sidesLinkedByExercise: startSidesLinkedSnapshot,
+      });
       return true;
     }
     if (routine && suggestions.length > 0) {
@@ -241,6 +256,7 @@ function WorkoutPage() {
           const def = getExercise(e.exerciseId);
           return {
             exerciseId: e.exerciseId,
+            sidesLinked: e.sidesLinked,
             sets: (e.sets.length > 0 ? e.sets : [{}]).map((s) =>
               seedUnilateralSide(def, {
                 ...makeSet(),
@@ -298,6 +314,9 @@ function WorkoutPage() {
         return;
       }
       setStartRoutineSnapshot(active.routine);
+      setStartSidesLinkedSnapshot(
+        new Map(active.exercises.map((e) => [e.exerciseId, e.sidesLinked])),
+      );
       await doSaveWorkout(
         exercises,
         active,
@@ -349,7 +368,11 @@ function WorkoutPage() {
                 targetDuration: s.duration,
               }))
             : [{}];
-        return { exerciseId: fe.exerciseId, sets };
+        return {
+          exerciseId: fe.exerciseId,
+          sets,
+          sidesLinked: pending.sidesLinkedByExercise.get(fe.exerciseId),
+        };
       });
       await getDb().routines.update(pending.routine.id, { exercises: updated });
     }
@@ -387,6 +410,38 @@ function WorkoutPage() {
       await getDb().routines.update(pending.routine.id, { exercises: updated });
     }
     navigate({ to: "/history" });
+  }
+
+  // Flips one exercise's left/right link state for the rest of this
+  // workout, and — when this workout is tied to a routine — writes the
+  // same flip back to that RoutineExercise immediately, so the next time
+  // this routine is started the choice is already applied. A Quick
+  // Workout (routine is null) only affects the current session. See
+  // editSide in UnilateralSetInputs.tsx for what sidesLinked actually
+  // changes about set entry.
+  function toggleSidesLinked(exerciseId: string) {
+    if (!active) return;
+    const ex = active.exercises.find((e) => e.exerciseId === exerciseId);
+    const next = !(ex?.sidesLinked ?? true);
+
+    setActive((s) =>
+      s
+        ? {
+            ...s,
+            exercises: s.exercises.map((e) =>
+              e.exerciseId !== exerciseId ? e : { ...e, sidesLinked: next },
+            ),
+          }
+        : s,
+    );
+
+    if (active.routine?.id != null) {
+      const routineId = active.routine.id;
+      const updatedExercises: RoutineExercise[] = active.routine.exercises.map((e) =>
+        e.exerciseId !== exerciseId ? e : { ...e, sidesLinked: next },
+      );
+      void getDb().routines.update(routineId, { exercises: updatedExercises });
+    }
   }
 
   // Swaps sortOrder with the adjacent routine in the given direction — only
@@ -434,6 +489,7 @@ function WorkoutPage() {
             setSession={setActive}
             onAddExercise={() => setPicking(true)}
             onFinish={handleFinish}
+            onToggleSidesLinked={toggleSidesLinked}
           />
         )}
 
