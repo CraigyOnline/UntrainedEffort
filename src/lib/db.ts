@@ -34,10 +34,12 @@ export interface RoutineExercise {
    *  (mirrors a primary-side edit onto the secondary side only while the
    *  two happen to already be equal; see editSide in
    *  UnilateralSetInputs.tsx), true/false make it unconditional in either
-   *  direction. Meaningless for a non-unilateral exercise. Set by the
-   *  link/unlink toggle in LiveSession, which writes it back here
-   *  immediately so the next workout from this routine starts the same
-   *  way. */
+   *  direction. Meaningless for a non-unilateral exercise, or for a
+   *  unilateral exercise's live timer (side plank etc.) — those already
+   *  run independently regardless, so LiveSession doesn't show the toggle
+   *  there at all. Set by the link/unlink toggle in LiveSession, which
+   *  writes it back here immediately so the next workout from this
+   *  routine starts the same way. */
   sidesLinked?: boolean;
 }
 

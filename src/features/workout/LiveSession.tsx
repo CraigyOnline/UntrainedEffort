@@ -266,7 +266,11 @@ function ExerciseCard({
           <p className="text-xs text-muted-foreground">{def?.muscle}</p>
         </div>
         <ExerciseFormViewer exerciseId={ex.exerciseId} exerciseName={def?.name ?? ex.exerciseId} />
-        {!intervalConfig && schema.unilateral && (
+        {/* Excludes a timed unilateral exercise (side plank etc.) — its
+            live timers already run independently regardless of sidesLinked
+            (see editSide's doc comment), so the toggle would do nothing
+            visible there. */}
+        {!intervalConfig && schema.unilateral && !schema.duration && (
           <SidesLinkButton
             linked={ex.sidesLinked ?? true}
             onClick={() => onToggleSidesLinked(ex.exerciseId)}
