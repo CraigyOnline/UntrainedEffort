@@ -162,7 +162,11 @@ export function UnilateralSetInputs({
       >
         {rows.map((row) => (
           <Fragment key={row.key}>
-            <div className="grid grid-cols-[3rem_1fr_1fr] items-center gap-3">
+            <div
+              className={`${
+                row.key === "primary" ? "row-start-1" : "row-start-2"
+              } col-start-1 grid grid-cols-[3rem_1fr_1fr] items-center gap-3`}
+            >
               <span className="text-xs font-semibold text-muted-foreground">{row.label}</span>
               {schema.duration ? (
                 mode.kind === "live" ? (
@@ -211,12 +215,18 @@ export function UnilateralSetInputs({
               )}
             </div>
             {showConnector && (
-              // Lives in its own grid cell in the same row track as the
-              // reps stepper next to it, so items-stretch + items-center
-              // lands this exactly at that row's vertical middle without
-              // measuring anything — same reasoning as the vertical
-              // segment below, just per-row instead of spanning both.
-              <div className="flex items-center">
+              // Explicit row-start/col-start on every cell here, including
+              // this one and the row content above — NOT auto-placement.
+              // Grid auto-placement fills cells in DOM order across the
+              // *whole* grid, not grouped per Fragment, so two items per
+              // .map() iteration were landing in whatever cell came next
+              // in that global sequence rather than staying with their
+              // own row (that's what broke — see the fixed screenshot).
+              <div
+                className={`${
+                  row.key === "primary" ? "row-start-1" : "row-start-2"
+                } col-start-2 flex items-center`}
+              >
                 <div
                   aria-hidden="true"
                   className={`h-0 w-full border-t-2 border-dashed border-primary transition-opacity ${
@@ -228,13 +238,10 @@ export function UnilateralSetInputs({
           </Fragment>
         ))}
         {showConnector && (
-          // Spans both row tracks so its height always matches the two
-          // rows combined, whatever that height actually is — same
-          // measurement-free reasoning as the horizontal segments above.
-          // The dot stays put and keeps its icon in both states so
-          // there's always something visible and tappable here, even
-          // when the dashed lines themselves are gone.
-          <div className="relative row-span-2 flex items-center justify-center">
+          // Explicitly pinned to column 3, spanning both row tracks from
+          // row 1 — same reason as above, not relying on whatever cell
+          // auto-placement would have handed it next.
+          <div className="relative col-start-3 row-start-1 row-span-2 flex items-center justify-center">
             <div
               aria-hidden="true"
               className={`h-full w-0 border-l-2 border-dashed border-primary transition-opacity ${
