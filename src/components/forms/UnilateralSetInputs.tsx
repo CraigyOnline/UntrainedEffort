@@ -1,3 +1,5 @@
+import { Fragment } from "react";
+import { Link2, Link2Off } from "lucide-react";
 import { sideLabel, type ExerciseLoggingSchema, type SetSide } from "@/lib/exercises";
 import { MmSsInput } from "@/components/forms/MmSsInput";
 import { StepperInput } from "@/components/forms/NumberInput";
@@ -151,10 +153,16 @@ export function UnilateralSetInputs({
           )}
         </div>
       )}
-      <div className="flex items-stretch gap-2">
-        <div className="flex flex-1 flex-col gap-2">
-          {rows.map((row) => (
-            <div key={row.key} className="grid grid-cols-[3rem_1fr_1fr] items-center gap-3">
+      <div
+        className={
+          showConnector
+            ? "grid grid-cols-[1fr_1.25rem_1.75rem] items-stretch gap-x-1 gap-y-2"
+            : "flex flex-col gap-2"
+        }
+      >
+        {rows.map((row) => (
+          <Fragment key={row.key}>
+            <div className="grid grid-cols-[3rem_1fr_1fr] items-center gap-3">
               <span className="text-xs font-semibold text-muted-foreground">{row.label}</span>
               {schema.duration ? (
                 mode.kind === "live" ? (
@@ -202,15 +210,31 @@ export function UnilateralSetInputs({
                 </>
               )}
             </div>
-          ))}
-        </div>
+            {showConnector && (
+              // Lives in its own grid cell in the same row track as the
+              // reps stepper next to it, so items-stretch + items-center
+              // lands this exactly at that row's vertical middle without
+              // measuring anything — same reasoning as the vertical
+              // segment below, just per-row instead of spanning both.
+              <div className="flex items-center">
+                <div
+                  aria-hidden="true"
+                  className={`h-0 w-full border-t-2 border-dashed border-primary transition-opacity ${
+                    showLine ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+              </div>
+            )}
+          </Fragment>
+        ))}
         {showConnector && (
-          // The dashed line spans this column's full height, which
-          // items-stretch (the flex default) already sizes to match the
-          // rows column next to it — no measuring either side. The dot
-          // stays put in both states so there's always something visible
-          // and tappable here, even when the line itself is gone.
-          <div className="relative flex w-6 shrink-0 justify-center">
+          // Spans both row tracks so its height always matches the two
+          // rows combined, whatever that height actually is — same
+          // measurement-free reasoning as the horizontal segments above.
+          // The dot stays put and keeps its icon in both states so
+          // there's always something visible and tappable here, even
+          // when the dashed lines themselves are gone.
+          <div className="relative row-span-2 flex items-center justify-center">
             <div
               aria-hidden="true"
               className={`h-full w-0 border-l-2 border-dashed border-primary transition-opacity ${
@@ -220,8 +244,14 @@ export function UnilateralSetInputs({
             <button
               onClick={onToggleLinked}
               aria-label={showLine ? "Unlink left and right" : "Link left and right"}
-              className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-muted-foreground/30 bg-secondary after:absolute after:-inset-2 after:content-['']"
-            />
+              className="absolute flex h-6 w-6 items-center justify-center rounded-full border border-muted-foreground/30 bg-secondary after:absolute after:-inset-2 after:content-['']"
+            >
+              {showLine ? (
+                <Link2 className="h-3 w-3 text-primary" />
+              ) : (
+                <Link2Off className="h-3 w-3 text-muted-foreground" />
+              )}
+            </button>
           </div>
         )}
       </div>
