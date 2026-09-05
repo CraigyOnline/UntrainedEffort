@@ -156,7 +156,7 @@ export function UnilateralSetInputs({
       <div
         className={
           showConnector
-            ? "grid grid-cols-[1fr_1.25rem_1.75rem] items-stretch gap-x-1 gap-y-2"
+            ? "grid grid-cols-[1fr_2.75rem_1.75rem] items-stretch gap-x-1 gap-y-2"
             : "flex flex-col gap-2"
         }
       >
@@ -242,9 +242,16 @@ export function UnilateralSetInputs({
           // row 1 — same reason as above, not relying on whatever cell
           // auto-placement would have handed it next.
           <div className="relative col-start-3 row-start-1 row-span-2 flex items-center justify-center">
+            {/* Insets equal half of size="large"'s row height (h-9, 36px)
+                so the line's two ends land exactly at each row's own
+                center — the same point its horizontal dash sits at —
+                instead of running the full row-span-2 height and
+                overshooting past both dashes. If this component ever
+                needs to support size="compact" rows here too, this fixed
+                18px would need to change with it. */}
             <div
               aria-hidden="true"
-              className={`h-full w-0 border-l-2 border-dashed border-primary transition-opacity ${
+              className={`absolute left-1/2 top-[18px] bottom-[18px] w-0 -translate-x-1/2 border-l-2 border-dashed border-primary transition-opacity ${
                 showLine ? "opacity-100" : "opacity-0"
               }`}
             />
