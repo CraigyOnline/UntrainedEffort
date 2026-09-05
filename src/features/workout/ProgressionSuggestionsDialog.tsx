@@ -15,21 +15,21 @@ function describeProgressionSuggestion(suggestion: ProgressionSuggestion) {
   if (suggestion.kind === "add-weight") {
     return {
       change: `Cleared the top of the range at ${suggestion.currentWeight}kg for 2 sessions running.`,
-      keepLabel: `Keep at ${suggestion.currentWeight}kg`,
-      changeLabel: `Try ${suggestion.proposedWeight}kg next time`,
+      current: `${suggestion.currentWeight}kg`,
+      proposed: `${suggestion.proposedWeight}kg`,
     };
   }
   if (suggestion.kind === "ease-off") {
     return {
       change: `Fell short of ${suggestion.currentReps} reps for 2 sessions running at ${suggestion.currentWeight}kg.`,
-      keepLabel: `Keep at ${suggestion.currentWeight}kg`,
-      changeLabel: `Try ${suggestion.proposedWeight}kg next time`,
+      current: `${suggestion.currentWeight}kg`,
+      proposed: `${suggestion.proposedWeight}kg`,
     };
   }
   return {
     change: `Cleared ${suggestion.currentReps}+ reps at ${suggestion.currentWeight}kg for 2 sessions running.`,
-    keepLabel: `Keep at ${suggestion.currentReps} reps`,
-    changeLabel: `Try ${suggestion.proposedReps} reps next time`,
+    current: `${suggestion.currentReps} reps`,
+    proposed: `${suggestion.proposedReps} reps`,
   };
 }
 
@@ -60,7 +60,7 @@ export function ProgressionSuggestionsDialog({
   );
 
   return (
-    <AlertDialogContent>
+    <AlertDialogContent className="flex max-h-[85vh] flex-col">
       <AlertDialogHeader>
         <AlertDialogTitle>
           {suggestions.length === 1
@@ -73,7 +73,7 @@ export function ProgressionSuggestionsDialog({
         </AlertDialogDescription>
       </AlertDialogHeader>
 
-      <div className="flex flex-col gap-2 py-1">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto py-1">
         {suggestions.map((suggestion) => {
           const name = getExercise(suggestion.exerciseId)?.name ?? suggestion.exerciseId;
           const copy = describeProgressionSuggestion(suggestion);
@@ -90,12 +90,15 @@ export function ProgressionSuggestionsDialog({
                   setDecisions((prev) => new Map(prev).set(suggestion.exerciseId, checked === true))
                 }
               />
-              <div className="min-w-0">
-                <p className="text-sm font-medium">{name}</p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="truncate text-sm font-medium">{name}</p>
+                  <p className="shrink-0 text-xs">
+                    <span className="text-muted-foreground">{copy.current} → </span>
+                    <span className="font-medium text-primary">{copy.proposed}</span>
+                  </p>
+                </div>
                 <p className="text-xs text-muted-foreground">{copy.change}</p>
-                <p className="mt-1 text-xs font-medium">
-                  {accepted ? copy.changeLabel : copy.keepLabel}
-                </p>
               </div>
             </label>
           );
