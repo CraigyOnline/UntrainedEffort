@@ -32,11 +32,15 @@ import { useDismissOnBack } from "@/lib/backHandler";
 import {
   detectRoutineChange,
   doSaveWorkout,
+  findOtherRoutinesForExercise,
   findProgressionSuggestions,
   makeSet,
   sessionHasData,
+  withProgressionSuggestionApplied,
+  withProgressionSuggestionSnoozed,
 } from "@/features/workout/workoutHelpers";
 import { ProgressionSuggestionsDialog } from "@/features/workout/ProgressionSuggestionsDialog";
+import { UpdateOtherRoutinesDialog } from "@/features/workout/UpdateOtherRoutinesDialog";
 import { getRoutineUpdatePromptEnabled } from "@/lib/routineUpdatePrompt";
 import {
   getProgressionSuggestionsEnabled,
@@ -145,6 +149,14 @@ function WorkoutPage() {
     routine: Routine;
     suggestions: ProgressionSuggestion[];
   } | null>(null);
+  // Accepted suggestions whose exercise also has a target in other
+  // recently-used routines, still waiting to be asked about. Shown one at
+  // a time (queue[0]) via UpdateOtherRoutinesDialog below; navigation to
+  // /history is held off until this drains — see
+  // resolvePendingProgressionSuggestions and resolveRoutineUpdatePrompt.
+  const [routineUpdateQueue, setRoutineUpdateQueue] = useState<
+    { suggestion: ProgressionSuggestion; sourceRoutineId: number }[]
+  >([]);
   const [completionMessage, setCompletionMessage] = useState<CompletionMessage | null>(null);
   // "new-standard"/"new-circuit" distinguish which editor a brand-new
   // routine should open in (chosen via routineTypePickerOpen below) from
@@ -385,31 +397,66 @@ function WorkoutPage() {
   // for evaluateExerciseProgression's anti-repeat check next time — but
   // targetWeight/targetReps only change for the ones marked true in
   // `decisions`. An exercise with no entry in `decisions` (dialog closed
-  // without tapping Done) is treated as snoozed, same as an explicit false.
+  // without tapping Done) is treated as snoozed, same as an explicit
+  // false — and, new here, a snoozed suggestion is kept as
+  // pendingSuggestion so it can be picked up again from the Overview
+  // page instead of only in this moment. Navigation to /history is held
+  // off when any accepted suggestion also has other recently-used
+  // routines to ask about — see resolveRoutineUpdatePrompt, which
+  // navigates once that follow-up queue drains.
   async function resolvePendingProgressionSuggestions(decisions: Map<string, boolean>) {
     const pending = pendingProgressionSuggestions;
     setPendingProgressionSuggestions(null);
     if (pending && pending.routine.id != null) {
-      const bySuggestion = new Map(pending.suggestions.map((s) => [s.exerciseId, s]));
-      const updated: RoutineExercise[] = pending.routine.exercises.map((e) => {
-        const suggestion = bySuggestion.get(e.exerciseId);
-        if (!suggestion) return e;
-        const accepted = decisions.get(e.exerciseId) ?? false;
-        return {
-          ...e,
-          sets: accepted
-            ? e.sets.map((s) => ({
-                ...s,
-                targetWeight: suggestion.proposedWeight,
-                targetReps: suggestion.proposedReps,
-              }))
-            : e.sets,
-          progressionState: suggestion.nextState,
-        };
-      });
-      await getDb().routines.update(pending.routine.id, { exercises: updated });
+      const sourceRoutineId = pending.routine.id;
+      let exercises = pending.routine.exercises;
+      for (const suggestion of pending.suggestions) {
+        const accepted = decisions.get(suggestion.exerciseId) ?? false;
+        exercises = accepted
+          ? withProgressionSuggestionApplied(exercises, suggestion)
+          : withProgressionSuggestionSnoozed(exercises, suggestion, true);
+      }
+      await getDb().routines.update(sourceRoutineId, { exercises });
+
+      const followUps = pending.suggestions
+        .filter((s) => decisions.get(s.exerciseId))
+        .map((suggestion) => ({ suggestion, sourceRoutineId }))
+        .filter(
+          ({ suggestion }) =>
+            findOtherRoutinesForExercise(
+              suggestion.exerciseId,
+              sourceRoutineId,
+              routines ?? [],
+              lastUsedByRoutine,
+            ).length > 0,
+        );
+      if (followUps.length > 0) {
+        setRoutineUpdateQueue(followUps);
+        return;
+      }
     }
     navigate({ to: "/history" });
+  }
+
+  // Resolves one entry of routineUpdateQueue: applies the same target
+  // and progressionState to whichever of the other routines were
+  // checked, then moves to the next queued suggestion (if any) or on to
+  // /history once the queue is empty.
+  async function resolveRoutineUpdatePrompt(selectedRoutineIds: number[]) {
+    const item = routineUpdateQueue[0];
+    if (item) {
+      for (const routineId of selectedRoutineIds) {
+        const routine = routines?.find((r) => r.id === routineId);
+        if (!routine || routine.id == null) continue;
+        const exercises = withProgressionSuggestionApplied(routine.exercises, item.suggestion);
+        await getDb().routines.update(routine.id, { exercises });
+      }
+    }
+    const rest = routineUpdateQueue.slice(1);
+    setRoutineUpdateQueue(rest);
+    if (rest.length === 0) {
+      navigate({ to: "/history" });
+    }
   }
 
   // Flips one exercise's left/right link state for the rest of this
@@ -881,6 +928,28 @@ function WorkoutPage() {
           <ProgressionSuggestionsDialog
             suggestions={pendingProgressionSuggestions.suggestions}
             onResolve={resolvePendingProgressionSuggestions}
+          />
+        )}
+      </AlertDialog>
+
+      <AlertDialog
+        open={routineUpdateQueue.length > 0}
+        onOpenChange={(open) => !open && resolveRoutineUpdatePrompt([])}
+      >
+        {routineUpdateQueue[0] && (
+          <UpdateOtherRoutinesDialog
+            exerciseName={
+              getExercise(routineUpdateQueue[0].suggestion.exerciseId)?.name ??
+              routineUpdateQueue[0].suggestion.exerciseId
+            }
+            suggestion={routineUpdateQueue[0].suggestion}
+            options={findOtherRoutinesForExercise(
+              routineUpdateQueue[0].suggestion.exerciseId,
+              routineUpdateQueue[0].sourceRoutineId,
+              routines ?? [],
+              lastUsedByRoutine,
+            )}
+            onResolve={resolveRoutineUpdatePrompt}
           />
         )}
       </AlertDialog>

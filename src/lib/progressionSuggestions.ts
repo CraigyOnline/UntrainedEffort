@@ -109,7 +109,7 @@ export function evaluateExerciseProgression(
       exerciseId,
       kind: "add-weight",
       currentWeight: weight,
-      currentReps: targetReps,
+      currentReps: curReps,
       proposedWeight: weight + PROGRESSION_WEIGHT_STEP,
       proposedReps: effective.repFloor,
       nextState: {

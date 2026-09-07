@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
-import { useMemo } from "react";
-import { getDb, type Workout } from "@/lib/db";
+import { useMemo, useState } from "react";
+import { getDb, type Routine, type Workout } from "@/lib/db";
 import { getExercise, type MuscleGroup } from "@/lib/exercises";
 import {
   computeWorkoutDisplayStats,
@@ -25,6 +25,15 @@ import { MiniConsistencyHeatmap } from "@/components/MiniConsistencyHeatmap";
 import { LastWorkoutCard } from "@/components/LastWorkoutCard";
 import { MuscleMap } from "@/components/MuscleMap";
 import { OverviewTotals } from "@/features/history/OverviewTotals";
+import { AlertDialog } from "@/components/ui/alert-dialog";
+import {
+  describeProposedValue,
+  findOtherRoutinesForExercise,
+  withProgressionSuggestionApplied,
+  withProgressionSuggestionSnoozed,
+} from "@/features/workout/workoutHelpers";
+import { UpdateOtherRoutinesDialog } from "@/features/workout/UpdateOtherRoutinesDialog";
+import type { ProgressionSuggestion } from "@/lib/progressionSuggestions";
 
 export const Route = createFileRoute("/_app/overview")({
   head: () => ({
@@ -66,9 +75,91 @@ function OverviewPage() {
     return getDb().prHistory.toArray();
   }, []);
 
+  const routines = useLiveQuery(async () => {
+    if (typeof window === "undefined") return [];
+    return getDb().routines.orderBy("sortOrder").toArray();
+  }, []);
+
   const greeting = useLiveQuery(() => selectHomeGreeting(), []);
 
   const lastWorkout = workouts?.[0] ?? null;
+
+  // Same routineId → most-recent-startedAt map _app.workout.tsx builds,
+  // needed here too since accepting a recommendation can also offer to
+  // update the exercise's other routines — see findOtherRoutinesForExercise.
+  const lastUsedByRoutine = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const w of workouts ?? []) {
+      if (w.routineId != null && !map.has(w.routineId)) {
+        map.set(w.routineId, w.startedAt);
+      }
+    }
+    return map;
+  }, [workouts]);
+
+  // Every routine-exercise still carrying a suggestion that wasn't
+  // accepted in the post-workout dialog — see pendingSuggestion in
+  // db.ts. Flattened across all routines since the same exercise can
+  // have an independent outstanding suggestion in more than one.
+  const pendingSuggestions = useMemo(() => {
+    const rows: {
+      routine: Routine;
+      exerciseId: string;
+      exerciseName: string;
+      suggestion: ProgressionSuggestion;
+    }[] = [];
+    for (const routine of routines ?? []) {
+      for (const exercise of routine.exercises) {
+        if (exercise.pendingSuggestion) {
+          rows.push({
+            routine,
+            exerciseId: exercise.exerciseId,
+            exerciseName: getExercise(exercise.exerciseId)?.name ?? exercise.exerciseId,
+            suggestion: exercise.pendingSuggestion,
+          });
+        }
+      }
+    }
+    return rows;
+  }, [routines]);
+
+  const [activeRoutineUpdate, setActiveRoutineUpdate] = useState<{
+    suggestion: ProgressionSuggestion;
+    sourceRoutineId: number;
+  } | null>(null);
+
+  async function handleAcceptSuggestion(routine: Routine, suggestion: ProgressionSuggestion) {
+    if (routine.id == null) return;
+    const exercises = withProgressionSuggestionApplied(routine.exercises, suggestion);
+    await getDb().routines.update(routine.id, { exercises });
+
+    const others = findOtherRoutinesForExercise(
+      suggestion.exerciseId,
+      routine.id,
+      routines ?? [],
+      lastUsedByRoutine,
+    );
+    if (others.length > 0) {
+      setActiveRoutineUpdate({ suggestion, sourceRoutineId: routine.id });
+    }
+  }
+
+  async function handleDismissSuggestion(routine: Routine, suggestion: ProgressionSuggestion) {
+    if (routine.id == null) return;
+    const exercises = withProgressionSuggestionSnoozed(routine.exercises, suggestion, false);
+    await getDb().routines.update(routine.id, { exercises });
+  }
+
+  async function resolveActiveRoutineUpdate(selectedRoutineIds: number[]) {
+    const item = activeRoutineUpdate;
+    setActiveRoutineUpdate(null);
+    for (const routineId of selectedRoutineIds) {
+      const routine = routines?.find((r) => r.id === routineId);
+      if (!routine || routine.id == null || !item) continue;
+      const exercises = withProgressionSuggestionApplied(routine.exercises, item.suggestion);
+      await getDb().routines.update(routine.id, { exercises });
+    }
+  }
 
   // A data-driven suppression of one component (not a layout branch, see
   // §4). The hero line itself needs no change here: selectHomeGreeting()
@@ -169,6 +260,46 @@ function OverviewPage() {
             Last workout
           </p>
           <LastWorkoutCard workout={lastWorkout} />
+        </section>
+      )}
+
+      {hasWorkouts && pendingSuggestions.length > 0 && (
+        <section>
+          <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Recommendations
+          </p>
+          <div className="flex flex-col gap-2">
+            {pendingSuggestions.map(({ routine, exerciseId, exerciseName, suggestion }) => (
+              <div key={`${routine.id}-${exerciseId}`} className="rounded-2xl bg-card p-3">
+                <div className="flex items-baseline justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{exerciseName}</p>
+                    <p className="truncate text-xs text-muted-foreground">{routine.name}</p>
+                  </div>
+                  <p
+                    className="shrink-0 text-xs font-medium"
+                    style={{ color: "var(--color-primary)" }}
+                  >
+                    {describeProposedValue(suggestion)}
+                  </p>
+                </div>
+                <div className="mt-2.5 flex gap-2">
+                  <button
+                    onClick={() => handleDismissSuggestion(routine, suggestion)}
+                    className="flex-1 rounded-lg border border-border/50 py-1.5 text-xs font-medium active:opacity-70"
+                  >
+                    Not now
+                  </button>
+                  <button
+                    onClick={() => handleAcceptSuggestion(routine, suggestion)}
+                    className="flex-1 rounded-lg bg-primary py-1.5 text-xs font-medium text-primary-foreground active:opacity-90"
+                  >
+                    Update
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 
@@ -306,6 +437,28 @@ function OverviewPage() {
           </div>
         </section>
       )}
+
+      <AlertDialog
+        open={!!activeRoutineUpdate}
+        onOpenChange={(open) => !open && resolveActiveRoutineUpdate([])}
+      >
+        {activeRoutineUpdate && (
+          <UpdateOtherRoutinesDialog
+            exerciseName={
+              getExercise(activeRoutineUpdate.suggestion.exerciseId)?.name ??
+              activeRoutineUpdate.suggestion.exerciseId
+            }
+            suggestion={activeRoutineUpdate.suggestion}
+            options={findOtherRoutinesForExercise(
+              activeRoutineUpdate.suggestion.exerciseId,
+              activeRoutineUpdate.sourceRoutineId,
+              routines ?? [],
+              lastUsedByRoutine,
+            )}
+            onResolve={resolveActiveRoutineUpdate}
+          />
+        )}
+      </AlertDialog>
     </div>
   );
 }

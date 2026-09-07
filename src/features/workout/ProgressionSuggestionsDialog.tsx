@@ -11,17 +11,25 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { getExercise } from "@/lib/exercises";
 import type { ProgressionSuggestion } from "@/lib/progressionSuggestions";
 
-function describeProgressionSuggestion(suggestion: ProgressionSuggestion) {
+function describeProgressionSuggestion(suggestion: ProgressionSuggestion): {
+  change: string;
+  current: string;
+  proposed: string;
+  currentSecondary?: string;
+  proposedSecondary?: string;
+} {
   if (suggestion.kind === "add-weight") {
     return {
       change: `Cleared the top of the range at ${suggestion.currentWeight}kg for 2 sessions running.`,
       current: `${suggestion.currentWeight}kg`,
       proposed: `${suggestion.proposedWeight}kg`,
+      currentSecondary: `${suggestion.currentReps} reps`,
+      proposedSecondary: `${suggestion.proposedReps} reps`,
     };
   }
   if (suggestion.kind === "ease-off") {
     return {
-      change: `Fell short of ${suggestion.currentReps} reps for 2 sessions running at ${suggestion.currentWeight}kg.`,
+      change: `${suggestion.currentWeight}kg has been a stretch for 2 sessions running — easing back a little should help you build it up more steadily.`,
       current: `${suggestion.currentWeight}kg`,
       proposed: `${suggestion.proposedWeight}kg`,
     };
@@ -68,8 +76,8 @@ export function ProgressionSuggestionsDialog({
             : `${suggestions.length} things to consider`}
         </AlertDialogTitle>
         <AlertDialogDescription>
-          Based on your last couple of sessions. Check the ones you want to update — anything left
-          unchecked stays exactly as it is.
+          Based on your last couple of sessions, a few changes are worth considering. Check the ones
+          you want to update — anything left unchecked stays exactly as it is.
         </AlertDialogDescription>
       </AlertDialogHeader>
 
@@ -93,10 +101,18 @@ export function ProgressionSuggestionsDialog({
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="truncate text-sm font-medium">{name}</p>
-                  <p className="shrink-0 text-xs">
-                    <span className="text-muted-foreground">{copy.current} → </span>
-                    <span className="font-medium text-primary">{copy.proposed}</span>
-                  </p>
+                  <div className="shrink-0 text-right">
+                    <p className="text-xs whitespace-nowrap">
+                      <span className="text-muted-foreground">{copy.current} → </span>
+                      <span className="font-medium text-primary">{copy.proposed}</span>
+                    </p>
+                    {copy.currentSecondary && copy.proposedSecondary && (
+                      <p className="text-[11px] whitespace-nowrap">
+                        <span className="text-muted-foreground">{copy.currentSecondary} → </span>
+                        <span className="font-medium text-primary">{copy.proposedSecondary}</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">{copy.change}</p>
               </div>

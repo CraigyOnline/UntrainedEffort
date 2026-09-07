@@ -78,6 +78,21 @@ describe("evaluateExerciseProgression", () => {
     expect(result).toMatchObject({ kind: "add-weight", proposedWeight: 12.5, proposedReps: 10 });
   });
 
+  it("reports currentReps as what was actually performed, not the old target, for a ceiling suggestion", () => {
+    // Same fixture as above: cleared 20 at the same weight target reps
+    // (10) never used to be. currentReps needs to be 20, not 10, or the
+    // dialog can't show a real before/after on reps.
+    const result = evaluateExerciseProgression(
+      "db-row",
+      10,
+      undefined,
+      { weight: 10, worstReps: 22 },
+      { weight: 10, worstReps: 20 },
+      NOW,
+    );
+    expect(result).toMatchObject({ currentWeight: 10, currentReps: 20 });
+  });
+
   it("suggests easing off when both sessions fall short of target", () => {
     const result = evaluateExerciseProgression(
       "db-shoulder-press",

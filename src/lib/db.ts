@@ -1,5 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import type { IntervalConfig, SetSide } from "@/lib/exercises";
+import type { ProgressionSuggestion } from "@/lib/progressionSuggestions";
 
 /**
  * ROUTINES
@@ -29,6 +30,14 @@ export interface RoutineExercise {
     lastPromptedReps: number;
     lastPromptedAt: number;
   };
+  /** The most recent suggestion generated for this exercise that wasn't
+   *  accepted in the post-workout dialog — kept around so it can be
+   *  reviewed and actioned later from the Overview page instead of only
+   *  in the moment. Cleared once accepted or dismissed from there, and
+   *  overwritten whenever a fresher suggestion comes in. Absent whenever
+   *  there's nothing outstanding. See ProgressionSuggestion in
+   *  progressionSuggestions.ts for the shape. */
+  pendingSuggestion?: ProgressionSuggestion;
   /** Whether a unilateral exercise's two sides are forced in or out of
    *  sync on every edit — undefined preserves the original behavior
    *  (mirrors a primary-side edit onto the secondary side only while the

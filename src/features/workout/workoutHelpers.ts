@@ -4,6 +4,7 @@ import {
   type WorkoutExerciseLog,
   type LiveWorkoutSet,
   type Routine,
+  type RoutineExercise,
   type RestTimerState,
 } from "@/lib/db";
 import { DEFAULT_REST_DURATION_SEC } from "@/lib/exercises";
@@ -197,6 +198,112 @@ export function findProgressionSuggestions(
     if (suggestion) suggestions.push(suggestion);
   }
   return suggestions;
+}
+
+/** One-line summary of what a suggestion proposes, for anywhere it needs
+ *  to be named outside its own dialog — the cross-routine update picker
+ *  and the Overview page's Recommendations section. */
+export function describeProposedValue(suggestion: ProgressionSuggestion): string {
+  if (suggestion.kind === "add-reps") return `${suggestion.proposedReps} reps`;
+  if (suggestion.kind === "ease-off") return `${suggestion.proposedWeight}kg`;
+  return `${suggestion.proposedWeight}kg × ${suggestion.proposedReps} reps`;
+}
+
+/** Returns `exercises` with one entry updated to accept `suggestion`:
+ *  target weight/reps move to the proposed values, progressionState
+ *  advances, and any pendingSuggestion sitting there is cleared. Pure —
+ *  callers persist the result themselves (routines.update), so several
+ *  suggestions for the same routine can be folded into one write instead
+ *  of one write per suggestion. The single place every acceptance path
+ *  (the post-workout dialog, its cross-routine follow-up, and the
+ *  Overview page) goes through, so they can't drift out of sync. */
+export function withProgressionSuggestionApplied(
+  exercises: RoutineExercise[],
+  suggestion: ProgressionSuggestion,
+): RoutineExercise[] {
+  return exercises.map((e) =>
+    e.exerciseId === suggestion.exerciseId
+      ? {
+          ...e,
+          sets: e.sets.map((s) => ({
+            ...s,
+            targetWeight: suggestion.proposedWeight,
+            targetReps: suggestion.proposedReps,
+          })),
+          progressionState: suggestion.nextState,
+          pendingSuggestion: undefined,
+        }
+      : e,
+  );
+}
+
+/** Returns `exercises` with one entry updated for a decision NOT to
+ *  apply `suggestion`: progressionState still advances (so
+ *  evaluateExerciseProgression's anti-repeat check works next time) but
+ *  the actual target is untouched. `keepAsPending` stashes the
+ *  suggestion as pendingSuggestion so the Overview page can offer it
+ *  again later — true when snoozing from the post-workout dialog, false
+ *  when explicitly dismissed from Overview, since it's already been
+ *  seen and declined there. */
+export function withProgressionSuggestionSnoozed(
+  exercises: RoutineExercise[],
+  suggestion: ProgressionSuggestion,
+  keepAsPending: boolean,
+): RoutineExercise[] {
+  return exercises.map((e) =>
+    e.exerciseId === suggestion.exerciseId
+      ? {
+          ...e,
+          progressionState: suggestion.nextState,
+          pendingSuggestion: keepAsPending ? suggestion : undefined,
+        }
+      : e,
+  );
+}
+
+/** How long a routine can go unused and still be offered in the
+ *  cross-routine update picker without being tucked behind "show excluded
+ *  routines" — see UpdateOtherRoutinesDialog. A plain, easily-tuned
+ *  constant rather than anything derived from a routine's own cadence. */
+export const RECENT_ROUTINE_WINDOW_DAYS = 60;
+
+export interface OtherRoutineOption {
+  routine: Routine;
+  currentWeight: number;
+  currentReps: number;
+  /** Days since this routine was last used, or null if it never has been. */
+  daysSinceLastUsed: number | null;
+}
+
+/** Every other routine (besides `sourceRoutineId`) with a weighted,
+ *  non-circuit entry for `exerciseId`, each annotated with its current
+ *  target and how long it's been since it was last used. `lastUsedByRoutine`
+ *  is the same routineId → most-recent-startedAt map _app.workout.tsx
+ *  already builds from allWorkouts. Circuit routines fall out naturally —
+ *  their `exercises` list is always empty. */
+export function findOtherRoutinesForExercise(
+  exerciseId: string,
+  sourceRoutineId: number,
+  allRoutines: Routine[],
+  lastUsedByRoutine: Map<number, number>,
+): OtherRoutineOption[] {
+  const now = Date.now();
+  const options: OtherRoutineOption[] = [];
+  for (const routine of allRoutines) {
+    if (routine.id == null || routine.id === sourceRoutineId) continue;
+    const exercise = routine.exercises.find((e) => e.exerciseId === exerciseId);
+    const target = exercise?.sets[0];
+    if (!target?.targetWeight || !target?.targetReps) continue;
+
+    const lastUsed = lastUsedByRoutine.get(routine.id);
+    options.push({
+      routine,
+      currentWeight: target.targetWeight,
+      currentReps: target.targetReps,
+      daysSinceLastUsed: lastUsed == null ? null : Math.floor((now - lastUsed) / 86_400_000),
+    });
+  }
+  return options;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
