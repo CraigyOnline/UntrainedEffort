@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pause, Play, Timer } from "lucide-react";
 import { formatTime } from "@/lib/format";
+import { getElapsedSec } from "@/lib/workoutStats";
 
 /**
  * Fixed h-8 w-8 footprint regardless of running state — the previous
@@ -17,11 +18,22 @@ import { formatTime } from "@/lib/format";
  * screens, so an invisible hit-area extension gets the touch-target win
  * without the overflow risk a visually larger button would carry.
  */
-export function TimerToggleButton({ running, onClick }: { running: boolean; onClick: () => void }) {
+export function TimerToggleButton({
+  running,
+  onClick,
+  labels = { pause: "Pause timer", start: "Start timer" },
+}: {
+  running: boolean;
+  onClick: () => void;
+  /** Overrides the default per-set-timer aria-labels — e.g. WorkoutHUD's
+   *  workout-level pause button says "Pause workout"/"Resume workout"
+   *  instead, while every other (per-set) call site keeps the default. */
+  labels?: { pause: string; start: string };
+}) {
   return (
     <button
       onClick={onClick}
-      aria-label={running ? "Pause timer" : "Start timer"}
+      aria-label={running ? labels.pause : labels.start}
       className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground after:absolute after:-inset-2 after:content-['']"
     >
       {running ? (
@@ -35,20 +47,24 @@ export function TimerToggleButton({ running, onClick }: { running: boolean; onCl
 
 export interface WorkoutTimerProps {
   startedAt: number;
+  /** See ActiveWorkoutDraft.pausedAt in db.ts. Freezes the displayed time
+   *  and stops ticking while set. */
+  pausedAt?: number | null;
+  /** See ActiveWorkoutDraft.totalPausedMs in db.ts. */
+  totalPausedMs?: number;
 }
 
-export function WorkoutTimer({ startedAt }: WorkoutTimerProps) {
-  const [elapsed, setElapsed] = useState(() =>
-    Math.max(0, Math.round((Date.now() - startedAt) / 1000)),
-  );
+export function WorkoutTimer({ startedAt, pausedAt, totalPausedMs }: WorkoutTimerProps) {
+  const [elapsed, setElapsed] = useState(() => getElapsedSec(startedAt, pausedAt, totalPausedMs));
 
   useEffect(() => {
-    setElapsed(Math.max(0, Math.round((Date.now() - startedAt) / 1000)));
+    setElapsed(getElapsedSec(startedAt, pausedAt, totalPausedMs));
+    if (pausedAt != null) return; // frozen — nothing to tick
     const t = setInterval(() => {
-      setElapsed(Math.max(0, Math.round((Date.now() - startedAt) / 1000)));
+      setElapsed(getElapsedSec(startedAt, pausedAt, totalPausedMs));
     }, 250);
     return () => clearInterval(t);
-  }, [startedAt]);
+  }, [startedAt, pausedAt, totalPausedMs]);
 
   return (
     <div className="ml-2 flex items-center gap-1 text-sm text-muted-foreground">

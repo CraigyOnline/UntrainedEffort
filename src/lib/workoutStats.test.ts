@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Workout, WorkoutSet } from "@/lib/db";
 import { formatPace } from "@/lib/exercises";
 import {
@@ -11,6 +11,7 @@ import {
   formatCardioActivity,
   getCurrentExerciseId,
   getCurrentExerciseName,
+  getElapsedSec,
   resolveCardioPattern,
 } from "@/lib/workoutStats";
 
@@ -486,5 +487,48 @@ describe("computeVolumeByPeriod", () => {
     ];
     const periods = computeVolumeByPeriod(workouts, "week", 2, now); // only covers last 2 weeks
     expect(periods.every((p) => p.volume === 0)).toBe(true);
+  });
+});
+
+describe("getElapsedSec", () => {
+  const NOW = Date.parse("2026-09-10T12:00:00.000Z");
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("is just now minus startedAt when never paused", () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    expect(getElapsedSec(NOW - 90_000)).toBe(90);
+  });
+
+  it("excludes total time from earlier, already-finished pauses", () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    // Started 5 minutes ago, 1 of which was spent paused (and already resumed).
+    expect(getElapsedSec(NOW - 5 * 60_000, null, 60_000)).toBe(4 * 60);
+  });
+
+  it("freezes at the moment pausedAt was set, ignoring the current time", () => {
+    // Paused 2 minutes into a workout that started 10 minutes ago — the
+    // 8 minutes since the pause began must not count, however long ago
+    // NOW actually is.
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const startedAt = NOW - 10 * 60_000;
+    const pausedAt = NOW - 8 * 60_000;
+    expect(getElapsedSec(startedAt, pausedAt)).toBe(2 * 60);
+  });
+
+  it("combines a prior finished pause with a currently-in-progress one", () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const startedAt = NOW - 20 * 60_000;
+    const pausedAt = NOW - 5 * 60_000; // paused for the last 5 minutes
+    const totalPausedMs = 3 * 60_000; // plus 3 minutes paused earlier
+    // 20 total - 5 (mid-pause, excluded) - 3 (earlier pause) = 12 active.
+    expect(getElapsedSec(startedAt, pausedAt, totalPausedMs)).toBe(12 * 60);
+  });
+
+  it("never goes negative", () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    expect(getElapsedSec(NOW, null, 10_000)).toBe(0);
   });
 });

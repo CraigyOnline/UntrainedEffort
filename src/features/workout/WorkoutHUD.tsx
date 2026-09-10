@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, MoreVertical } from "lucide-react";
+import { Check, MoreVertical, Pause } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,8 +18,14 @@ import { computeWorkoutStats } from "@/lib/workoutStats";
 import { computeIntensity } from "@/lib/muscles";
 import { getKeepAwakeDefault, enableKeepAwake, disableKeepAwake } from "@/lib/keepAwake";
 import { useDismissOnBack } from "@/lib/backHandler";
-import { WorkoutTimer } from "./WorkoutTimer";
-import { PR_CELEBRATION_VISIBLE_MS, sessionHasData, type ActiveSession } from "./workoutHelpers";
+import { TimerToggleButton, WorkoutTimer } from "./WorkoutTimer";
+import {
+  PR_CELEBRATION_VISIBLE_MS,
+  pauseSession,
+  resumeSession,
+  sessionHasData,
+  type ActiveSession,
+} from "./workoutHelpers";
 
 /**
  * Initial/fallback content height of the HUD below the safe-area inset —
@@ -122,6 +128,19 @@ export function WorkoutHUD({
   const [keepAwake, setKeepAwake] = useState(() => getKeepAwakeDefault());
   const [optionsOpen, setOptionsOpen] = useState(false);
   useDismissOnBack(optionsOpen, () => setOptionsOpen(false));
+
+  // ── Pause / resume ────────────────────────────────────────────────────
+  // Pausing freezes the clock and locks the rest of the screen behind the
+  // overlay below until resumed — see pauseSession/resumeSession in
+  // workoutHelpers.ts for what that actually does to the session. Back
+  // press while paused resumes rather than leaving the workout screen,
+  // the same "closest open overlay claims the back button" convention
+  // optionsOpen follows above.
+  const paused = session.pausedAt != null;
+  function handlePauseToggle() {
+    setSession((s) => (s ? (s.pausedAt == null ? pauseSession(s) : resumeSession(s)) : s));
+  }
+  useDismissOnBack(paused, handlePauseToggle);
 
   // ── Finish button anticipation ──────────────────────────────────────────
   // The actual anticipation floor (FINISH_ANTICIPATION_MS) is enforced in
@@ -248,7 +267,14 @@ export function WorkoutHUD({
 
   return (
     <>
-      <div className="fixed inset-x-0 top-0 z-30 flex justify-center bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      {/* z-30 normally; bumped to z-[46] while paused so the HUD's own
+         controls (including this same pause toggle) stay reachable on top
+         of the lock overlay below (z-[45]) instead of getting covered by
+         it — see that overlay's comment for the rest of the z-index
+         reasoning. */}
+      <div
+        className={`fixed inset-x-0 top-0 flex justify-center bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur supports-[backdrop-filter]:bg-background/80 ${paused ? "z-[46]" : "z-30"}`}
+      >
         <div
           ref={contentRef}
           className={`relative flex w-full max-w-md min-w-0 flex-col gap-2 border-b border-border px-4 pt-3 pb-2 transition-transform ease-out ${
@@ -267,7 +293,16 @@ export function WorkoutHUD({
               onChange={(e) => setSession((s) => (s ? { ...s, name: e.target.value } : s))}
               className="min-w-0 flex-1 border-b border-border/30 bg-transparent text-lg font-bold outline-none transition-colors focus:border-border"
             />
-            <WorkoutTimer startedAt={session.startedAt} />
+            <WorkoutTimer
+              startedAt={session.startedAt}
+              pausedAt={session.pausedAt}
+              totalPausedMs={session.totalPausedMs}
+            />
+            <TimerToggleButton
+              running={!paused}
+              onClick={handlePauseToggle}
+              labels={{ pause: "Pause workout", start: "Resume workout" }}
+            />
 
             <div className="relative">
               <button
@@ -331,6 +366,35 @@ export function WorkoutHUD({
           )}
         </div>
       </div>
+
+      {/* z-[45]: above RestTimer's floating bar (z-40, so pausing visibly
+         covers it too — otherwise it'd keep showing behind this overlay,
+         since only resuming corrects its endsAt), below the HUD's own
+         paused-state z-[46] above and below dialog/sheet-tier z-50 (an
+         AlertDialog can only be open here via Finish, which isn't blocked
+         by this overlay — see its own comment). Positioned below the HUD
+         (WORKOUT_HUD_HEIGHT + the safe-area inset already folded into it)
+         rather than truly full-screen, so it never has to fight the HUD
+         for the same space. */}
+      {paused && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-[45] flex items-center justify-center bg-background/80 px-4 backdrop-blur-sm"
+          style={{ top: `calc(${WORKOUT_HUD_HEIGHT}px + env(safe-area-inset-top))` }}
+        >
+          <div className="flex w-full max-w-xs flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-xl">
+            <Pause className="h-8 w-8 text-muted-foreground" />
+            <div>
+              <p className="text-lg font-semibold">Workout paused</p>
+              <p className="text-sm text-muted-foreground">
+                Your timers are on hold — resume when you're ready.
+              </p>
+            </div>
+            <Button onClick={handlePauseToggle} className="w-full">
+              Resume workout
+            </Button>
+          </div>
+        </div>
+      )}
 
       <AlertDialog open={finishConfirmOpen} onOpenChange={setFinishConfirmOpen}>
         <AlertDialogContent>

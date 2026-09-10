@@ -12,6 +12,29 @@ import {
 import { formatDuration } from "@/lib/format";
 import { compareTrend, type Trend, type TrendConfidence } from "@/lib/exerciseProgress";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// getElapsedSec
+//
+// The one place "how much active time has this live workout actually
+// racked up right now" gets computed — shared by WorkoutTimer (the HUD's
+// display, and ActiveWorkoutCard's copy of it) and workoutNotification.ts
+// (the backgrounded reminder), so pause-awareness only has to be gotten
+// right once. See ActiveWorkoutDraft.pausedAt/totalPausedMs in db.ts for
+// what these mean; pauseSession/resumeSession in workoutHelpers.ts are the
+// only things that update them.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function getElapsedSec(
+  startedAt: number,
+  pausedAt?: number | null,
+  totalPausedMs?: number,
+): number {
+  return Math.max(
+    0,
+    Math.round(((pausedAt ?? Date.now()) - startedAt - (totalPausedMs ?? 0)) / 1000),
+  );
+}
+
 export interface WorkoutStats {
   totalSets: number;
   totalVolume: number;

@@ -101,7 +101,11 @@ export function ActiveWorkoutCard() {
               <span className="min-w-0 flex-1 truncate font-semibold">
                 {renderedDraft.name || "Workout in progress"}
               </span>
-              <WorkoutTimer startedAt={renderedDraft.startedAt} />
+              <WorkoutTimer
+                startedAt={renderedDraft.startedAt}
+                pausedAt={renderedDraft.pausedAt}
+                totalPausedMs={renderedDraft.totalPausedMs}
+              />
             </div>
 
             <SetProgressBar value={progress} className="mt-2" />

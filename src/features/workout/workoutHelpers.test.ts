@@ -1,12 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   findOtherRoutinesForExercise,
   findProgressionSuggestions,
+  pauseSession,
+  resumeSession,
+  totalPausedMsAsOf,
   withProgressionSuggestionApplied,
   withProgressionSuggestionSnoozed,
+  type ActiveSession,
 } from "@/features/workout/workoutHelpers";
 import type { ProgressionSuggestion } from "@/lib/progressionSuggestions";
-import type { Routine, Workout } from "@/lib/db";
+import type { LiveWorkoutSet, Routine, Workout } from "@/lib/db";
 
 function routineWith(exercises: { exerciseId: string; weight: number; reps: number }[]): Routine {
   return {
@@ -39,6 +43,22 @@ function workoutAt(
       exerciseId: l.exerciseId,
       sets: l.reps.map((reps) => ({ weight: l.weight, reps, completed: true })),
     })),
+  };
+}
+
+function baseSession(overrides: Partial<ActiveSession> = {}): ActiveSession {
+  return { routine: null, name: "Test Workout", startedAt: 0, exercises: [], ...overrides };
+}
+
+function liveSet(overrides: Partial<LiveWorkoutSet> = {}): LiveWorkoutSet {
+  return {
+    id: "s1",
+    weight: 0,
+    reps: 0,
+    duration: 0,
+    completed: false,
+    timerStart: null,
+    ...overrides,
   };
 }
 
@@ -223,5 +243,196 @@ describe("withProgressionSuggestionSnoozed", () => {
     const result = withProgressionSuggestionSnoozed(routine.exercises, suggestion(), false);
 
     expect(result[0].pendingSuggestion).toBeUndefined();
+  });
+});
+
+describe("pauseSession", () => {
+  const NOW = Date.parse("2026-09-10T12:00:00.000Z");
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("records pausedAt as now", () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const result = pauseSession(baseSession());
+    expect(result.pausedAt).toBe(NOW);
+  });
+
+  it("stops a running per-set timer, folding elapsed time into duration", () => {
+    const startedTimerAt = NOW - 12_000; // running for 12s
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const session = baseSession({
+      exercises: [
+        { exerciseId: "side-plank", sets: [liveSet({ duration: 5, timerStart: startedTimerAt })] },
+      ],
+    });
+
+    const result = pauseSession(session);
+
+    expect(result.exercises[0].sets[0]).toMatchObject({ timerStart: null, duration: 17 });
+  });
+
+  it("leaves a set with no running timer untouched", () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const session = baseSession({
+      exercises: [{ exerciseId: "bench-press", sets: [liveSet({ weight: 20, reps: 8 })] }],
+    });
+
+    const result = pauseSession(session);
+
+    expect(result.exercises[0].sets[0]).toMatchObject({ weight: 20, reps: 8, timerStart: null });
+  });
+
+  it("stops a running secondary (unilateral) timer too", () => {
+    const startedTimerAt = NOW - 8_000;
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const session = baseSession({
+      exercises: [
+        {
+          exerciseId: "side-plank",
+          sets: [
+            liveSet({
+              duration: 20,
+              timerStart: null, // primary side already stopped
+              additionalPerformances: [
+                { weight: 0, reps: 0, duration: 3, timerStart: startedTimerAt },
+              ],
+            }),
+          ],
+        },
+      ],
+    });
+
+    const result = pauseSession(session);
+
+    expect(result.exercises[0].sets[0].additionalPerformances?.[0]).toMatchObject({
+      timerStart: null,
+      duration: 11,
+    });
+  });
+
+  it("does not touch restTimer or intervalState", () => {
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const session = baseSession({
+      restTimer: { endsAt: NOW + 30_000, durationSec: 90 },
+      exercises: [
+        {
+          exerciseId: "circuit-work",
+          sets: [],
+          intervalState: {
+            round: 1,
+            phase: "work",
+            status: { kind: "running", endsAt: NOW + 5_000 },
+          },
+        },
+      ],
+    });
+
+    const result = pauseSession(session);
+
+    expect(result.restTimer).toEqual(session.restTimer);
+    expect(result.exercises[0].intervalState).toEqual(session.exercises[0].intervalState);
+  });
+});
+
+describe("resumeSession", () => {
+  const NOW = Date.parse("2026-09-10T12:10:00.000Z");
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("is a no-op when not currently paused", () => {
+    const session = baseSession({ totalPausedMs: 5_000 });
+    expect(resumeSession(session)).toBe(session);
+  });
+
+  it("clears pausedAt and accumulates totalPausedMs", () => {
+    const pausedAt = NOW - 90_000; // paused 90s ago
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const result = resumeSession(baseSession({ pausedAt, totalPausedMs: 10_000 }));
+
+    expect(result.pausedAt).toBeNull();
+    expect(result.totalPausedMs).toBe(100_000);
+  });
+
+  it("shifts a running rest timer's endsAt forward by the pause duration, preserving the rest", () => {
+    const pausedAt = NOW - 20_000; // paused for 20s
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const session = baseSession({
+      pausedAt,
+      restTimer: { endsAt: NOW - 15_000, durationSec: 90, exerciseId: "db-row" },
+    });
+
+    const result = resumeSession(session);
+
+    expect(result.restTimer).toEqual({
+      endsAt: NOW + 5_000,
+      durationSec: 90,
+      exerciseId: "db-row",
+    });
+  });
+
+  it("shifts a running interval timer's endsAt forward", () => {
+    const pausedAt = NOW - 20_000;
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const session = baseSession({
+      pausedAt,
+      exercises: [
+        {
+          exerciseId: "mountain-climbers",
+          sets: [],
+          intervalState: {
+            round: 2,
+            phase: "work",
+            status: { kind: "running", endsAt: NOW - 10_000 },
+          },
+        },
+      ],
+    });
+
+    const result = resumeSession(session);
+
+    expect(result.exercises[0].intervalState).toEqual({
+      round: 2,
+      phase: "work",
+      status: { kind: "running", endsAt: NOW + 10_000 },
+    });
+  });
+
+  it("leaves an already-paused interval timer untouched, rather than resuming it too", () => {
+    const pausedAt = NOW - 20_000;
+    vi.spyOn(Date, "now").mockReturnValue(NOW);
+    const alreadyPaused = {
+      round: 2,
+      phase: "work" as const,
+      status: { kind: "paused" as const, remaining: 12 },
+    };
+    const session = baseSession({
+      pausedAt,
+      exercises: [{ exerciseId: "mountain-climbers", sets: [], intervalState: alreadyPaused }],
+    });
+
+    const result = resumeSession(session);
+
+    expect(result.exercises[0].intervalState).toEqual(alreadyPaused);
+  });
+});
+
+describe("totalPausedMsAsOf", () => {
+  it("is 0 when the session has never been paused", () => {
+    expect(totalPausedMsAsOf(baseSession(), Date.now())).toBe(0);
+  });
+
+  it("is just totalPausedMs when not currently paused", () => {
+    expect(totalPausedMsAsOf(baseSession({ totalPausedMs: 7_000 }), Date.now())).toBe(7_000);
+  });
+
+  it("adds the in-progress pause span up to asOf", () => {
+    const asOf = 100_000;
+    const session = baseSession({ pausedAt: 60_000, totalPausedMs: 7_000 });
+    // 7s from earlier pauses, plus 40s (100_000 - 60_000) still in progress.
+    expect(totalPausedMsAsOf(session, asOf)).toBe(47_000);
   });
 });

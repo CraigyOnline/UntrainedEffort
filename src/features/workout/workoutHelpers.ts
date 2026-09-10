@@ -79,6 +79,100 @@ export function startRestTimer(durationSec: number = DEFAULT_REST_DURATION_SEC):
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Pause / resume
+//
+// pauseSession freezes the workout-wide clock (see ActiveWorkoutDraft.
+// pausedAt in db.ts) and stops any actively-running per-set timer exactly
+// as if its own toggle had been tapped — folding the elapsed time into
+// `duration`, same as toggleTimerValue in LiveSession.tsx — so a held
+// Side-Plank-style set doesn't silently keep accumulating time while the
+// workout is paused and the screen is locked.
+//
+// It deliberately does NOT touch restTimer or any exercise's
+// intervalState — those are left exactly as they were, and resumeSession
+// below nudges their endsAt forward by however long the pause lasted
+// instead. That's simpler than converting them through their own separate
+// `{kind: "paused", remaining}` representation (which both already have,
+// for a user's own independent per-exercise pause — see IntervalTimer.tsx/
+// CircuitTimer.tsx), and it correctly leaves alone a timer someone had
+// deliberately paused themselves before pausing the whole workout —
+// resuming the workout should not also resume that.
+//
+// Circuit sessions never reach either of these: a circuit's `exercises` is
+// always [] (see ActiveWorkoutDraft.circuit), and CircuitHUD has no pause
+// button of its own, so `circuit.state`'s own running timer is out of
+// scope here rather than silently mishandled.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function stopRunningTimer<T extends { timerStart?: number | null; duration?: number }>(
+  current: T,
+): T {
+  if (current.timerStart == null) return current;
+  return {
+    ...current,
+    timerStart: null,
+    duration:
+      (Number(current.duration) || 0) + Math.round((Date.now() - current.timerStart) / 1000),
+  };
+}
+
+function stopRunningSetTimers(sets: LiveWorkoutSet[]): LiveWorkoutSet[] {
+  return sets.map((s) => {
+    const stopped = stopRunningTimer(s);
+    if (!s.additionalPerformances) return stopped;
+    return { ...stopped, additionalPerformances: s.additionalPerformances.map(stopRunningTimer) };
+  });
+}
+
+export function pauseSession(session: ActiveSession): ActiveSession {
+  return {
+    ...session,
+    pausedAt: Date.now(),
+    exercises: session.exercises.map((ex) => ({ ...ex, sets: stopRunningSetTimers(ex.sets) })),
+  };
+}
+
+/** How much paused time to fold into the workout's clock as of `asOf` —
+ *  everything already accumulated from earlier pauses, plus whatever
+ *  pause is still in progress if the session hasn't been resumed yet.
+ *  Used by resumeSession below (asOf = Date.now()) and by doSaveWorkout
+ *  (asOf = the moment the workout was finished), so a workout ended while
+ *  still paused doesn't count that final stretch as active time either. */
+export function totalPausedMsAsOf(
+  session: Pick<ActiveSession, "pausedAt" | "totalPausedMs">,
+  asOf: number,
+): number {
+  return (session.totalPausedMs ?? 0) + (session.pausedAt != null ? asOf - session.pausedAt : 0);
+}
+
+export function resumeSession(session: ActiveSession): ActiveSession {
+  if (session.pausedAt == null) return session;
+  const pausedForMs = Date.now() - session.pausedAt;
+  return {
+    ...session,
+    pausedAt: null,
+    totalPausedMs: (session.totalPausedMs ?? 0) + pausedForMs,
+    restTimer: session.restTimer
+      ? { ...session.restTimer, endsAt: session.restTimer.endsAt + pausedForMs }
+      : session.restTimer,
+    exercises: session.exercises.map((ex) =>
+      ex.intervalState?.status.kind === "running"
+        ? {
+            ...ex,
+            intervalState: {
+              ...ex.intervalState,
+              status: {
+                ...ex.intervalState.status,
+                endsAt: ex.intervalState.status.endsAt + pausedForMs,
+              },
+            },
+          }
+        : ex,
+    ),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // sessionHasData
 //
 // Whether a session has anything worth keeping — i.e. at least one set
@@ -343,12 +437,16 @@ export async function doSaveWorkout(
 ): Promise<void> {
   const startedSavingAt = Date.now();
   const endedAt = startedSavingAt;
+  // Finishing without resuming first (Finish is reachable from behind the
+  // paused overlay) must not count that final paused stretch as active
+  // time — totalPausedMsAsOf folds it in the same way resumeSession would.
+  const pausedMs = totalPausedMsAsOf(active, endedAt);
   const workout: Workout = {
     routineId: active.routine?.id,
     name: active.name,
     startedAt: active.startedAt,
     endedAt,
-    durationSec: Math.max(1, Math.round((endedAt - active.startedAt) / 1000)),
+    durationSec: Math.max(1, Math.round((endedAt - active.startedAt - pausedMs) / 1000)),
     exercises,
     circuit: active.circuit
       ? {

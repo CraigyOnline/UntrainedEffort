@@ -324,6 +324,23 @@ export interface ActiveWorkoutDraft {
   /** Absent until the first set of the workout is completed. See
    *  RestTimerState for lifecycle. */
   restTimer?: RestTimerState;
+  /** Epoch ms when the current pause began; absent or null means the
+   *  workout is running (the common state) — mirrors LiveWorkoutSet's
+   *  timerStart, which uses the same "null while not running" convention
+   *  for the same reason (an explicit null survives a spread/patch update
+   *  the way deleting a key doesn't). Doesn't itself track how much has
+   *  accumulated — see totalPausedMs below, updated when resuming (see
+   *  pauseSession/resumeSession in workoutHelpers.ts). WorkoutTimer and
+   *  workoutNotification.ts both freeze their displayed elapsed time off
+   *  this rather than each computing pause-awareness separately (see
+   *  getElapsedSec in workoutStats.ts). */
+  pausedAt?: number | null;
+  /** Total time (ms) already spent paused this workout, across any
+   *  earlier pauses — NOT including whatever pause is currently in
+   *  progress if pausedAt is set (that gets folded in on resume). 0/
+   *  absent until the first pause completes. Elapsed workout time is
+   *  (pausedAt ?? Date.now()) - startedAt - (totalPausedMs ?? 0). */
+  totalPausedMs?: number;
   /** Keys (see prKey() in workoutIntegrity.ts) of live PRs already
    *  celebrated during this workout session. This is what makes a live
    *  celebration fire once per workout rather than once per LiveSession

@@ -3,7 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { App as CapacitorApp } from "@capacitor/app";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { getDb, type ActiveWorkoutDraft } from "@/lib/db";
-import { computeWorkoutStats, getCurrentExerciseName } from "@/lib/workoutStats";
+import { computeWorkoutStats, getCurrentExerciseName, getElapsedSec } from "@/lib/workoutStats";
 import { formatDuration } from "@/lib/format";
 
 const CHANNEL_ID = "workout-progress";
@@ -81,19 +81,23 @@ function buildWorkoutNotificationContent(draft: ActiveWorkoutDraft): {
   body: string;
   largeBody: string;
 } {
-  const elapsedSec = Math.max(0, Math.round((Date.now() - draft.startedAt) / 1000));
+  const paused = draft.pausedAt != null;
+  const elapsedSec = getElapsedSec(draft.startedAt, draft.pausedAt, draft.totalPausedMs);
   const { totalSets, totalVolume, loggedSets } = computeWorkoutStats(draft.exercises);
   const currentExerciseName = getCurrentExerciseName(draft.exercises);
   const roundedVolume = Math.round(totalVolume);
-  const restLine = restStatusLine(draft);
+  // Suppressed while paused: restTimer.endsAt is only corrected on resume
+  // (see resumeSession in workoutHelpers.ts), so left alone here it would
+  // keep visibly ticking down for a rest that isn't really happening.
+  const restLine = paused ? undefined : restStatusLine(draft);
 
-  const title = draft.name || "Workout in progress";
+  const title = paused ? "Workout paused" : draft.name || "Workout in progress";
   const bodyBase = currentExerciseName
     ? `${currentExerciseName} · ${totalSets}/${loggedSets} sets · ${roundedVolume} kg`
     : `${totalSets}/${loggedSets} sets · ${roundedVolume} kg`;
   const body = restLine ? `${restLine} · ${bodyBase}` : bodyBase;
   const largeBody = [
-    restLine,
+    paused ? "Paused" : restLine,
     `Elapsed: ${formatDuration(elapsedSec)}`,
     currentExerciseName ? `Current exercise: ${currentExerciseName}` : undefined,
     `Sets: ${totalSets} / ${loggedSets}`,
