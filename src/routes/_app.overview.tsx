@@ -48,6 +48,12 @@ export const Route = createFileRoute("/_app/overview")({
 /** §5's "returning after a gap" modifier trigger. */
 const GAP_THRESHOLD_DAYS = 7;
 
+/** Recommendations shown before the list collapses behind a "+N more"
+ *  toggle. Exercises shared across routines can each independently hit
+ *  their progression ceiling, so this list can grow past a couple of
+ *  cards without anything having gone wrong. */
+const DEFAULT_VISIBLE_SUGGESTIONS = 2;
+
 /** Muscle Activity's own eligibility floor — at least this many workouts
  *  within MUSCLE_ACTIVITY_WINDOW_DAYS, not "N workouts ever, whenever
  *  they happened." Replaces the old blanket workouts.length>=4 check,
@@ -127,6 +133,8 @@ function OverviewPage() {
     suggestion: ProgressionSuggestion;
     sourceRoutineId: number;
   } | null>(null);
+
+  const [suggestionsExpanded, setSuggestionsExpanded] = useState(false);
 
   async function handleAcceptSuggestion(routine: Routine, suggestion: ProgressionSuggestion) {
     if (routine.id == null) return;
@@ -239,6 +247,11 @@ function OverviewPage() {
 
   const hasWorkouts = !!workouts?.length;
 
+  const visibleSuggestions = suggestionsExpanded
+    ? pendingSuggestions
+    : pendingSuggestions.slice(0, DEFAULT_VISIBLE_SUGGESTIONS);
+  const hiddenSuggestionsCount = pendingSuggestions.length - DEFAULT_VISIBLE_SUGGESTIONS;
+
   return (
     <div className="flex flex-col gap-6 px-4 pt-6 pb-8">
       <PageHeader eyebrow="Overview">
@@ -269,7 +282,7 @@ function OverviewPage() {
             Recommendations
           </p>
           <div className="flex flex-col gap-2">
-            {pendingSuggestions.map(({ routine, exerciseId, exerciseName, suggestion }) => (
+            {visibleSuggestions.map(({ routine, exerciseId, exerciseName, suggestion }) => (
               <div key={`${routine.id}-${exerciseId}`} className="rounded-2xl bg-card p-3">
                 <div className="flex items-baseline justify-between gap-2">
                   <div className="min-w-0">
@@ -300,6 +313,14 @@ function OverviewPage() {
               </div>
             ))}
           </div>
+          {hiddenSuggestionsCount > 0 && (
+            <button
+              onClick={() => setSuggestionsExpanded((expanded) => !expanded)}
+              className="mt-2 text-xs font-medium text-primary active:opacity-70"
+            >
+              {suggestionsExpanded ? "Show less" : `+${hiddenSuggestionsCount} more`}
+            </button>
+          )}
         </section>
       )}
 
