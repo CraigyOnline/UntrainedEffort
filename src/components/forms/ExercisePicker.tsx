@@ -125,9 +125,16 @@ export function ExercisePicker({
     }
   }
 
+  // z-50, matching every other full-screen overlay (RoutineEditor,
+  // CircuitRoutineEditor, QuickCircuitSetup) rather than the z-[60] this
+  // used to carry: z-[60] outranked the app's dialog/sheet tier (z-50 —
+  // see WorkoutHUD's z-index comments), so ExerciseFormViewer's "view
+  // form" dialog was opening behind this overlay's own background instead
+  // of over it. Being a later sibling already puts this on top of the
+  // screen it's opened from without needing to also outrank that tier.
   return (
     <div
-      className="fixed inset-x-0 top-0 z-[60] flex justify-center bg-background pt-[env(safe-area-inset-top)]"
+      className="fixed inset-x-0 top-0 z-50 flex justify-center bg-background pt-[env(safe-area-inset-top)]"
       style={{ bottom: `${BOTTOM_NAV_HEIGHT}px` }}
     >
       <div className="flex w-full max-w-md flex-col h-full">
