@@ -72,6 +72,48 @@ export function getPrimaryMetric(kind: MetricKind, sets: WorkoutSet[]): number |
   return getPrimaryMetricBySide(kind, sets)[0] ?? null;
 }
 
+/**
+ * Estimated one-rep max for a session's sets, using the Epley formula
+ * (see estimateOneRepMax) — chosen over Brzycki for having no
+ * discontinuity at high rep counts. Mirrors getPrimaryMetricBySide's
+ * shape (best value per side, first side is the primary) but computes
+ * each set's implied max rather than reading weight directly, so a
+ * session with lower weight but more reps than another can correctly
+ * show as an improvement instead of a decline.
+ */
+export function getEstimated1RMBySide(sets: WorkoutSet[]): Array<number | null> {
+  const sideCount = sets.reduce((max, s) => Math.max(max, setPerformances(s).length), 1);
+
+  const bestPerSide: Array<number | null> = [];
+  for (let i = 0; i < sideCount; i++) {
+    const nums = sets
+      .map((s) => setPerformances(s)[i])
+      .filter((perf): perf is SetSide => perf != null)
+      .filter((perf) => perf.weight > 0 && perf.reps > 0)
+      .map((perf) => estimateOneRepMax(perf.weight, perf.reps));
+    bestPerSide.push(nums.length > 0 ? Math.max(...nums) : null);
+  }
+  return bestPerSide;
+}
+
+/** The first (or only) side's estimated 1RM for a session — see
+ *  getEstimated1RMBySide. A thin wrapper for the same reason
+ *  getPrimaryMetric wraps getPrimaryMetricBySide. */
+export function getEstimated1RM(sets: WorkoutSet[]): number | null {
+  return getEstimated1RMBySide(sets)[0] ?? null;
+}
+
+/**
+ * Epley estimated one-rep max: weight × (1 + reps/30). Picked over
+ * Brzycki (weight × 36/(37-reps)) for having no discontinuity — Brzycki
+ * is undefined at 37 reps and goes negative beyond it, which Epley never
+ * does at any rep count. Rounded to one decimal; formatMetricValue's
+ * "weight" branch appends "kg" on top of this, same as a logged weight.
+ */
+export function estimateOneRepMax(weight: number, reps: number): number {
+  return Math.round(weight * (1 + reps / 30) * 10) / 10;
+}
+
 export function metricLabel(kind: MetricKind): string {
   if (kind === "distance") return "Distance";
   if (kind === "duration") return "Duration";

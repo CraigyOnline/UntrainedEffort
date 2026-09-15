@@ -4,7 +4,9 @@ import {
   computeExerciseStatus,
   computeExerciseStatusFromValues,
   computeExpectedRepRange,
+  estimateOneRepMax,
   formatStatusConfidence,
+  getEstimated1RM,
   getTrendConfidence,
   trendConfidenceLabel,
 } from "@/lib/exerciseProgress";
@@ -210,5 +212,41 @@ describe("computeExpectedRepRange", () => {
   it("treats near-identical weights as a match (float rounding), not different weights", () => {
     const sessions = [[at(10.0000001, 10)], [at(9.9999999, 8)]];
     expect(computeExpectedRepRange(sessions, 0, 10)).toEqual({ min: 8, max: 10 });
+  });
+});
+
+describe("estimateOneRepMax", () => {
+  it("computes the Epley formula", () => {
+    expect(estimateOneRepMax(100, 1)).toBe(103.3);
+    expect(estimateOneRepMax(100, 10)).toBe(133.3);
+  });
+
+  it("rounds to one decimal place", () => {
+    expect(estimateOneRepMax(83, 7)).toBe(102.4); // 83 * 37/30 = 102.3666...
+  });
+});
+
+describe("getEstimated1RM", () => {
+  const set = (weight: number, reps: number): WorkoutSet => ({ weight, reps, completed: true });
+
+  it("returns null with no completed sets", () => {
+    expect(getEstimated1RM([])).toBeNull();
+  });
+
+  it("takes the best implied 1RM across a session's sets", () => {
+    expect(getEstimated1RM([set(100, 1), set(80, 8)])).toBe(estimateOneRepMax(100, 1));
+  });
+
+  it("can favor a lighter, higher-rep set over the session's heaviest weight", () => {
+    // The old "max weight" metric would read 100kg here; effective
+    // strength is actually higher on the 90kg x8 set. That gap is the
+    // whole point of charting e1RM instead of raw weight.
+    const result = getEstimated1RM([set(100, 1), set(90, 8)]);
+    expect(result).toBe(estimateOneRepMax(90, 8));
+    expect(result).toBeGreaterThan(100);
+  });
+
+  it("ignores sets with no weight or no reps logged", () => {
+    expect(getEstimated1RM([set(0, 10), set(100, 0)])).toBeNull();
   });
 });

@@ -48,11 +48,12 @@ Built with an emphasis on speed, ownership of your data, and a polished workout 
 - Workout history
 - Search & filtering
 - Personal records (PRs), including a dedicated volume PR alongside best-ever weight
-- Exercise progress charts
+- Exercise progress charts, with an estimated 1RM view alongside weight for barbell/dumbbell-style exercises
 - Exercise detail pages
 - Browse & search the full exercise library
 - Overview dashboard — at-a-glance totals, last workout, a notable-only training signal, and teasers into your muscle activity and recent progress
 - History, split into a chronological Timeline and an Insights view (Training/Strength/Cardio/Milestones)
+- Average pace/speed per activity in the Cardio insights view, alongside lifetime sessions/time/distance
 - Muscle activity maps, with date-range filtering (7/30/90 days or all-time)
 - Muscle recovery indicators — a recovered/recent/overdue status per muscle, based on days since it was last trained
 - Muscle activity trends — a per-muscle weekly or monthly training-activity chart, from the muscle map drilldown
@@ -73,11 +74,6 @@ Built with an emphasis on speed, ownership of your data, and a polished workout 
 ---
 
 ## Roadmap
-
-### Analytics
-
-- Richer exercise statistics
-- Cardio pace & speed metrics
 
 ### Insights
 

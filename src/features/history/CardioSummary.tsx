@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Activity, Clock3, MapPin } from "lucide-react";
 import type { Workout } from "@/lib/db";
+import { getExercise, getExerciseLoggingSchema, formatPace } from "@/lib/exercises";
 import {
   computeWorkoutDisplayStats,
   formatCardioActivity,
@@ -162,5 +163,31 @@ function formatActivitySummary(activity: ActivitySummary): string {
     parts.push(formatCardioActivity({ ...sample, durationSec: 0 }));
   }
   parts.push(formatTimeTrained(activity.durationSec));
+
+  const avgRate = formatAverageRate(activity);
+  if (avgRate) parts.push(`avg ${avgRate}`);
+
   return parts.filter(Boolean).join(" · ");
+}
+
+/**
+ * Average pace/speed/rate across every logged session of this activity —
+ * the same formatPace() every other cardio surface (exercise detail page,
+ * live PR celebrations) already uses, just fed the lifetime-summed
+ * distance/duration this file computes above rather than one session's
+ * numbers. Returns undefined for activities with no paceConvention at all
+ * (Jump Rope, Battle Ropes, Other Cardio have no distance concept, so
+ * they never reach this point) — same gate formatActivitySummary already
+ * applies before showing distance.
+ */
+function formatAverageRate(activity: ActivitySummary): string | undefined {
+  if (activity.distance == null || !activity.distanceUnit) return undefined;
+  const schema = getExerciseLoggingSchema(getExercise(activity.exerciseId));
+  if (!schema.paceConvention) return undefined;
+  return formatPace(
+    schema.paceConvention,
+    activity.distanceUnit,
+    activity.distance,
+    activity.durationSec,
+  );
 }

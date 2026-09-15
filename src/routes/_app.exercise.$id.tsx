@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
 import { ArrowLeft } from "lucide-react";
@@ -7,6 +8,7 @@ import { getExercise, getExerciseLoggingSchema, formatCompletedSet } from "@/lib
 import {
   getPrimaryMetricKind,
   getPrimaryMetric,
+  getEstimated1RM,
   metricLabel,
   formatMetricValue,
   getCardioRate,
@@ -100,6 +102,13 @@ function ExerciseProgressPage() {
   const metricKind = getPrimaryMetricKind(schema);
   const isCardioProgress = schema.distance && !!schema.paceConvention;
 
+  // e1RM only makes sense where weight is already the primary metric
+  // (barbell/dumbbell-style lifts) — reps-primary bodyweight exercises
+  // and cardio/duration/distance exercises keep their existing chart.
+  const supportsE1RM = metricKind === "weight";
+  const [chartMetric, setChartMetric] = useState<"primary" | "e1rm">("primary");
+  const showE1RM = supportsE1RM && chartMetric === "e1rm";
+
   // Chronological (oldest first) for the chart's x-axis — recentSessions
   // itself stays most-recent-first, since that's what the list below wants.
   const chartData = (recentSessions ?? [])
@@ -107,7 +116,9 @@ function ExerciseProgressPage() {
       date: session.startedAt,
       value: isCardioProgress
         ? getCardioRate(schema, session.sets)
-        : getPrimaryMetric(metricKind, session.sets),
+        : showE1RM
+          ? getEstimated1RM(session.sets)
+          : getPrimaryMetric(metricKind, session.sets),
     }))
     .filter((p): p is { date: number; value: number } => p.value !== null)
     .reverse();
@@ -346,7 +357,7 @@ function ExerciseProgressPage() {
             <h2 className="text-sm font-semibold">
               {isCardioProgress
                 ? `${schema.paceConvention?.style === "pace" ? "Pace" : "Speed"} Over Time`
-                : `${metricLabel(metricKind)} Over Time`}
+                : `${showE1RM ? "Estimated 1RM" : metricLabel(metricKind)} Over Time`}
             </h2>
             <span className={`text-xs font-medium ${EXERCISE_STATUS_COPY[exerciseStatus].tone}`}>
               {EXERCISE_STATUS_COPY[exerciseStatus].icon}{" "}
@@ -357,6 +368,24 @@ function ExerciseProgressPage() {
             <p className="mb-3 text-right text-[11px] text-muted-foreground/70">
               {statusConfidence}
             </p>
+          )}
+          {supportsE1RM && (
+            <div className="mb-3 flex gap-2">
+              {(["primary", "e1rm"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setChartMetric(m)}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                    chartMetric === m
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground active:bg-secondary/70"
+                  }`}
+                >
+                  {m === "primary" ? "Weight" : "Est. 1RM"}
+                </button>
+              ))}
+            </div>
           )}
           <div className="h-44 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -386,7 +415,9 @@ function ExerciseProgressPage() {
                       ? schema.paceConvention?.style === "pace"
                         ? "Pace"
                         : "Speed"
-                      : metricLabel(metricKind),
+                      : showE1RM
+                        ? "Est. 1RM"
+                        : metricLabel(metricKind),
                   ]}
                   contentStyle={{
                     background: "var(--card)",
