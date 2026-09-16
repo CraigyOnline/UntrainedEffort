@@ -241,24 +241,34 @@ export function UnilateralSetInputs({
           // Explicitly pinned to column 3, spanning both row tracks from
           // row 1 — same reason as above, not relying on whatever cell
           // auto-placement would have handed it next.
-          <div className="relative col-start-3 row-start-1 row-span-2 flex items-center justify-center">
+          <div className="relative col-start-3 row-start-1 row-span-2 flex items-center">
             {/* Insets equal half of size="large"'s row height (h-9, 36px)
                 so the line's two ends land exactly at each row's own
                 center — the same point its horizontal dash sits at —
                 instead of running the full row-span-2 height and
                 overshooting past both dashes. If this component ever
                 needs to support size="compact" rows here too, this fixed
-                18px would need to change with it. */}
+                18px would need to change with it.
+                Anchored to the column's own left edge (left-0) rather
+                than centered in it (was left-1/2 -translate-x-1/2) — the
+                dash column's width only controls how far the horizontal
+                dash reaches, not where this line sits inside col-start-3,
+                so centering it left a fixed ~18px dead zone (gap-x-1's
+                4px plus half this 1.75rem column's width) between the
+                dash and the line no matter how wide col-start-2 was.
+                Flush-left closes that down to the same 4px every other
+                column boundary in this grid already has. See the
+                screenshot that flagged this. */}
             <div
               aria-hidden="true"
-              className={`absolute left-1/2 top-[18px] bottom-[18px] w-0 -translate-x-1/2 border-l-2 border-dashed border-primary transition-opacity ${
+              className={`absolute left-0 top-[18px] bottom-[18px] w-0 border-l-2 border-dashed border-primary transition-opacity ${
                 showLine ? "opacity-100" : "opacity-0"
               }`}
             />
             <button
               onClick={onToggleLinked}
               aria-label={showLine ? "Unlink left and right" : "Link left and right"}
-              className="absolute flex h-6 w-6 items-center justify-center rounded-full border border-muted-foreground/30 bg-secondary after:absolute after:-inset-2 after:content-['']"
+              className="absolute left-0 flex h-6 w-6 -translate-x-1/2 items-center justify-center rounded-full border border-muted-foreground/30 bg-secondary after:absolute after:-inset-2 after:content-['']"
             >
               {showLine ? (
                 <Link2 className="h-3 w-3 text-primary" />
