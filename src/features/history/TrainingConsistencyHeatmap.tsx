@@ -8,6 +8,7 @@ import {
   type WorkoutMode,
 } from "@/lib/workoutStats";
 import { Button } from "@/components/ui/button";
+import { formatVolume, getWeightUnit } from "@/lib/units";
 import {
   Dialog,
   DialogContent,
@@ -280,7 +281,9 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
                           : mode === "interval" && intervalSummary
                             ? intervalSummary
                             : `${w.exercises.length} ex · ${totalSets} sets${
-                                totalVolume > 0 ? ` · ${totalVolume.toLocaleString()} kg` : ""
+                                totalVolume > 0
+                                  ? ` · ${formatVolume(Math.round(totalVolume), getWeightUnit())}`
+                                  : ""
                               }`}
                     </p>
                     <Button

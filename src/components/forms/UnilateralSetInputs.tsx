@@ -4,6 +4,13 @@ import { sideLabel, type ExerciseLoggingSchema, type SetSide } from "@/lib/exerc
 import { MmSsInput } from "@/components/forms/MmSsInput";
 import { StepperInput } from "@/components/forms/NumberInput";
 import { SetTimer, TimerToggleButton } from "@/features/workout/WorkoutTimer";
+import {
+  getWeightUnit,
+  getWeightStepperConfig,
+  kgToDisplayWeight,
+  displayWeightToKg,
+  weightUnitLabel,
+} from "@/lib/units";
 
 /**
  * Which context this is rendering in, decided by the parent rather than
@@ -129,6 +136,7 @@ export function UnilateralSetInputs({
   // SetTimer already carries its own label.
   const showValueHeader = !(schema.duration && mode.kind === "live");
   const valueHeaderLabel = schema.duration ? "Sec" : null;
+  const weightUnit = getWeightUnit();
 
   // See onToggleLinked's doc comment above for why duration is excluded.
   const showConnector = !!onToggleLinked && !schema.duration;
@@ -147,7 +155,7 @@ export function UnilateralSetInputs({
             <span className="col-span-2">{valueHeaderLabel}</span>
           ) : (
             <>
-              <span>Kg</span>
+              <span>{weightUnitLabel(weightUnit)}</span>
               <span>Reps</span>
             </>
           )}
@@ -193,12 +201,20 @@ export function UnilateralSetInputs({
               ) : (
                 <>
                   <StepperInput
-                    value={row.value.weight}
+                    value={kgToDisplayWeight(row.value.weight, weightUnit)}
                     onCommit={(v) =>
-                      onChange(editSide(primary, secondary, row.key, "weight", v, linked))
+                      onChange(
+                        editSide(
+                          primary,
+                          secondary,
+                          row.key,
+                          "weight",
+                          displayWeightToKg(v, weightUnit),
+                          linked,
+                        ),
+                      )
                     }
-                    step={2.5}
-                    decimal
+                    {...getWeightStepperConfig(weightUnit)}
                     min={0}
                     size={size}
                   />

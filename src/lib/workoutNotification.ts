@@ -5,6 +5,7 @@ import { LocalNotifications } from "@capacitor/local-notifications";
 import { getDb, type ActiveWorkoutDraft } from "@/lib/db";
 import { computeWorkoutStats, getCurrentExerciseName, getElapsedSec } from "@/lib/workoutStats";
 import { formatDuration } from "@/lib/format";
+import { formatVolume, getWeightUnit } from "@/lib/units";
 
 const CHANNEL_ID = "workout-progress";
 const NOTIFICATION_ID = 918273;
@@ -85,7 +86,7 @@ function buildWorkoutNotificationContent(draft: ActiveWorkoutDraft): {
   const elapsedSec = getElapsedSec(draft.startedAt, draft.pausedAt, draft.totalPausedMs);
   const { totalSets, totalVolume, loggedSets } = computeWorkoutStats(draft.exercises);
   const currentExerciseName = getCurrentExerciseName(draft.exercises);
-  const roundedVolume = Math.round(totalVolume);
+  const roundedVolume = formatVolume(Math.round(totalVolume), getWeightUnit());
   // Suppressed while paused: restTimer.endsAt is only corrected on resume
   // (see resumeSession in workoutHelpers.ts), so left alone here it would
   // keep visibly ticking down for a rest that isn't really happening.
@@ -93,15 +94,15 @@ function buildWorkoutNotificationContent(draft: ActiveWorkoutDraft): {
 
   const title = paused ? "Workout paused" : draft.name || "Workout in progress";
   const bodyBase = currentExerciseName
-    ? `${currentExerciseName} · ${totalSets}/${loggedSets} sets · ${roundedVolume} kg`
-    : `${totalSets}/${loggedSets} sets · ${roundedVolume} kg`;
+    ? `${currentExerciseName} · ${totalSets}/${loggedSets} sets · ${roundedVolume}`
+    : `${totalSets}/${loggedSets} sets · ${roundedVolume}`;
   const body = restLine ? `${restLine} · ${bodyBase}` : bodyBase;
   const largeBody = [
     paused ? "Paused" : restLine,
     `Elapsed: ${formatDuration(elapsedSec)}`,
     currentExerciseName ? `Current exercise: ${currentExerciseName}` : undefined,
     `Sets: ${totalSets} / ${loggedSets}`,
-    `Volume: ${roundedVolume} kg`,
+    `Volume: ${roundedVolume}`,
     "Tap to resume.",
   ]
     .filter((line): line is string => Boolean(line))

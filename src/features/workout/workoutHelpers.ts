@@ -11,6 +11,7 @@ import { DEFAULT_REST_DURATION_SEC } from "@/lib/exercises";
 import { recordNewWorkoutPRs } from "@/lib/workoutIntegrity";
 import { haptics } from "@/lib/haptics";
 import { selectCompletionMessage, type CompletionMessage } from "@/lib/completionMessages";
+import { formatWeight, getWeightUnit } from "@/lib/units";
 import {
   evaluateExerciseProgression,
   type ProgressionSuggestion,
@@ -299,8 +300,9 @@ export function findProgressionSuggestions(
  *  and the Overview page's Recommendations section. */
 export function describeProposedValue(suggestion: ProgressionSuggestion): string {
   if (suggestion.kind === "add-reps") return `${suggestion.proposedReps} reps`;
-  if (suggestion.kind === "ease-off") return `${suggestion.proposedWeight}kg`;
-  return `${suggestion.proposedWeight}kg × ${suggestion.proposedReps} reps`;
+  if (suggestion.kind === "ease-off")
+    return formatWeight(suggestion.proposedWeight, getWeightUnit());
+  return `${formatWeight(suggestion.proposedWeight, getWeightUnit())} × ${suggestion.proposedReps} reps`;
 }
 
 /** Returns `exercises` with one entry updated to accept `suggestion`:

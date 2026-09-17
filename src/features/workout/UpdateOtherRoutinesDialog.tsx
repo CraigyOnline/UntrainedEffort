@@ -14,6 +14,7 @@ import {
   type OtherRoutineOption,
 } from "@/features/workout/workoutHelpers";
 import type { ProgressionSuggestion } from "@/lib/progressionSuggestions";
+import { formatWeight, getWeightUnit } from "@/lib/units";
 
 /**
  * Shown after a progression suggestion is accepted (from either the
@@ -79,7 +80,7 @@ export function UpdateOtherRoutinesDialog({
           <p className="text-sm font-medium">{option.routine.name}</p>
           <p className="text-xs text-muted-foreground">
             {isRecent
-              ? `Currently ${option.currentWeight}kg × ${option.currentReps} reps`
+              ? `Currently ${formatWeight(option.currentWeight, getWeightUnit())} × ${option.currentReps} reps`
               : option.daysSinceLastUsed == null
                 ? "Never used"
                 : `Last used ${option.daysSinceLastUsed} days ago`}

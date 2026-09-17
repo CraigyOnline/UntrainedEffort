@@ -13,6 +13,7 @@ import {
   formatMetricValue,
   getCardioRate,
   formatCardioRate,
+  convertCardioRateForDisplay,
   formatPRValue,
   formatPRDelta,
   getCardioTrend,
@@ -25,6 +26,7 @@ import {
 } from "@/lib/exerciseProgress";
 import { formatDate } from "@/lib/format";
 import { EmptyState } from "@/components/EmptyState";
+import { getWeightUnit, kgToDisplayWeight } from "@/lib/units";
 
 export const Route = createFileRoute("/_app/exercise/$id")({
   component: ExerciseProgressPage,
@@ -400,6 +402,13 @@ function ExerciseProgressPage() {
                   tickLine={false}
                 />
                 <YAxis
+                  tickFormatter={(v: number) =>
+                    isCardioProgress
+                      ? String(Math.round(convertCardioRateForDisplay(schema, v)))
+                      : metricKind === "weight"
+                        ? String(kgToDisplayWeight(v, getWeightUnit()))
+                        : String(v)
+                  }
                   tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
                   axisLine={false}
                   tickLine={false}

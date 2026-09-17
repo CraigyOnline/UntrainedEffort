@@ -18,6 +18,16 @@ import {
 } from "@/lib/exercises";
 import { useUndo } from "@/hooks/useUndo";
 import { getAllExerciseSettings } from "@/lib/exerciseSettings";
+import {
+  getWeightUnit,
+  getWeightStepperConfig,
+  kgToDisplayWeight,
+  displayWeightToKg,
+  weightUnitLabel,
+  getDistanceSystem,
+  kmToDisplayDistance,
+  displayDistanceToKm,
+} from "@/lib/units";
 import { ExerciseFormViewer } from "@/components/ExerciseFormViewer";
 import { NumberInput, StepperInput } from "@/components/forms/NumberInput";
 import { MmSsInput } from "@/components/forms/MmSsInput";
@@ -192,6 +202,8 @@ function ExerciseCard({
 }) {
   const def = getExercise(ex.exerciseId);
   const schema = getExerciseLoggingSchema(def);
+  const weightUnit = getWeightUnit();
+  const distanceSystem = getDistanceSystem();
   const defaultIntervalConfig = getIntervalConfig(def);
   const intervalConfig = ex.intervalConfig ?? defaultIntervalConfig;
   const dragControls = useDragControls();
@@ -387,7 +399,7 @@ function ExerciseCard({
                 ? distanceUnitLabel(schema.distanceUnit)
                 : schema.duration
                   ? "Sec"
-                  : "Kg"}
+                  : weightUnitLabel(weightUnit)}
             </span>
             <span>
               {schema.distance ? (
@@ -436,8 +448,17 @@ function ExerciseCard({
               {schema.distance && schema.distanceUnit ? (
                 <>
                   <StepperInput
-                    value={s.weight ?? 0}
-                    onCommit={(v) => updateSet(ei, si, { weight: v })}
+                    value={
+                      schema.distanceUnit === "km"
+                        ? kmToDisplayDistance(s.weight ?? 0, distanceSystem)
+                        : (s.weight ?? 0)
+                    }
+                    onCommit={(v) =>
+                      updateSet(ei, si, {
+                        weight:
+                          schema.distanceUnit === "km" ? displayDistanceToKm(v, distanceSystem) : v,
+                      })
+                    }
                     {...getDistanceStepperConfig(schema.distanceUnit)}
                     min={0}
                     size="normal"
@@ -464,10 +485,11 @@ function ExerciseCard({
               ) : (
                 <>
                   <StepperInput
-                    value={s.weight ?? 0}
-                    onCommit={(v) => updateSet(ei, si, { weight: v })}
-                    step={2.5}
-                    decimal
+                    value={kgToDisplayWeight(s.weight ?? 0, weightUnit)}
+                    onCommit={(v) =>
+                      updateSet(ei, si, { weight: displayWeightToKg(v, weightUnit) })
+                    }
+                    {...getWeightStepperConfig(weightUnit)}
                     min={0}
                     size="normal"
                   />

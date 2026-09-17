@@ -1,10 +1,25 @@
 import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
 import { getDb, type Routine, type RoutineSet } from "@/lib/db";
-import { getExercise, getExerciseLoggingSchema } from "@/lib/exercises";
+import {
+  getExercise,
+  getExerciseLoggingSchema,
+  distanceUnitLabel,
+  getDistanceStepperConfig,
+} from "@/lib/exercises";
 import { ExercisePicker } from "@/components/forms/ExercisePicker";
 import { MmSsInput } from "@/components/forms/MmSsInput";
 import { StepperInput } from "@/components/forms/NumberInput";
+import {
+  getWeightUnit,
+  getWeightStepperConfig,
+  kgToDisplayWeight,
+  displayWeightToKg,
+  weightUnitLabel,
+  getDistanceSystem,
+  kmToDisplayDistance,
+  displayDistanceToKm,
+} from "@/lib/units";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -29,6 +44,8 @@ export function RoutineEditor({
   const [name, setName] = useState(initial?.name ?? "");
   const [exercises, setExercises] = useState<Routine["exercises"]>(initial?.exercises ?? []);
   const [picking, setPicking] = useState(false);
+  const weightUnit = getWeightUnit();
+  const distanceSystem = getDistanceSystem();
 
   const hasChanges = useMemo(() => {
     if (!initial) return name.trim() !== "" || exercises.length > 0;
@@ -153,7 +170,11 @@ export function RoutineEditor({
                             <span>#</span>
                             {schema.distance ? (
                               <>
-                                <span>Km</span>
+                                <span>
+                                  {schema.distanceUnit
+                                    ? distanceUnitLabel(schema.distanceUnit)
+                                    : "Km"}
+                                </span>
                                 <span>Time</span>
                               </>
                             ) : schema.duration ? (
@@ -163,7 +184,7 @@ export function RoutineEditor({
                               </>
                             ) : (
                               <>
-                                <span>Kg</span>
+                                <span>{weightUnitLabel(weightUnit)}</span>
                                 <span>Reps</span>
                               </>
                             )}
@@ -182,10 +203,20 @@ export function RoutineEditor({
                               {schema.distance ? (
                                 <>
                                   <StepperInput
-                                    value={s.targetWeight ?? 0}
-                                    onCommit={(v) => updateSet(i, si, { targetWeight: v })}
-                                    step={0.1}
-                                    decimal
+                                    value={
+                                      schema.distanceUnit === "km"
+                                        ? kmToDisplayDistance(s.targetWeight ?? 0, distanceSystem)
+                                        : (s.targetWeight ?? 0)
+                                    }
+                                    onCommit={(v) =>
+                                      updateSet(i, si, {
+                                        targetWeight:
+                                          schema.distanceUnit === "km"
+                                            ? displayDistanceToKm(v, distanceSystem)
+                                            : v,
+                                      })
+                                    }
+                                    {...getDistanceStepperConfig(schema.distanceUnit ?? "km")}
                                     min={0}
                                     size="compact"
                                   />
@@ -205,10 +236,13 @@ export function RoutineEditor({
                               ) : (
                                 <>
                                   <StepperInput
-                                    value={s.targetWeight ?? 0}
-                                    onCommit={(v) => updateSet(i, si, { targetWeight: v })}
-                                    step={2.5}
-                                    decimal
+                                    value={kgToDisplayWeight(s.targetWeight ?? 0, weightUnit)}
+                                    onCommit={(v) =>
+                                      updateSet(i, si, {
+                                        targetWeight: displayWeightToKg(v, weightUnit),
+                                      })
+                                    }
+                                    {...getWeightStepperConfig(weightUnit)}
                                     min={0}
                                     size="compact"
                                   />

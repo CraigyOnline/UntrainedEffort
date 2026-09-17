@@ -39,6 +39,14 @@ import { getKeepAwakeDefault, setKeepAwakeDefault } from "@/lib/keepAwake";
 import { getHapticsEnabled, setHapticsEnabled } from "@/lib/haptics";
 import { getBodyType, setBodyType, type BodyType } from "@/lib/bodyType";
 import {
+  getWeightUnit,
+  setWeightUnit,
+  getDistanceSystem,
+  setDistanceSystem,
+  type WeightUnit,
+  type DistanceSystem,
+} from "@/lib/units";
+import {
   getRoutineUpdatePromptEnabled,
   setRoutineUpdatePromptEnabled,
 } from "@/lib/routineUpdatePrompt";
@@ -152,6 +160,30 @@ function SettingsPage() {
     const next = value as BodyType;
     setBodyTypeState(next);
     setBodyType(next);
+  }
+
+  // ── Weight unit ──────────────────────────────────────────────────────
+  const [weightUnit, setWeightUnitState] = useState<WeightUnit>("kg");
+  useEffect(() => {
+    setWeightUnitState(getWeightUnit());
+  }, []);
+
+  function handleWeightUnitChange(value: string) {
+    const next = value as WeightUnit;
+    setWeightUnitState(next);
+    setWeightUnit(next);
+  }
+
+  // ── Distance unit (cardio: running/cycling only — see units.ts) ────────
+  const [distanceSystem, setDistanceSystemState] = useState<DistanceSystem>("km");
+  useEffect(() => {
+    setDistanceSystemState(getDistanceSystem());
+  }, []);
+
+  function handleDistanceSystemChange(value: string) {
+    const next = value as DistanceSystem;
+    setDistanceSystemState(next);
+    setDistanceSystem(next);
   }
 
   // ── "Update Routine?" prompt ──────────────────────────────────────────
@@ -427,6 +459,54 @@ function SettingsPage() {
             <label className="flex items-center gap-1.5 text-sm">
               <RadioGroupItem value="female" />
               Female
+            </label>
+          </RadioGroup>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-border/50 pt-4">
+          <div className="min-w-0">
+            <p className="text-sm">Weight unit</p>
+            <p className="text-xs text-muted-foreground">
+              Used for logging weight and viewing your history. Nothing already logged is changed —
+              only how it's displayed.
+            </p>
+          </div>
+          <RadioGroup
+            value={weightUnit}
+            onValueChange={handleWeightUnitChange}
+            className="flex shrink-0 gap-3"
+          >
+            <label className="flex items-center gap-1.5 text-sm">
+              <RadioGroupItem value="kg" />
+              Kg
+            </label>
+            <label className="flex items-center gap-1.5 text-sm">
+              <RadioGroupItem value="lb" />
+              Lb
+            </label>
+          </RadioGroup>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-border/50 pt-4">
+          <div className="min-w-0">
+            <p className="text-sm">Distance unit</p>
+            <p className="text-xs text-muted-foreground">
+              For running and cycling. Rowing, swimming and Stair Climber keep the units their
+              machines actually show (metres, floors) regardless of this setting.
+            </p>
+          </div>
+          <RadioGroup
+            value={distanceSystem}
+            onValueChange={handleDistanceSystemChange}
+            className="flex shrink-0 gap-3"
+          >
+            <label className="flex items-center gap-1.5 text-sm">
+              <RadioGroupItem value="km" />
+              Km
+            </label>
+            <label className="flex items-center gap-1.5 text-sm">
+              <RadioGroupItem value="mi" />
+              Mi
             </label>
           </RadioGroup>
         </div>

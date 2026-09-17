@@ -1,4 +1,5 @@
 import { formatDuration } from "@/lib/format";
+import { formatWeight, getDistanceSystem, getWeightUnit, kmToMi } from "@/lib/units";
 
 export type MuscleGroup =
   | "Chest"
@@ -1059,7 +1060,7 @@ export function getExerciseLoggingSchema(def: ExerciseDef | undefined): Exercise
 /** Short column-header label for a distance unit, matching the existing
  *  "Km"/"Sec"/"Kg" convention in the workout logging screen. */
 export function distanceUnitLabel(unit: DistanceUnit): string {
-  if (unit === "km") return "Km";
+  if (unit === "km") return getDistanceSystem() === "mi" ? "Mi" : "Km";
   if (unit === "m") return "M";
   return "Floors";
 }
@@ -1067,9 +1068,16 @@ export function distanceUnitLabel(unit: DistanceUnit): string {
 /** Suffix used when formatting a logged distance value for display (the
  *  progress chart, Current Focus, Recent Progress) — symbol-like units
  *  (km, m) attach directly to the number; word units (floors) get a
- *  space, matching how "reps" is already formatted elsewhere. */
+ *  space, matching how "reps" is already formatted elsewhere.
+ *
+ *  Only "km" ever converts to the user's chosen DistanceSystem — "m" and
+ *  "floors" are tied to how the equipment itself displays (a rowing erg
+ *  always shows metres; a flight of stairs is just a count) and stay
+ *  exactly as logged regardless of that preference. */
 export function formatDistanceValue(unit: DistanceUnit, value: number): string {
-  if (unit === "km") return `${value}km`;
+  if (unit === "km") {
+    return getDistanceSystem() === "mi" ? `${Math.round(kmToMi(value) * 10) / 10}mi` : `${value}km`;
+  }
   if (unit === "m") return `${value}m`;
   return `${value} floors`;
 }
@@ -1083,6 +1091,9 @@ export function formatDistanceValue(unit: DistanceUnit, value: number): string {
  * actually looks like on the machine that produced it.
  */
 export function getDistanceStepperConfig(unit: DistanceUnit): { step: number; decimal: boolean } {
+  // Deliberately not DistanceSystem-aware: 0.1 is the right decimal
+  // granularity for a runner logging either km or mi, so mi mode reuses
+  // it rather than inventing a second step size to keep in sync.
   if (unit === "km") return { step: 0.1, decimal: true };
   if (unit === "m") return { step: 50, decimal: false };
   return { step: 1, decimal: false }; // floors
@@ -1103,18 +1114,26 @@ export function formatPace(
   durationSec: number,
 ): string | undefined {
   if (distance <= 0 || durationSec <= 0) return undefined;
-  const unitLabel = unit === "km" ? "km" : unit === "m" ? "m" : "floors";
+
+  // Only "km" ever converts — see formatDistanceValue's doc comment for
+  // why "m" and "floors" always stay as logged. Converting the distance
+  // itself before the pace/speed math (rather than the computed rate
+  // afterwards) means the same formulas below produce a correct
+  // per-mile/mph figure with no separate conversion step of their own.
+  const useMiles = unit === "km" && getDistanceSystem() === "mi";
+  const displayDistance = useMiles ? kmToMi(distance) : distance;
+  const unitLabel = useMiles ? "mi" : unit === "km" ? "km" : unit === "m" ? "m" : "floors";
 
   if (convention.style === "pace") {
-    const secondsPerChunk = durationSec / (distance / convention.per);
+    const secondsPerChunk = durationSec / (displayDistance / convention.per);
     const per = convention.per === 1 ? unitLabel : `${convention.per}${unit === "km" ? "km" : "m"}`;
     return `${formatDuration(Math.round(secondsPerChunk))}/${per}`;
   }
   if (convention.style === "speed") {
-    const perHour = (distance / durationSec) * 3600;
+    const perHour = (displayDistance / durationSec) * 3600;
     return `${perHour.toFixed(1)} ${unitLabel}/h`;
   }
-  // "rate"
+  // "rate" — always floors/min, never distance-unit convertible.
   const perMinute = (distance / durationSec) * 60;
   return `${perMinute.toFixed(1)} ${unitLabel}/min`;
 }
@@ -1200,7 +1219,7 @@ function formatPerformance(schema: ExerciseLoggingSchema, perf: SetSide): string
   const showWeight =
     schema.weight === "required" || (schema.weight === "optional" && perf.weight > 0);
   if (showWeight) {
-    return `${perf.weight}kg × ${perf.reps}`;
+    return `${formatWeight(perf.weight, getWeightUnit())} × ${perf.reps}`;
   }
   return `${perf.reps} reps`;
 }

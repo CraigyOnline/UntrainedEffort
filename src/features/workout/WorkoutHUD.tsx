@@ -18,6 +18,7 @@ import { computeWorkoutStats } from "@/lib/workoutStats";
 import { computeIntensity } from "@/lib/muscles";
 import { getKeepAwakeDefault, enableKeepAwake, disableKeepAwake } from "@/lib/keepAwake";
 import { useDismissOnBack } from "@/lib/backHandler";
+import { formatVolume, getWeightUnit } from "@/lib/units";
 import { TimerToggleButton, WorkoutTimer } from "./WorkoutTimer";
 import {
   PR_CELEBRATION_VISIBLE_MS,
@@ -337,7 +338,7 @@ export function WorkoutHUD({
                 <span>
                   {totalSets} / {loggedSets} sets
                 </span>
-                <span>{Math.round(totalVolume)} kg</span>
+                <span>{formatVolume(Math.round(totalVolume), getWeightUnit())}</span>
               </div>
               <SetProgressBar value={progress} className="mt-1" />
             </div>

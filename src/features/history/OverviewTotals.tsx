@@ -1,5 +1,6 @@
 import type { Workout } from "@/lib/db";
 import { computeSessionsAndVolume } from "@/lib/workoutStats";
+import { formatVolume, getWeightUnit } from "@/lib/units";
 
 interface OverviewTotalsProps {
   workouts: Workout[];
@@ -19,7 +20,7 @@ export function OverviewTotals({ workouts }: OverviewTotalsProps) {
   return (
     <div className="flex items-start justify-between gap-4">
       <p className="text-2xl font-bold">{sessions.toLocaleString()} workouts</p>
-      <p className="text-2xl font-bold">{Math.round(volume).toLocaleString()} kg</p>
+      <p className="text-2xl font-bold">{formatVolume(Math.round(volume), getWeightUnit())}</p>
     </div>
   );
 }

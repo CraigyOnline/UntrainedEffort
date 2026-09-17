@@ -12,8 +12,20 @@ import {
   getIntervalConfig,
   formatCompletedSet,
   seedUnilateralSide,
+  distanceUnitLabel,
+  getDistanceStepperConfig,
   type SetSide,
 } from "@/lib/exercises";
+import {
+  getWeightUnit,
+  getWeightStepperConfig,
+  kgToDisplayWeight,
+  displayWeightToKg,
+  weightUnitLabel,
+  getDistanceSystem,
+  kmToDisplayDistance,
+  displayDistanceToKm,
+} from "@/lib/units";
 import { syncWorkoutIntegrity } from "@/lib/workoutIntegrity";
 import { newId } from "@/features/workout/workoutHelpers";
 import { ExercisePicker } from "@/components/forms/ExercisePicker";
@@ -403,6 +415,8 @@ function HistoryDetailPage() {
         const timeBased = isTimeBased(def);
         const cardio = isCardio(def);
         const schema = getExerciseLoggingSchema(def);
+        const weightUnit = getWeightUnit();
+        const distanceSystem = getDistanceSystem();
         const intervalConfig = ex.sets[0]?.intervalConfig ?? getIntervalConfig(def);
         return (
           <div key={ei} className="rounded-xl bg-card p-4">
@@ -472,13 +486,14 @@ function HistoryDetailPage() {
                           {schema.weight !== "hidden" && (
                             <div className="flex flex-col gap-1">
                               <span className="text-[10px] uppercase font-bold text-muted-foreground/60">
-                                Weight (kg)
+                                Weight ({weightUnitLabel(weightUnit)})
                               </span>
                               <StepperInput
-                                value={s.weight ?? 0}
-                                onCommit={(v) => patchSet(ei, si, { weight: v })}
-                                step={2.5}
-                                decimal
+                                value={kgToDisplayWeight(s.weight ?? 0, weightUnit)}
+                                onCommit={(v) =>
+                                  patchSet(ei, si, { weight: displayWeightToKg(v, weightUnit) })
+                                }
+                                {...getWeightStepperConfig(weightUnit)}
                                 min={0}
                               />
                             </div>
@@ -486,13 +501,25 @@ function HistoryDetailPage() {
                           {cardio && (
                             <div className="flex flex-col gap-1">
                               <span className="text-[10px] uppercase font-bold text-muted-foreground/60">
-                                Km
+                                {schema.distanceUnit
+                                  ? distanceUnitLabel(schema.distanceUnit)
+                                  : "Km"}
                               </span>
                               <StepperInput
-                                value={s.weight ?? 0}
-                                onCommit={(v) => patchSet(ei, si, { weight: v })}
-                                step={0.1}
-                                decimal
+                                value={
+                                  schema.distanceUnit === "km"
+                                    ? kmToDisplayDistance(s.weight ?? 0, distanceSystem)
+                                    : (s.weight ?? 0)
+                                }
+                                onCommit={(v) =>
+                                  patchSet(ei, si, {
+                                    weight:
+                                      schema.distanceUnit === "km"
+                                        ? displayDistanceToKm(v, distanceSystem)
+                                        : v,
+                                  })
+                                }
+                                {...getDistanceStepperConfig(schema.distanceUnit ?? "km")}
                                 min={0}
                               />
                             </div>

@@ -9,6 +9,7 @@ import {
   type SetSide,
 } from "@/lib/exercises";
 import { formatDuration } from "@/lib/format";
+import { formatWeight, getDistanceSystem, getWeightUnit, KM_PER_MILE } from "@/lib/units";
 
 export type MetricKind = "weight" | "reps" | "duration" | "distance";
 
@@ -135,7 +136,7 @@ export function formatMetricValue(
 ): string {
   if (kind === "distance") return formatDistanceValue(distanceUnit, value);
   if (kind === "duration") return formatDuration(value);
-  if (kind === "weight") return `${value}kg`;
+  if (kind === "weight") return formatWeight(value, getWeightUnit());
   return `${value} reps`;
 }
 
@@ -177,23 +178,49 @@ export function getCardioRate(schema: ExerciseLoggingSchema, sets: WorkoutSet[])
   return (distance / durationSec) * 60;
 }
 
+/** The raw converted number formatCardioRate wraps a unit label and
+ *  duration/decimal formatting around — exposed separately for the
+ *  progress chart's Y-axis, which needs the same km/mi-converted
+ *  magnitude the tooltip shows, without a unit suffix cluttering a
+ *  36px-wide axis column. */
+export function convertCardioRateForDisplay(schema: ExerciseLoggingSchema, value: number): number {
+  const convention = schema.paceConvention;
+  if (!convention) return value;
+  const useMiles = schema.distanceUnit === "km" && getDistanceSystem() === "mi";
+  if (!useMiles) return value;
+  return convention.style === "speed" ? value / KM_PER_MILE : value * KM_PER_MILE;
+}
+
 /** Formats the numeric result returned by getCardioRate using the exercise's
  * actual convention, so running, rowing, cycling and stair climbing all get
- * their familiar units instead of a generic decimal. */
+ * their familiar units instead of a generic decimal.
+ *
+ * value always arrives in the exercise's native distanceUnit terms (e.g.
+ * seconds per km, or km/h) — getCardioRate never converts, so every chart
+ * point and PR comparison stays on a stable unit regardless of what's
+ * selected here. Only "km"-based conventions ever convert for display —
+ * see formatDistanceValue's doc comment in exercises.ts for why "m" and
+ * "floors" don't. */
 export function formatCardioRate(schema: ExerciseLoggingSchema, value: number): string {
   const convention = schema.paceConvention;
   if (!convention) return "—";
+  const useMiles = schema.distanceUnit === "km" && getDistanceSystem() === "mi";
+  const unit = useMiles
+    ? "mi"
+    : schema.distanceUnit === "km"
+      ? "km"
+      : schema.distanceUnit === "m"
+        ? "m"
+        : "floors";
+  const converted = convertCardioRateForDisplay(schema, value);
   if (convention.style === "pace") {
-    const unit = schema.distanceUnit === "km" ? "km" : schema.distanceUnit === "m" ? "m" : "floors";
     const per = convention.per === 1 ? unit : `${convention.per}${unit}`;
-    return `${formatDuration(Math.round(value))}/${per}`;
+    return `${formatDuration(Math.round(converted))}/${per}`;
   }
   if (convention.style === "speed") {
-    const unit = schema.distanceUnit === "km" ? "km" : schema.distanceUnit === "m" ? "m" : "floors";
-    return `${value.toFixed(1)} ${unit}/h`;
+    return `${converted.toFixed(1)} ${unit}/h`;
   }
-  const unit = schema.distanceUnit === "km" ? "km" : schema.distanceUnit === "m" ? "m" : "floors";
-  return `${value.toFixed(1)} ${unit}/min`;
+  return `${converted.toFixed(1)} ${unit}/min`;
 }
 
 export type DisplayPRType = "weight" | "reps" | "time" | "distance" | "pace" | "speed" | "volume";
@@ -204,21 +231,16 @@ export function formatPRValue(
   schema: ExerciseLoggingSchema,
 ): string {
   if (type === "time") return formatMetricValue("duration", value);
-  if (type === "weight") return `${value}kg`;
-  if (type === "volume") return `${Math.round(value)}kg`;
+  if (type === "weight") return formatWeight(value, getWeightUnit());
+  if (type === "volume") return formatWeight(Math.round(value), getWeightUnit());
   if (type === "distance") return formatDistanceValue(schema.distanceUnit ?? "km", value);
   if (type === "reps") return `${value}`;
+  // formatCardioRate already branches on schema.paceConvention.style
+  // (pace/speed/rate) the same way this used to inline — delegating keeps
+  // the mile-conversion logic in exactly one place instead of two copies
+  // that could drift out of sync.
   if (schema.paceConvention && schema.distanceUnit) {
-    if (type === "pace" && schema.paceConvention.style === "pace") {
-      const unit =
-        schema.distanceUnit === "km" ? "km" : schema.distanceUnit === "m" ? "m" : "floors";
-      const per = schema.paceConvention.per === 1 ? unit : `${schema.paceConvention.per}${unit}`;
-      return `${formatDuration(Math.round(value))}/${per}`;
-    }
-    const unit = schema.distanceUnit === "km" ? "km" : schema.distanceUnit === "m" ? "m" : "floors";
-    return schema.paceConvention.style === "rate"
-      ? `${value.toFixed(1)} ${unit}/min`
-      : `${value.toFixed(1)} ${unit}/h`;
+    return formatCardioRate(schema, value);
   }
   return `${value}`;
 }
@@ -229,7 +251,12 @@ export function formatPRDelta(
   schema: ExerciseLoggingSchema,
 ): string {
   if (type === "pace") {
-    return `${formatDuration(Math.round(delta))} faster`;
+    // delta is a difference between two raw (native-unit) pace values —
+    // same km-per-mile factor as formatCardioRate, so the delta shown here
+    // stays consistent with the Previous/Latest figures it sits next to.
+    const useMiles = schema.distanceUnit === "km" && getDistanceSystem() === "mi";
+    const deltaSeconds = useMiles ? delta * KM_PER_MILE : delta;
+    return `${formatDuration(Math.round(deltaSeconds))} faster`;
   }
   return `+${formatPRValue(type, delta, schema)}`;
 }

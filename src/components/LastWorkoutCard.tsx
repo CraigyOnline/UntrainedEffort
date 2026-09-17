@@ -10,6 +10,7 @@ import {
 } from "@/lib/workoutStats";
 import { MuscleMap } from "@/components/MuscleMap";
 import { CardioSignature } from "@/components/CardioSignature";
+import { formatVolume, getWeightUnit } from "@/lib/units";
 
 interface LastWorkoutCardProps {
   workout: Workout;
@@ -57,7 +58,7 @@ export function LastWorkoutCard({ workout }: LastWorkoutCardProps) {
               ? ` · ${stats!.cardioActivities.length} cardio activities`
               : ""
         }`
-      : `${formatDuration(workout.durationSec)} · ${stats!.totalSets} sets · ${Math.round(stats!.totalVolume)} kg`;
+      : `${formatDuration(workout.durationSec)} · ${stats!.totalSets} sets · ${formatVolume(Math.round(stats!.totalVolume), getWeightUnit())}`;
 
   return (
     <div

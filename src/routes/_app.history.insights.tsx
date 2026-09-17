@@ -12,6 +12,7 @@ import { Milestones } from "@/features/history/Milestones";
 import { CardioSummary } from "@/features/history/CardioSummary";
 import { StrengthSection } from "@/features/history/StrengthSection";
 import { EmptyState } from "@/components/EmptyState";
+import { formatVolume, getWeightUnit } from "@/lib/units";
 
 type InsightsSection = "training" | "strength" | "cardio" | "achievements";
 
@@ -75,7 +76,9 @@ function MonthComparison({ workouts }: { workouts: Workout[] }) {
     <div className="rounded-2xl bg-card p-4">
       <div className="flex items-start justify-between gap-4">
         <p className="text-2xl font-bold">{thisMonth.sessions.toLocaleString()} workouts</p>
-        <p className="text-2xl font-bold">{Math.round(thisMonth.volume).toLocaleString()} kg</p>
+        <p className="text-2xl font-bold">
+          {formatVolume(Math.round(thisMonth.volume), getWeightUnit())}
+        </p>
       </div>
       <div className="mt-1 flex items-start justify-between gap-4">
         <p className="text-xs text-muted-foreground">{sessionsCaption}</p>

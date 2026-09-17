@@ -2,6 +2,7 @@ import type { Workout } from "@/lib/db";
 import { formatDuration } from "@/lib/format";
 import { computeIntensity } from "@/lib/muscles";
 import { formatDistanceValue } from "@/lib/exercises";
+import { formatVolume, getWeightUnit } from "@/lib/units";
 import {
   computeDominantSignature,
   computeWorkoutDisplayStats,
@@ -71,7 +72,7 @@ export function WorkoutStatsRow({ durationSec, exercises, revealed }: StatsRowPr
       : [
           { label: "Duration", value: formatDuration(durationSec) },
           { label: "Sets", value: String(stats.totalSets) },
-          { label: "Volume", value: `${Math.round(stats.totalVolume)} kg` },
+          { label: "Volume", value: formatVolume(Math.round(stats.totalVolume), getWeightUnit()) },
         ];
 
   const intervalCells = stats.primaryInterval

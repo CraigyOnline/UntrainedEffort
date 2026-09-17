@@ -16,6 +16,7 @@ import { filterWorkouts, hasActiveFilters } from "@/lib/historyFilters";
 import { EmptyState } from "@/components/EmptyState";
 import { ExpandableMuscleMap } from "@/components/ExpandableMuscleMap";
 import { CardioSignature } from "@/components/CardioSignature";
+import { formatVolume, getWeightUnit } from "@/lib/units";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -267,7 +268,7 @@ function WorkoutTimeline() {
 
                   {totalVolume > 0 && (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Volume: {totalVolume.toLocaleString()} kg
+                      Volume: {formatVolume(Math.round(totalVolume), getWeightUnit())}
                     </p>
                   )}
 

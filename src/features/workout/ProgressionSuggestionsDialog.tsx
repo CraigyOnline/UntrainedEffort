@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { getExercise } from "@/lib/exercises";
+import { formatWeight, getWeightUnit } from "@/lib/units";
 import type { ProgressionSuggestion } from "@/lib/progressionSuggestions";
 
 function describeProgressionSuggestion(suggestion: ProgressionSuggestion): {
@@ -18,24 +19,25 @@ function describeProgressionSuggestion(suggestion: ProgressionSuggestion): {
   currentSecondary?: string;
   proposedSecondary?: string;
 } {
+  const unit = getWeightUnit();
   if (suggestion.kind === "add-weight") {
     return {
-      change: `Cleared the top of the range at ${suggestion.currentWeight}kg for 2 sessions running.`,
-      current: `${suggestion.currentWeight}kg`,
-      proposed: `${suggestion.proposedWeight}kg`,
+      change: `Cleared the top of the range at ${formatWeight(suggestion.currentWeight, unit)} for 2 sessions running.`,
+      current: formatWeight(suggestion.currentWeight, unit),
+      proposed: formatWeight(suggestion.proposedWeight, unit),
       currentSecondary: `${suggestion.currentReps} reps`,
       proposedSecondary: `${suggestion.proposedReps} reps`,
     };
   }
   if (suggestion.kind === "ease-off") {
     return {
-      change: `${suggestion.currentWeight}kg has been a stretch for 2 sessions running — easing back a little should help you build it up more steadily.`,
-      current: `${suggestion.currentWeight}kg`,
-      proposed: `${suggestion.proposedWeight}kg`,
+      change: `${formatWeight(suggestion.currentWeight, unit)} has been a stretch for 2 sessions running — easing back a little should help you build it up more steadily.`,
+      current: formatWeight(suggestion.currentWeight, unit),
+      proposed: formatWeight(suggestion.proposedWeight, unit),
     };
   }
   return {
-    change: `Cleared ${suggestion.currentReps}+ reps at ${suggestion.currentWeight}kg for 2 sessions running.`,
+    change: `Cleared ${suggestion.currentReps}+ reps at ${formatWeight(suggestion.currentWeight, unit)} for 2 sessions running.`,
     current: `${suggestion.currentReps} reps`,
     proposed: `${suggestion.proposedReps} reps`,
   };

@@ -7,6 +7,7 @@ import {
   type CardioActivityStats,
 } from "@/lib/workoutStats";
 import { formatTimeTrained } from "@/features/history/duration";
+import { formatVolume, getWeightUnit } from "@/lib/units";
 
 const DEFAULT_VISIBLE_MONTHS = 3;
 
@@ -56,7 +57,7 @@ export function MonthlySummaries({ workouts }: MonthlySummariesProps) {
             <p className="mt-1 text-xs text-muted-foreground">
               {m.sessionCount} {m.sessionCount === 1 ? "workout" : "workouts"} · {m.activeDays}{" "}
               active {m.activeDays === 1 ? "day" : "days"}
-              {m.volume > 0 && ` · ${Math.round(m.volume).toLocaleString()} kg lifted`}
+              {m.volume > 0 && ` · ${formatVolume(Math.round(m.volume), getWeightUnit())} lifted`}
               {m.cardioSessions > 0 && ` · ${formatTimeTrained(m.cardioDurationSec)} cardio`}
             </p>
             {m.cardioActivities.length > 0 && (
