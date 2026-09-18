@@ -79,11 +79,32 @@ Built with an emphasis on speed, ownership of your data, and a polished workout 
 
 - Training frequency
 
+### Workouts
+
+- Supersets
+- RPE/RIR tracking
+- Set and workout notes
+- Plate calculator
+- Warm-up set calculator
+
+### Exercise Library
+
+- Custom exercise creation
+- Pre-built routine templates
+
+### Platform
+
+- Health Connect integration
+- Scheduled workout reminders
+- Home-screen widget
+
 ### Future
 
 - Goal tracking
 - Optional cloud sync
 - Wear OS support
+- Progress photos & body measurements
+- Nutrition tracking
 
 ---
 
