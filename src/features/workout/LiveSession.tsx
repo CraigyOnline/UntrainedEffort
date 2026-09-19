@@ -29,6 +29,7 @@ import {
   displayDistanceToKm,
 } from "@/lib/units";
 import { ExerciseFormViewer } from "@/components/ExerciseFormViewer";
+import { WeightCalculator } from "@/components/WeightCalculator";
 import { NumberInput, StepperInput } from "@/components/forms/NumberInput";
 import { MmSsInput } from "@/components/forms/MmSsInput";
 import { UnilateralSetInputs } from "@/components/forms/UnilateralSetInputs";
@@ -258,6 +259,11 @@ function ExerciseCard({
           <p className="text-xs text-muted-foreground">{def?.muscle}</p>
         </div>
         <ExerciseFormViewer exerciseId={ex.exerciseId} exerciseName={def?.name ?? ex.exerciseId} />
+        <WeightCalculator
+          exerciseId={ex.exerciseId}
+          exerciseName={def?.name ?? ex.exerciseId}
+          targetWeightKg={currentWeight}
+        />
         <button
           onClick={() => removeExercise(ei)}
           aria-label="Remove exercise"

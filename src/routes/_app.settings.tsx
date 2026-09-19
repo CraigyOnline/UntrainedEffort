@@ -43,9 +43,20 @@ import {
   setWeightUnit,
   getDistanceSystem,
   setDistanceSystem,
+  displayWeightToKg,
+  kgToDisplayWeight,
+  getWeightStepperConfig,
   type WeightUnit,
   type DistanceSystem,
 } from "@/lib/units";
+import {
+  getBarWeightKg,
+  setBarWeightKg,
+  getAvailablePlatesKg,
+  setAvailablePlatesKg,
+  DEFAULT_PLATE_OPTIONS,
+} from "@/lib/plateCalculator";
+import { StepperInput } from "@/components/forms/NumberInput";
 import {
   getRoutineUpdatePromptEnabled,
   setRoutineUpdatePromptEnabled,
@@ -206,6 +217,38 @@ function SettingsPage() {
   function handleProgressionSuggestionsChange(checked: boolean) {
     setProgressionSuggestionsEnabledState(checked);
     setProgressionSuggestionsEnabled(checked);
+  }
+
+  // ── Plate calculator (bar weight + available plates) ────────────────
+  const [barWeightKg, setBarWeightKgState] = useState<number>(20);
+  useEffect(() => {
+    setBarWeightKgState(getBarWeightKg());
+  }, []);
+
+  function handleBarWeightChange(displayValue: number) {
+    const kg = displayWeightToKg(displayValue, weightUnit);
+    setBarWeightKgState(kg);
+    setBarWeightKg(kg);
+  }
+
+  const [availablePlatesKg, setAvailablePlatesKgState] = useState<number[]>([]);
+  useEffect(() => {
+    setAvailablePlatesKgState(getAvailablePlatesKg());
+  }, []);
+
+  function isPlateSelected(displayValue: number): boolean {
+    const kg = displayWeightToKg(displayValue, weightUnit);
+    return availablePlatesKg.some((p) => Math.abs(p - kg) < 0.01);
+  }
+
+  function togglePlate(displayValue: number) {
+    const kg = displayWeightToKg(displayValue, weightUnit);
+    const isSelected = isPlateSelected(displayValue);
+    const next = isSelected
+      ? availablePlatesKg.filter((p) => Math.abs(p - kg) >= 0.01)
+      : [...availablePlatesKg, kg];
+    setAvailablePlatesKgState(next);
+    setAvailablePlatesKg(next);
   }
 
   // ── Export flow ──────────────────────────────────────────────────────
@@ -523,6 +566,48 @@ function SettingsPage() {
             checked={progressionSuggestionsEnabled}
             onCheckedChange={handleProgressionSuggestionsChange}
           />
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-border/50 pt-4">
+          <div className="min-w-0">
+            <p className="text-sm">Bar weight</p>
+            <p className="text-xs text-muted-foreground">
+              Used by the calculator on barbell exercises to work out plates per side.
+            </p>
+          </div>
+          <StepperInput
+            value={kgToDisplayWeight(barWeightKg, weightUnit)}
+            onCommit={handleBarWeightChange}
+            {...getWeightStepperConfig(weightUnit)}
+            min={0}
+            size="compact"
+          />
+        </div>
+
+        <div className="mt-4 border-t border-border/50 pt-4">
+          <p className="text-sm">Available plates</p>
+          <p className="text-xs text-muted-foreground">
+            Which plates the calculator assumes you have an unlimited supply of.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {DEFAULT_PLATE_OPTIONS[weightUnit].map((displayValue) => {
+              const selected = isPlateSelected(displayValue);
+              return (
+                <button
+                  key={displayValue}
+                  type="button"
+                  onClick={() => togglePlate(displayValue)}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                    selected
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground active:bg-secondary/70"
+                  }`}
+                >
+                  {displayValue}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <Link

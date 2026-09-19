@@ -41,6 +41,7 @@ Built with an emphasis on speed, ownership of your data, and a polished workout 
 - A wide and growing exercise library, spanning strength, functional, and cardio movements
 - Unilateral exercise support
 - Live, set-by-set expected rep range in the Workout HUD, based on your recent performance at that same set position, matched to the weight you're using
+- Plate and warm-up calculator, from a new icon on each exercise during a workout — a per-side plate breakdown for barbell exercises, and a suggested warm-up ramp for any exercise that logs a weight
 - Exercise form guidance — tap-to-view setup & movement demonstration images (male/female variants), plain-language coaching notes, and tiered technique/safety warnings, rolling out exercise by exercise
 
 ### Progress
@@ -84,8 +85,6 @@ Built with an emphasis on speed, ownership of your data, and a polished workout 
 - Supersets
 - RPE/RIR tracking
 - Set and workout notes
-- Plate calculator
-- Warm-up set calculator
 
 ### Exercise Library
 
