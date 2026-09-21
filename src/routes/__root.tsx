@@ -8,13 +8,10 @@ import {
 } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
-import { LocalNotifications } from "@capacitor/local-notifications";
 import { SplashScreen } from "@capacitor/splash-screen";
+import { WorkoutForegroundService } from "@/lib/workoutForegroundServicePlugin";
 import { handleGlobalBackPress } from "@/lib/backHandler";
-import {
-  useWorkoutNotificationLifecycle,
-  WORKOUT_NOTIFICATION_EXTRA,
-} from "@/lib/workoutNotification";
+import { useWorkoutNotificationLifecycle } from "@/lib/workoutNotification";
 
 import appCss from "../styles.css?url";
 
@@ -159,10 +156,8 @@ function RootComponent() {
 
   useEffect(() => {
     let remove: (() => void) | undefined;
-    LocalNotifications.addListener("localNotificationActionPerformed", (action) => {
-      if (action.notification.extra?.type === WORKOUT_NOTIFICATION_EXTRA.type) {
-        router.navigate({ to: "/workout" });
-      }
+    WorkoutForegroundService.addListener("notificationTapped", () => {
+      router.navigate({ to: "/workout" });
     }).then((handle) => {
       remove = () => handle.remove();
     });

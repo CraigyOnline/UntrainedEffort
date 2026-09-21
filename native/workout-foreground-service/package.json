@@ -1,0 +1,10 @@
+{
+  "name": "workout-foreground-service",
+  "version": "1.0.0",
+  "private": true,
+  "capacitor": {
+    "android": {
+      "src": "android"
+    }
+  }
+}

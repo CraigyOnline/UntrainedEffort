@@ -2,42 +2,25 @@ import { useEffect, useRef } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { App as CapacitorApp } from "@capacitor/app";
 import { LocalNotifications } from "@capacitor/local-notifications";
+import {
+  WorkoutForegroundService,
+  type WorkoutForegroundServicePayload,
+} from "@/lib/workoutForegroundServicePlugin";
 import { getDb, type ActiveWorkoutDraft } from "@/lib/db";
 import { computeWorkoutStats, getCurrentExerciseName, getElapsedSec } from "@/lib/workoutStats";
 import { formatDuration } from "@/lib/format";
 import { formatVolume, getWeightUnit } from "@/lib/units";
 
-const CHANNEL_ID = "workout-progress";
-const NOTIFICATION_ID = 918273;
-/** How often to refresh the notification purely for the elapsed-time tick
- *  while it's visible. Per the feature spec this doesn't need second-by-
- *  second precision, so a single fixed interval is enough — no wake lock
- *  or high-frequency timer required. */
+/** How often to refresh the notification's non-elapsed content (rest
+ *  status, in case a rest period finished while backgrounded) while it's
+ *  visible. The elapsed-time figure itself no longer depends on this timer
+ *  at all — see buildWorkoutNotificationPayload — so this is now a
+ *  best-effort freshness nicety rather than the thing making the
+ *  notification trustworthy. */
 const ELAPSED_REFRESH_MS = 45_000;
-
-/** Tags the notification so a tap can be told apart from any other kind
- *  of notification this app might add later. */
-export const WORKOUT_NOTIFICATION_EXTRA = { type: "active-workout" } as const;
-
-let channelReady: Promise<void> | null = null;
-
-function ensureChannel(): Promise<void> {
-  if (!channelReady) {
-    channelReady = LocalNotifications.createChannel({
-      id: CHANNEL_ID,
-      name: "Workout in progress",
-      description: "Reminds you a workout is still running when you leave the app.",
-      importance: 3, // DEFAULT — visible in the status bar, no sound or heads-up popup
-    }).catch((err) => {
-      console.error("Failed to create workout notification channel", err);
-    });
-  }
-  return channelReady;
-}
 
 async function ensureWorkoutNotificationPermission(): Promise<void> {
   try {
-    await ensureChannel();
     const { display } = await LocalNotifications.checkPermissions();
     if (display !== "granted") {
       await LocalNotifications.requestPermissions();
@@ -59,31 +42,38 @@ async function ensureWorkoutNotificationPermission(): Promise<void> {
  * "Ready ✓" transition can lag behind the HUD's by up to that tick while
  * the app is backgrounded.
  */
-function restStatusLine(draft: ActiveWorkoutDraft): string | undefined {
+export function restStatusLine(draft: ActiveWorkoutDraft): string | undefined {
   if (!draft.restTimer) return undefined;
   const remaining = Math.max(0, Math.round((draft.restTimer.endsAt - Date.now()) / 1000));
   return remaining > 0 ? `Resting: ${formatDuration(remaining)}` : "Ready ✓";
 }
 
 /**
- * Builds the notification's text from the same shared calculations the
+ * Builds the notification's content from the same shared calculations the
  * floating Workout HUD uses — computeWorkoutStats() for sets/volume,
- * getCurrentExerciseName() for what's next, formatDuration() for elapsed
- * time. Nothing here re-derives a number that already has a home
- * elsewhere; workoutStats.ts is the single place both this and the
- * Active Workout Card resolve "current exercise" from.
+ * getCurrentExerciseName() for what's next. Nothing here re-derives a
+ * number that already has a home elsewhere; workoutStats.ts is the single
+ * place both this and the Active Workout Card resolve "current exercise"
+ * from.
  *
  * `body` is the single-line collapsed form; `largeBody` is the Android
  * big-text style shown once expanded, so the collapsed line stays short
  * while the expanded view gets the full breakdown.
+ *
+ * The elapsed-time figure is *not* rendered into either string while the
+ * workout is running — `useChronometer`/`whenMs` tell the native side to
+ * render it itself (setUsesChronometer/setWhen), ticking correctly even if
+ * nothing here ever runs again for the rest of the workout. `whenMs` has to
+ * stay consistent with getElapsedSec's formula: elapsedSec counts up from
+ * `startedAt + totalPausedMs`, so that's exactly the anchor the chronometer
+ * needs too. While paused there's nothing to keep ticking, so this falls
+ * back to a plain formatted figure baked into largeBody instead, the same
+ * way the old always-JS-rendered version worked.
  */
-function buildWorkoutNotificationContent(draft: ActiveWorkoutDraft): {
-  title: string;
-  body: string;
-  largeBody: string;
-} {
+export function buildWorkoutNotificationPayload(
+  draft: ActiveWorkoutDraft,
+): WorkoutForegroundServicePayload {
   const paused = draft.pausedAt != null;
-  const elapsedSec = getElapsedSec(draft.startedAt, draft.pausedAt, draft.totalPausedMs);
   const { totalSets, totalVolume, loggedSets } = computeWorkoutStats(draft.exercises);
   const currentExerciseName = getCurrentExerciseName(draft.exercises);
   const roundedVolume = formatVolume(Math.round(totalVolume), getWeightUnit());
@@ -97,43 +87,34 @@ function buildWorkoutNotificationContent(draft: ActiveWorkoutDraft): {
     ? `${currentExerciseName} · ${totalSets}/${loggedSets} sets · ${roundedVolume}`
     : `${totalSets}/${loggedSets} sets · ${roundedVolume}`;
   const body = restLine ? `${restLine} · ${bodyBase}` : bodyBase;
+
   const largeBody = [
-    paused ? "Paused" : restLine,
-    `Elapsed: ${formatDuration(elapsedSec)}`,
+    paused
+      ? `Paused · Elapsed: ${formatDuration(getElapsedSec(draft.startedAt, draft.pausedAt, draft.totalPausedMs))}`
+      : restLine,
     currentExerciseName ? `Current exercise: ${currentExerciseName}` : undefined,
     `Sets: ${totalSets} / ${loggedSets}`,
     `Volume: ${roundedVolume}`,
-    "Tap to resume.",
+    "Tap to return to your workout.",
   ]
     .filter((line): line is string => Boolean(line))
     .join("\n");
 
-  return { title, body, largeBody };
+  return {
+    title,
+    body,
+    largeBody,
+    useChronometer: !paused,
+    whenMs: draft.startedAt + (draft.totalPausedMs ?? 0),
+  };
 }
 
 async function showWorkoutNotification(draft: ActiveWorkoutDraft): Promise<void> {
   try {
-    await ensureChannel();
-    const { title, body, largeBody } = buildWorkoutNotificationContent(draft);
-    // No `schedule` field: omitting it displays the notification right
-    // away rather than scheduling it for a future trigger. Re-showing
-    // with the same id replaces the existing one in place, so this is
-    // safe to call every time the content might have changed without
-    // first checking whether it's already showing.
-    await LocalNotifications.schedule({
-      notifications: [
-        {
-          id: NOTIFICATION_ID,
-          channelId: CHANNEL_ID,
-          title,
-          body,
-          largeBody,
-          ongoing: true,
-          autoCancel: false,
-          extra: WORKOUT_NOTIFICATION_EXTRA,
-        },
-      ],
-    });
+    // Safe to call every time the content might have changed without first
+    // checking whether it's already showing — the native side treats the
+    // first post and every later refresh identically.
+    await WorkoutForegroundService.show(buildWorkoutNotificationPayload(draft));
   } catch (err) {
     console.error("Failed to show workout notification", err);
   }
@@ -141,7 +122,7 @@ async function showWorkoutNotification(draft: ActiveWorkoutDraft): Promise<void>
 
 async function cancelWorkoutNotification(): Promise<void> {
   try {
-    await LocalNotifications.cancel({ notifications: [{ id: NOTIFICATION_ID }] });
+    await WorkoutForegroundService.stop();
   } catch (err) {
     console.error("Failed to cancel workout notification", err);
   }
@@ -172,11 +153,13 @@ async function cancelWorkoutNotification(): Promise<void> {
  * it either — notificationVisibleRef is what makes that idempotent.
  *
  * While backgrounded, the notification's content also stays live: it's
- * re-shown (same NOTIFICATION_ID, so it replaces in place rather than
- * stacking) whenever the draft changes — name edits, completed sets,
- * exercise or volume changes — and on a fixed timer purely to keep the
- * elapsed-time figure moving, since that's the one field that changes
- * without the draft itself changing.
+ * re-shown whenever the draft changes — name edits, completed sets,
+ * exercise or volume changes — and on a fixed timer purely to catch a
+ * rest period finishing (see restStatusLine's own caveat above). Unlike
+ * before, this timer is no longer what keeps the elapsed-time figure
+ * honest — that's now the native chronometer's job, so it can't go stale
+ * even if this timer (or the JS engine it runs in) doesn't get to run for
+ * a while.
  */
 export function useWorkoutNotificationLifecycle(): void {
   const draft = useLiveQuery(() => getDb().activeWorkout.toCollection().first(), []);
@@ -207,9 +190,9 @@ export function useWorkoutNotificationLifecycle(): void {
   // re-firing) on every sleep/wake cycle even though it never went away.
   const notificationVisibleRef = useRef(false);
 
-  // Prime the permission + channel the moment a workout actually starts,
-  // not on every app launch — the prompt should appear in context, and
-  // there's nothing to prompt for otherwise.
+  // Prime the permission the moment a workout actually starts, not on
+  // every app launch — the prompt should appear in context, and there's
+  // nothing to prompt for otherwise.
   const hadDraftRef = useRef(false);
   useEffect(() => {
     const hasDraft = !!draft;
@@ -243,7 +226,8 @@ export function useWorkoutNotificationLifecycle(): void {
 
   // Show the reminder only when the app is actually backgrounded with a
   // draft still active — never while the user is looking at the app —
-  // and keep its elapsed-time figure ticking while it stays backgrounded.
+  // and keep its non-elapsed content reasonably fresh while it stays
+  // backgrounded.
   useEffect(() => {
     let removeListener: (() => void) | undefined;
     let elapsedRefreshTimer: ReturnType<typeof setInterval> | undefined;
