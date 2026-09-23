@@ -33,6 +33,10 @@ public class WorkoutForegroundService extends Service {
     static final String CHANNEL_ID = "workout-progress";
     static final int NOTIFICATION_ID = 918273;
 
+    // getIdentifier()-based lookups aren't free; resolved once and reused,
+    // since it can't change for the life of the process.
+    private int cachedIconResId = 0;
+
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
@@ -92,6 +96,12 @@ public class WorkoutForegroundService extends Service {
             // that silent after the first post instead of re-alerting every
             // time.
             .setOnlyAlertOnce(true)
+            // Android 12+ otherwise defaults to deferring a foreground
+            // service's notification by up to 10 seconds, to avoid flicker
+            // for services that start and stop quickly. This one doesn't -
+            // it should appear the moment the app is backgrounded, not up
+            // to 10s later. A no-op on pre-12 devices.
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentIntent(buildContentIntent())
             .setUsesChronometer(useChronometer);
 
@@ -117,8 +127,11 @@ public class WorkoutForegroundService extends Service {
     }
 
     private int resolveSmallIcon() {
-        int iconResId = AssetUtil.getResourceID(getApplicationContext(), "ic_launcher", "mipmap");
-        return iconResId != 0 ? iconResId : android.R.drawable.ic_dialog_info;
+        if (cachedIconResId == 0) {
+            int iconResId = AssetUtil.getResourceID(getApplicationContext(), "ic_launcher", "mipmap");
+            cachedIconResId = iconResId != 0 ? iconResId : android.R.drawable.ic_dialog_info;
+        }
+        return cachedIconResId;
     }
 
     private void ensureChannel() {

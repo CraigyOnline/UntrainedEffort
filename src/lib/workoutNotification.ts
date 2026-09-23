@@ -146,11 +146,14 @@ async function cancelWorkoutNotification(): Promise<void> {
  * that, "ongoing" notifications staying visible while the app is open is
  * normal Android UX (e.g. music playback), and it keeps this to exactly
  * the three transitions asked for: shown on backgrounding, left alone
- * until finished or discarded, removed immediately on either of those.
- * Because of that, a screen lock/unlock (which fires the same
- * appStateChange event as a real background/foreground switch, but
- * doesn't actually make the notification go anywhere) must not re-post
- * it either — notificationVisibleRef is what makes that idempotent.
+ * until finished or discarded, removed immediately on either of those. A
+ * screen lock/unlock fires this same appStateChange event without the
+ * notification ever having gone away, so it causes a harmless redundant
+ * refresh rather than nothing — simpler than trying to tell a lock/unlock
+ * apart from a real background/foreground switch, and a refresh here is
+ * exactly what closes the gap where content changed during a brief
+ * foreground visit would otherwise sit stale until the timer below caught
+ * up.
  *
  * While backgrounded, the notification's content also stays live: it's
  * re-shown whenever the draft changes — name edits, completed sets,
@@ -179,17 +182,6 @@ export function useWorkoutNotificationLifecycle(): void {
   // flip just to keep a value in a dependency array current.
   const isBackgroundedRef = useRef(false);
 
-  // Whether the notification has actually been posted for the current
-  // workout. Deliberately NOT the same thing as isBackgroundedRef: on
-  // Android, locking/unlocking the screen also fires appStateChange
-  // (isActive:false/true) even though the app was never really
-  // backgrounded, so isBackgroundedRef flips on every lock cycle. This
-  // ref only flips back to false when the workout actually ends (see the
-  // cancel effect below) — a bare screen lock/unlock never resets it,
-  // which is what stops the notification being re-posted (and visibly
-  // re-firing) on every sleep/wake cycle even though it never went away.
-  const notificationVisibleRef = useRef(false);
-
   // Prime the permission the moment a workout actually starts, not on
   // every app launch — the prompt should appear in context, and there's
   // nothing to prompt for otherwise.
@@ -204,13 +196,10 @@ export function useWorkoutNotificationLifecycle(): void {
 
   // Remove the notification the instant the draft is gone — whether
   // from finishing or discarding, and regardless of which screen that
-  // happened on. This is the only place notificationVisibleRef resets:
-  // the notification genuinely stops existing here, unlike a screen
-  // lock/unlock, which never actually removes it.
+  // happened on.
   useEffect(() => {
     if (!draft) {
       cancelWorkoutNotification();
-      notificationVisibleRef.current = false;
     }
   }, [draft]);
 
@@ -236,16 +225,18 @@ export function useWorkoutNotificationLifecycle(): void {
       isBackgroundedRef.current = !isActive;
 
       if (!isActive) {
-        // Post only if it isn't already up — a screen lock/unlock fires
-        // this same isActive:false transition without the notification
-        // ever having gone away, so re-posting unconditionally here was
-        // the bug (see notificationVisibleRef's comment above).
-        if (draftRef.current && !notificationVisibleRef.current) {
+        // Always refreshed here, even on a screen lock/unlock where the
+        // notification never actually went away — a lock/unlock re-post is
+        // just a harmless redundant call with unchanged content, whereas
+        // only refreshing on the *first* backgrounding (as this used to)
+        // left it stale after e.g. foregrounding briefly to log a set and
+        // backgrounding again, until the ELAPSED_REFRESH_MS tick caught up.
+        if (draftRef.current) {
           showWorkoutNotification(draftRef.current);
-          notificationVisibleRef.current = true;
         }
-        // Same idempotency for the interval itself — guards against the
-        // same repeated-lock scenario restarting it redundantly.
+        // The interval itself still only starts once per backgrounded
+        // stretch — restarting it on every lock/unlock would be pointless
+        // busywork, unlike the one-off content refresh above.
         if (!elapsedRefreshTimer) {
           elapsedRefreshTimer = setInterval(() => {
             if (draftRef.current) showWorkoutNotification(draftRef.current);
