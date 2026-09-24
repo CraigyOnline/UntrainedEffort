@@ -11,12 +11,15 @@ import { computeWorkoutStats, getCurrentExerciseName, getElapsedSec } from "@/li
 import { formatDuration } from "@/lib/format";
 import { formatVolume, getWeightUnit } from "@/lib/units";
 
-/** How often to refresh the notification's non-elapsed content (rest
- *  status, in case a rest period finished while backgrounded) while it's
- *  visible. The elapsed-time figure itself no longer depends on this timer
- *  at all — see buildWorkoutNotificationPayload — so this is now a
- *  best-effort freshness nicety rather than the thing making the
- *  notification trustworthy. */
+/** How often to refresh the notification's content while it's visible, to
+ *  catch anything that isn't already covered by a more targeted mechanism.
+ *  The elapsed-time figure doesn't depend on this at all (native
+ *  chronometer), and neither does the rest-end alert or the chronometer's
+ *  own switch back to counting up (both scheduled natively - see
+ *  WorkoutForegroundService.rescheduleRestEnd). What's left for this timer
+ *  to catch is purely cosmetic staleness in the *text* — e.g. the
+ *  "Resting"/"Ready ✓" label catching up to a chronometer transition that
+ *  already happened. */
 const ELAPSED_REFRESH_MS = 45_000;
 
 async function ensureWorkoutNotificationPermission(): Promise<void> {
@@ -31,21 +34,16 @@ async function ensureWorkoutNotificationPermission(): Promise<void> {
 }
 
 /**
- * "Resting Xm Ys" / "Ready ✓", or undefined when no rest timer has ever
- * started this workout. Computed fresh from `endsAt` each time the
- * notification is (re)built, the same live-derived approach the HUD's
- * RestTimer component uses — no separate "is resting" flag to go stale.
- *
- * First-iteration limitation, deliberately accepted to keep this small:
- * this only updates when the notification is rebuilt (a draft change, or
- * the existing ELAPSED_REFRESH_MS tick below), not every second, so the
- * "Ready ✓" transition can lag behind the HUD's by up to that tick while
- * the app is backgrounded.
+ * "Resting" / "Ready ✓", or undefined when no rest timer has ever started
+ * this workout. Deliberately doesn't include the remaining time itself —
+ * that's the native countdown chronometer's job now (see
+ * buildWorkoutNotificationPayload's `resting`/`restEndsAtMs`), which ticks
+ * accurately with no app code involved; this is just the label telling the
+ * user what that ticking number means.
  */
 export function restStatusLine(draft: ActiveWorkoutDraft): string | undefined {
   if (!draft.restTimer) return undefined;
-  const remaining = Math.max(0, Math.round((draft.restTimer.endsAt - Date.now()) / 1000));
-  return remaining > 0 ? `Resting: ${formatDuration(remaining)}` : "Ready ✓";
+  return draft.restTimer.endsAt > Date.now() ? "Resting" : "Ready ✓";
 }
 
 /**
@@ -60,15 +58,21 @@ export function restStatusLine(draft: ActiveWorkoutDraft): string | undefined {
  * big-text style shown once expanded, so the collapsed line stays short
  * while the expanded view gets the full breakdown.
  *
- * The elapsed-time figure is *not* rendered into either string while the
- * workout is running — `useChronometer`/`whenMs` tell the native side to
- * render it itself (setUsesChronometer/setWhen), ticking correctly even if
- * nothing here ever runs again for the rest of the workout. `whenMs` has to
+ * The chronometer does double duty rather than appearing as text: while
+ * running with no rest active it counts *up* from elapsedAnchorMs (workout
+ * elapsed time); while a rest timer is active it counts *down* to
+ * restEndsAtMs instead, and the native side separately schedules its own
+ * alert for the moment that countdown reaches zero, so it fires on time
+ * even if this function never runs again before it does (see
+ * WorkoutForegroundService.rescheduleRestEnd). Either way, nothing here
+ * renders a ticking number into body/largeBody — restStatusLine supplies
+ * only the label ("Resting"), never the figure. elapsedAnchorMs has to
  * stay consistent with getElapsedSec's formula: elapsedSec counts up from
- * `startedAt + totalPausedMs`, so that's exactly the anchor the chronometer
- * needs too. While paused there's nothing to keep ticking, so this falls
- * back to a plain formatted figure baked into largeBody instead, the same
- * way the old always-JS-rendered version worked.
+ * `startedAt + totalPausedMs`, so that's exactly the anchor the
+ * chronometer needs too. While paused there's nothing to keep ticking
+ * either way, so this falls back to a plain formatted figure baked into
+ * largeBody instead, the same way the old always-JS-rendered version
+ * worked.
  */
 export function buildWorkoutNotificationPayload(
   draft: ActiveWorkoutDraft,
@@ -79,8 +83,9 @@ export function buildWorkoutNotificationPayload(
   const roundedVolume = formatVolume(Math.round(totalVolume), getWeightUnit());
   // Suppressed while paused: restTimer.endsAt is only corrected on resume
   // (see resumeSession in workoutHelpers.ts), so left alone here it would
-  // keep visibly ticking down for a rest that isn't really happening.
+  // read as still counting down for a rest that isn't really happening.
   const restLine = paused ? undefined : restStatusLine(draft);
+  const resting = !paused && !!draft.restTimer && draft.restTimer.endsAt > Date.now();
 
   const title = paused ? "Workout paused" : draft.name || "Workout in progress";
   const bodyBase = currentExerciseName
@@ -104,8 +109,10 @@ export function buildWorkoutNotificationPayload(
     title,
     body,
     largeBody,
-    useChronometer: !paused,
-    whenMs: draft.startedAt + (draft.totalPausedMs ?? 0),
+    paused,
+    elapsedAnchorMs: draft.startedAt + (draft.totalPausedMs ?? 0),
+    resting,
+    restEndsAtMs: draft.restTimer?.endsAt ?? 0,
   };
 }
 

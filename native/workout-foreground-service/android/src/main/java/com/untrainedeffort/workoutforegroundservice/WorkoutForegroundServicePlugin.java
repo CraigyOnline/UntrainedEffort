@@ -57,16 +57,20 @@ public class WorkoutForegroundServicePlugin extends Plugin {
             String title = call.getString("title", "");
             String body = call.getString("body", "");
             String largeBody = call.getString("largeBody", "");
-            boolean useChronometer = Boolean.TRUE.equals(call.getBoolean("useChronometer", false));
-            long whenMs = call.getLong("whenMs", 0L);
+            boolean paused = Boolean.TRUE.equals(call.getBoolean("paused", false));
+            long elapsedAnchorMs = call.getLong("elapsedAnchorMs", 0L);
+            boolean resting = Boolean.TRUE.equals(call.getBoolean("resting", false));
+            long restEndsAtMs = call.getLong("restEndsAtMs", 0L);
 
             Context context = getContext();
             Intent intent = new Intent(context, WorkoutForegroundService.class);
             intent.putExtra("title", title);
             intent.putExtra("body", body);
             intent.putExtra("largeBody", largeBody);
-            intent.putExtra("useChronometer", useChronometer);
-            intent.putExtra("whenMs", whenMs);
+            intent.putExtra("paused", paused);
+            intent.putExtra("elapsedAnchorMs", elapsedAnchorMs);
+            intent.putExtra("resting", resting);
+            intent.putExtra("restEndsAtMs", restEndsAtMs);
 
             // Always startForegroundService, even for what's conceptually an
             // "update" to an already-showing notification: the service

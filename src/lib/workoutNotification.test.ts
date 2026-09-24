@@ -37,10 +37,10 @@ describe("restStatusLine", () => {
     expect(restStatusLine(makeDraft())).toBeUndefined();
   });
 
-  it("counts down while time remains", () => {
+  it("reads Resting (no figure - that's the chronometer's job) while time remains", () => {
     setNow(0);
     const draft = makeDraft({ restTimer: makeRestTimer(90_500) });
-    expect(restStatusLine(draft)).toBe("Resting: 1:31");
+    expect(restStatusLine(draft)).toBe("Resting");
   });
 
   it("reads Ready once the rest period has elapsed", () => {
@@ -51,11 +51,12 @@ describe("restStatusLine", () => {
 });
 
 describe("buildWorkoutNotificationPayload", () => {
-  it("uses the chronometer while running, anchored to startedAt + totalPausedMs", () => {
+  it("reports the elapsed anchor and not paused/resting while just running", () => {
     const draft = makeDraft({ startedAt: 10_000, totalPausedMs: 3_000 });
     const payload = buildWorkoutNotificationPayload(draft);
-    expect(payload.useChronometer).toBe(true);
-    expect(payload.whenMs).toBe(13_000);
+    expect(payload.paused).toBe(false);
+    expect(payload.resting).toBe(false);
+    expect(payload.elapsedAnchorMs).toBe(13_000);
   });
 
   it("never mentions an elapsed figure in the text while running - the chronometer owns that", () => {
@@ -64,10 +65,30 @@ describe("buildWorkoutNotificationPayload", () => {
     expect(payload.largeBody).not.toMatch(/Elapsed/);
   });
 
-  it("falls back to a static elapsed figure and switches off the chronometer while paused", () => {
+  it("reports resting with the correct restEndsAtMs while a rest timer is running", () => {
+    setNow(0);
+    const draft = makeDraft({ restTimer: makeRestTimer(45_000) });
+    const payload = buildWorkoutNotificationPayload(draft);
+    expect(payload.resting).toBe(true);
+    expect(payload.restEndsAtMs).toBe(45_000);
+    expect(payload.paused).toBe(false);
+  });
+
+  it("reports not resting once the rest period has naturally elapsed", () => {
+    setNow(100_000);
+    const draft = makeDraft({ restTimer: makeRestTimer(45_000) });
+    expect(buildWorkoutNotificationPayload(draft).resting).toBe(false);
+  });
+
+  it("reports not resting while paused, even with a rest timer present", () => {
+    const draft = makeDraft({ pausedAt: 0, restTimer: makeRestTimer(45_000) });
+    expect(buildWorkoutNotificationPayload(draft).resting).toBe(false);
+  });
+
+  it("falls back to a static elapsed figure and reports paused with no chronometer", () => {
     const draft = makeDraft({ startedAt: 0, pausedAt: 90_000, totalPausedMs: 0 });
     const payload = buildWorkoutNotificationPayload(draft);
-    expect(payload.useChronometer).toBe(false);
+    expect(payload.paused).toBe(true);
     expect(payload.title).toBe("Workout paused");
     expect(payload.largeBody).toContain("Paused · Elapsed: 1:30");
   });
@@ -97,7 +118,7 @@ describe("buildWorkoutNotificationPayload", () => {
     setNow(0);
     const restingDraft = makeDraft({ restTimer: makeRestTimer(30_500) });
     const payload = buildWorkoutNotificationPayload(restingDraft);
-    expect(payload.body).toContain("Resting: 0:31");
+    expect(payload.body).toContain("Resting");
 
     // Paused suppresses it, since endsAt isn't corrected for the pause and
     // would otherwise read as still counting down.

@@ -5,14 +5,26 @@ export interface WorkoutForegroundServicePayload {
   title: string;
   body: string;
   largeBody: string;
-  /** true = OS-rendered chronometer ticks the elapsed time; false = the
-   * caller has already baked a static elapsed figure into body/largeBody
-   * (used while the workout is paused). */
-  useChronometer: boolean;
-  /** Epoch ms anchor for the chronometer. Only meaningful when
-   * useChronometer is true - see getElapsedSec's formula in workoutStats.ts,
-   * which this must stay consistent with (whenMs = startedAt + totalPausedMs). */
-  whenMs: number;
+  /** True while the workout is paused — the native side shows no
+   * chronometer at all in this case, since body/largeBody already carry a
+   * static elapsed figure computed the same way the old always-JS-rendered
+   * version worked. */
+  paused: boolean;
+  /** Epoch ms anchor for the "counting up" elapsed-time chronometer, used
+   * whenever not paused and no rest timer is active. Must stay consistent
+   * with getElapsedSec's formula in workoutStats.ts:
+   * elapsedAnchorMs = startedAt + totalPausedMs. */
+  elapsedAnchorMs: number;
+  /** True while a rest timer is running and the workout isn't paused — the
+   * native side then counts the chronometer *down* to restEndsAtMs instead
+   * of up from elapsedAnchorMs, and separately schedules its own
+   * rest-complete alert for that same moment (see
+   * WorkoutForegroundService.rescheduleRestEnd), so the alert still fires
+   * on time even if nothing calls show() again before it does. */
+  resting: boolean;
+  /** Epoch ms the current rest period ends. Only meaningful when resting
+   * is true. */
+  restEndsAtMs: number;
 }
 
 export interface WorkoutForegroundServicePlugin {
