@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- See notification_rest_collapsed.xml for why this exists and why it has
+     no icon/app-name row of its own. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/notif_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        style="@style/TextAppearance.Compat.Notification.Title" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingTop="4dp"
+        android:paddingBottom="2dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Rest time remaining - "
+            style="@style/TextAppearance.Compat.Notification" />
+
+        <Chronometer
+            android:id="@+id/rest_chronometer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:countDown="true"
+            style="@style/TextAppearance.Compat.Notification" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/notif_exercise"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        style="@style/TextAppearance.Compat.Notification" />
+
+    <TextView
+        android:id="@+id/notif_sets"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        style="@style/TextAppearance.Compat.Notification" />
+
+    <TextView
+        android:id="@+id/notif_volume"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        style="@style/TextAppearance.Compat.Notification" />
+
+    <TextView
+        android:id="@+id/notif_tap_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tap to return to your workout."
+        style="@style/TextAppearance.Compat.Notification" />
+</LinearLayout>

@@ -107,11 +107,25 @@ describe("buildWorkoutNotificationPayload", () => {
     const payload = buildWorkoutNotificationPayload(draft);
     expect(payload.body).toContain("Bench Press");
     expect(payload.largeBody).toContain("Current exercise: Bench Press");
+    expect(payload.currentExerciseLine).toBe("Current exercise: Bench Press (Barbell)");
   });
 
-  it("omits the current-exercise line cleanly when nothing is in progress", () => {
+  it("omits the current-exercise line from largeBody, and reports an empty currentExerciseLine, when nothing is in progress", () => {
     const payload = buildWorkoutNotificationPayload(makeDraft({ exercises: [] }));
     expect(payload.largeBody).not.toMatch(/Current exercise/);
+    expect(payload.currentExerciseLine).toBe("");
+  });
+
+  it("reports setsLine/volumeLine matching the same figures used in largeBody", () => {
+    const draft = makeDraft({
+      exercises: makeExercises([
+        ["bench-press", [makeSet({ weight: 40, reps: 5, completed: true })]],
+      ]),
+    });
+    const payload = buildWorkoutNotificationPayload(draft);
+    expect(payload.setsLine).toBe("Sets: 1 / 1");
+    expect(payload.largeBody).toContain(payload.setsLine);
+    expect(payload.largeBody).toContain(payload.volumeLine);
   });
 
   it("folds an active rest status into the body only while running", () => {

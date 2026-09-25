@@ -55,8 +55,13 @@ export function restStatusLine(draft: ActiveWorkoutDraft): string | undefined {
  * from.
  *
  * `body` is the single-line collapsed form; `largeBody` is the Android
- * big-text style shown once expanded, so the collapsed line stays short
- * while the expanded view gets the full breakdown.
+ * big-text style shown once expanded — both used for the paused and
+ * plain-running states. While resting, the native side switches to a
+ * custom layout instead (so the countdown can sit right next to its own
+ * label while the elapsed-time chronometer stays visible up top, which a
+ * single BigTextStyle notification can't do at once), built from
+ * `currentExerciseLine`/`setsLine`/`volumeLine` rather than the pre-joined
+ * largeBody string.
  *
  * The chronometer does double duty rather than appearing as text: while
  * running with no rest active it counts *up* from elapsedAnchorMs (workout
@@ -64,10 +69,8 @@ export function restStatusLine(draft: ActiveWorkoutDraft): string | undefined {
  * restEndsAtMs instead, and the native side separately schedules its own
  * alert for the moment that countdown reaches zero, so it fires on time
  * even if this function never runs again before it does (see
- * WorkoutForegroundService.rescheduleRestEnd). Either way, nothing here
- * renders a ticking number into body/largeBody — restStatusLine supplies
- * only the label ("Resting"), never the figure. elapsedAnchorMs has to
- * stay consistent with getElapsedSec's formula: elapsedSec counts up from
+ * WorkoutForegroundService.rescheduleRestEnd). elapsedAnchorMs has to stay
+ * consistent with getElapsedSec's formula: elapsedSec counts up from
  * `startedAt + totalPausedMs`, so that's exactly the anchor the
  * chronometer needs too. While paused there's nothing to keep ticking
  * either way, so this falls back to a plain formatted figure baked into
@@ -93,13 +96,16 @@ export function buildWorkoutNotificationPayload(
     : `${totalSets}/${loggedSets} sets · ${roundedVolume}`;
   const body = restLine ? `${restLine} · ${bodyBase}` : bodyBase;
 
+  const setsLine = `Sets: ${totalSets} / ${loggedSets}`;
+  const volumeLine = `Volume: ${roundedVolume}`;
+
   const largeBody = [
     paused
       ? `Paused · Elapsed: ${formatDuration(getElapsedSec(draft.startedAt, draft.pausedAt, draft.totalPausedMs))}`
       : restLine,
     currentExerciseName ? `Current exercise: ${currentExerciseName}` : undefined,
-    `Sets: ${totalSets} / ${loggedSets}`,
-    `Volume: ${roundedVolume}`,
+    setsLine,
+    volumeLine,
     "Tap to return to your workout.",
   ]
     .filter((line): line is string => Boolean(line))
@@ -113,6 +119,11 @@ export function buildWorkoutNotificationPayload(
     elapsedAnchorMs: draft.startedAt + (draft.totalPausedMs ?? 0),
     resting,
     restEndsAtMs: draft.restTimer?.endsAt ?? 0,
+    // Only consumed natively while resting, to populate the custom
+    // countdown layout's individual rows — see this function's doc comment.
+    currentExerciseLine: currentExerciseName ? `Current exercise: ${currentExerciseName}` : "",
+    setsLine,
+    volumeLine,
   };
 }
 

@@ -25,6 +25,14 @@ export interface WorkoutForegroundServicePayload {
   /** Epoch ms the current rest period ends. Only meaningful when resting
    * is true. */
   restEndsAtMs: number;
+  /** "Current exercise: X", or "" when none — only consumed natively while
+   * resting, to populate the custom countdown layout's own row instead of
+   * parsing it back out of largeBody. */
+  currentExerciseLine: string;
+  /** "Sets: X / Y" — same reasoning as currentExerciseLine. */
+  setsLine: string;
+  /** "Volume: X" — same reasoning as currentExerciseLine. */
+  volumeLine: string;
 }
 
 export interface WorkoutForegroundServicePlugin {

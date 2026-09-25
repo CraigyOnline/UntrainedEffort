@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Used only while a rest timer is active and the workout isn't paused (see
+  WorkoutForegroundService.buildRestNotification). Every other state keeps
+  using the plain BigTextStyle notification - this custom view exists
+  solely to put a live countdown next to its own label, which the
+  notification's single built-in chronometer slot can't do at the same
+  time it's also showing elapsed time up top.
+
+  Deliberately has no icon/app-name row of its own: DecoratedCustomViewStyle
+  draws the standard header (icon, app name, the elapsed-time chronometer)
+  above this, so duplicating any of that here would show it twice.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/notif_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:singleLine="true"
+        android:ellipsize="end"
+        style="@style/TextAppearance.Compat.Notification.Title" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Rest time remaining - "
+            style="@style/TextAppearance.Compat.Notification" />
+
+        <Chronometer
+            android:id="@+id/rest_chronometer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:countDown="true"
+            style="@style/TextAppearance.Compat.Notification" />
+    </LinearLayout>
+</LinearLayout>

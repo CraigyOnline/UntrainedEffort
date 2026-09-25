@@ -61,6 +61,9 @@ public class WorkoutForegroundServicePlugin extends Plugin {
             long elapsedAnchorMs = call.getLong("elapsedAnchorMs", 0L);
             boolean resting = Boolean.TRUE.equals(call.getBoolean("resting", false));
             long restEndsAtMs = call.getLong("restEndsAtMs", 0L);
+            String currentExerciseLine = call.getString("currentExerciseLine", "");
+            String setsLine = call.getString("setsLine", "");
+            String volumeLine = call.getString("volumeLine", "");
 
             Context context = getContext();
             Intent intent = new Intent(context, WorkoutForegroundService.class);
@@ -71,6 +74,9 @@ public class WorkoutForegroundServicePlugin extends Plugin {
             intent.putExtra("elapsedAnchorMs", elapsedAnchorMs);
             intent.putExtra("resting", resting);
             intent.putExtra("restEndsAtMs", restEndsAtMs);
+            intent.putExtra("currentExerciseLine", currentExerciseLine);
+            intent.putExtra("setsLine", setsLine);
+            intent.putExtra("volumeLine", volumeLine);
 
             // Always startForegroundService, even for what's conceptually an
             // "update" to an already-showing notification: the service

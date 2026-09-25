@@ -11,6 +11,9 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
+import android.view.View;
+import android.widget.RemoteViews;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.ServiceCompat;
@@ -23,17 +26,27 @@ import java.util.Objects;
  * the app process - is protected from the background process reclaiming
  * that a plain WebView timer has no defence against.
  *
- * The single ticking figure a notification can show (setUsesChronometer)
- * does double duty depending on state: it counts *up* from workout start
- * normally, and counts *down* to the rest timer's end while a rest period
- * is active, switching back once it's over - either because show() is
- * called again with fresh state, or, if nothing calls in for a while,
- * because this service schedules that transition itself (see
- * rescheduleRestEnd/onRestEnded) and fires a separate, audible "rest
- * complete" alert at the same moment. That's the one piece of behavior
- * here that *isn't* purely reactive to show() calls - it exists
- * specifically so the rest-end alert still fires on time even if the JS
- * side doesn't get to run again before it does.
+ * A notification's built-in ticking figure (setUsesChronometer) is used
+ * for elapsed time exactly as before, counting *up* from workout start —
+ * and, unlike the previous version of this, it now stays in that slot even
+ * while resting, since Craig wants elapsed time visible up top at all
+ * times. The rest countdown gets its own separate, real Chronometer
+ * *widget* instead, embedded in a custom DecoratedCustomViewStyle layout
+ * (see buildRestNotification) alongside its own label, since a single
+ * notification only has the one built-in ticking slot and that slot is
+ * spoken for. The standard header - icon, app name, that elapsed
+ * chronometer, expand affordance - keeps rendering above the custom
+ * content exactly as it does in every other state; only the content below
+ * it changes.
+ *
+ * The switch back to the standard (non-custom) layout once rest ends
+ * happens either because show() is called again with fresh state, or, if
+ * nothing calls in for a while, because this service schedules that
+ * transition itself (see rescheduleRestEnd/onRestEnded) and fires a
+ * separate, audible "rest complete" alert at the same moment. That's the
+ * one piece of behavior here that *isn't* purely reactive to show() calls
+ * - it exists specifically so the rest-end alert still fires on time even
+ * if the JS side doesn't get to run again before it does.
  *
  * Everything else is effectively stateless: current* fields just hold the
  * latest content show() was given so postMainNotification() and the
@@ -72,6 +85,9 @@ public class WorkoutForegroundService extends Service {
     private String currentTitle = "";
     private String currentBody = "";
     private String currentLargeBody = "";
+    private String currentExerciseLine = "";
+    private String currentSetsLine = "";
+    private String currentVolumeLine = "";
     private boolean currentPaused = false;
     private long currentElapsedAnchorMs = System.currentTimeMillis();
 
@@ -97,6 +113,9 @@ public class WorkoutForegroundService extends Service {
         currentTitle = intent.getStringExtra("title");
         currentBody = intent.getStringExtra("body");
         currentLargeBody = intent.getStringExtra("largeBody");
+        currentExerciseLine = intent.getStringExtra("currentExerciseLine");
+        currentSetsLine = intent.getStringExtra("setsLine");
+        currentVolumeLine = intent.getStringExtra("volumeLine");
         currentPaused = intent.getBooleanExtra("paused", false);
         currentElapsedAnchorMs = intent.getLongExtra("elapsedAnchorMs", System.currentTimeMillis());
         boolean resting = intent.getBooleanExtra("resting", false);
@@ -160,7 +179,15 @@ public class WorkoutForegroundService extends Service {
 
     private void postMainNotification() {
         ensureMainChannel();
+        boolean resting = !currentPaused && currentRestEndsAtMs != null;
+        Notification notification = resting ? buildRestNotification() : buildStandardNotification();
+        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+    }
 
+    // Used whenever not resting - running normally (chronometer counting
+    // elapsed time up) or paused (no chronometer, a static figure already
+    // baked into currentLargeBody by workoutNotification.ts).
+    private Notification buildStandardNotification() {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(resolveSmallIcon())
             .setContentTitle(currentTitle)
@@ -184,13 +211,65 @@ public class WorkoutForegroundService extends Service {
 
         if (currentPaused) {
             builder.setUsesChronometer(false);
-        } else if (currentRestEndsAtMs != null) {
-            builder.setUsesChronometer(true).setChronometerCountDown(true).setWhen(currentRestEndsAtMs);
         } else {
             builder.setUsesChronometer(true).setChronometerCountDown(false).setWhen(currentElapsedAnchorMs);
         }
 
-        ServiceCompat.startForeground(this, NOTIFICATION_ID, builder.build(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+        return builder.build();
+    }
+
+    // Used while actively resting. A custom layout is the only way to show
+    // a live countdown with its own label alongside the elapsed-time
+    // chronometer, which Craig wants left visible up top rather than
+    // temporarily replaced by the countdown - a single notification only
+    // gets one built-in ticking slot (setUsesChronometer), so the
+    // countdown here is a real Chronometer *widget* embedded in a custom
+    // RemoteViews layout instead, with the elapsed chronometer left on the
+    // builder exactly as buildStandardNotification sets it.
+    //
+    // DecoratedCustomViewStyle draws the standard header (icon, app name,
+    // that elapsed chronometer, expand affordance) above whatever content
+    // view is supplied, so the layouts here only need the content below
+    // that header, not a reimplementation of it.
+    private Notification buildRestNotification() {
+        // Chronometer's own base is in SystemClock.elapsedRealtime() terms,
+        // not wall-clock time - converted here by carrying over the offset
+        // between currentRestEndsAtMs and now.
+        long restBaseElapsedRealtime =
+            SystemClock.elapsedRealtime() + (currentRestEndsAtMs - System.currentTimeMillis());
+
+        RemoteViews collapsed = new RemoteViews(getPackageName(), R.layout.notification_rest_collapsed);
+        collapsed.setTextViewText(R.id.notif_title, currentTitle);
+        collapsed.setChronometer(R.id.rest_chronometer, restBaseElapsedRealtime, null, true);
+
+        RemoteViews expanded = new RemoteViews(getPackageName(), R.layout.notification_rest_expanded);
+        expanded.setTextViewText(R.id.notif_title, currentTitle);
+        expanded.setChronometer(R.id.rest_chronometer, restBaseElapsedRealtime, null, true);
+        if (currentExerciseLine == null || currentExerciseLine.isEmpty()) {
+            expanded.setViewVisibility(R.id.notif_exercise, View.GONE);
+        } else {
+            expanded.setViewVisibility(R.id.notif_exercise, View.VISIBLE);
+            expanded.setTextViewText(R.id.notif_exercise, currentExerciseLine);
+        }
+        expanded.setTextViewText(R.id.notif_sets, currentSetsLine);
+        expanded.setTextViewText(R.id.notif_volume, currentVolumeLine);
+
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(resolveSmallIcon())
+            .setContentTitle(currentTitle)
+            .setContentText(currentBody)
+            .setStyle(new NotificationCompat.DecoratedCustomViewStyle())
+            .setCustomContentView(collapsed)
+            .setCustomBigContentView(expanded)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setOnlyAlertOnce(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setContentIntent(buildContentIntent())
+            .setUsesChronometer(true)
+            .setChronometerCountDown(false)
+            .setWhen(currentElapsedAnchorMs)
+            .build();
     }
 
     // A separate, dismissable, audible alert - distinct from the silent
