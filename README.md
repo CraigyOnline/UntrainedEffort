@@ -103,7 +103,6 @@ Built with an emphasis on speed, ownership of your data, and a polished workout 
 - Optional cloud sync
 - Wear OS support
 - Progress photos & body measurements
-- Nutrition tracking
 
 ---
 
