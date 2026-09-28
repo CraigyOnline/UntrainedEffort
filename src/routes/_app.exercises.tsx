@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { ArrowLeft, Dumbbell, HeartPulse, Search, Timer } from "lucide-react";
+import { ArrowLeft, Dumbbell, HeartPulse, Plus, Search, Timer } from "lucide-react";
 import { getDb, type Workout } from "@/lib/db";
-import { EXERCISES, matchesExerciseQuery } from "@/lib/exercises";
+import { matchesExerciseQuery } from "@/lib/exercises";
+import { useAllExercises, isCustomExercise } from "@/lib/customExercises";
 import { computeLastTrainedAt } from "@/lib/exerciseProgress";
 import { formatRelativeDate } from "@/lib/format";
 import { formatMuscleGroup } from "@/lib/muscles";
@@ -45,7 +46,8 @@ function ExercisesListPage() {
 
   const lastTrainedAt = useMemo(() => computeLastTrainedAt(workouts ?? []), [workouts]);
 
-  const filtered = EXERCISES.filter((e) => {
+  const allExercises = useAllExercises();
+  const filtered = allExercises.filter((e) => {
     if (!matchesExerciseQuery(e, q)) return false;
     if (filter === "cardio") return Boolean(e.cardio) && !e.interval;
     if (filter === "interval") return Boolean(e.interval);
@@ -66,10 +68,13 @@ function ExercisesListPage() {
         <button onClick={() => router.history.back()} className="p-1">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-bold">Exercises</h1>
           <p className="text-xs text-muted-foreground">Browse every exercise and its progress</p>
         </div>
+        <Link to="/exercises/new" className="p-1" aria-label="Add custom exercise">
+          <Plus className="h-5 w-5" />
+        </Link>
       </header>
 
       <div className="relative">
@@ -118,7 +123,14 @@ function ExercisesListPage() {
               }`}
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{e.name}</p>
+                <p className="truncate text-sm font-medium">
+                  {e.name}
+                  {isCustomExercise(e) && (
+                    <span className="ml-1.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground align-middle">
+                      Custom
+                    </span>
+                  )}
+                </p>
                 <p className="text-xs text-muted-foreground">{formatMuscleGroup(e.muscle)}</p>
               </div>
               <span className="shrink-0 pl-3 text-xs text-muted-foreground">

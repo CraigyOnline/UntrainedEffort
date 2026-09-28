@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { X, Check, Dumbbell, HeartPulse, Timer } from "lucide-react";
-import { EXERCISES, matchesExerciseQuery, type MuscleGroup, type Equipment } from "@/lib/exercises";
+import {
+  matchesExerciseQuery,
+  type ExerciseDef,
+  type MuscleGroup,
+  type Equipment,
+} from "@/lib/exercises";
+import { useAllExercises, isCustomExercise } from "@/lib/customExercises";
 import { formatMuscleGroup } from "@/lib/muscles";
 import { ExerciseFormViewer } from "@/components/ExerciseFormViewer";
 import { BOTTOM_NAV_HEIGHT } from "@/components/BottomTabs";
@@ -90,7 +96,8 @@ export function ExercisePicker({
   // rather than left visible and silently unable to match anything.
   const showBodyFacets = category === "all" || category === "strength";
 
-  const filtered = EXERCISES.filter((e) => {
+  const allExercises = useAllExercises();
+  const filtered = allExercises.filter((e) => {
     const matchesQ = matchesExerciseQuery(e, q);
     const matchesMuscle = muscle === null || e.muscle === muscle;
     const matchesEquipment = equipment === null || e.equipment === equipment;
@@ -287,7 +294,7 @@ function ExerciseRow({
   added,
   onPick,
 }: {
-  exercise: (typeof EXERCISES)[number];
+  exercise: ExerciseDef;
   added: boolean;
   onPick: (id: string) => void;
 }) {
@@ -307,7 +314,14 @@ function ExerciseRow({
       }`}
     >
       <div className="min-w-0">
-        <p className="font-medium text-sm truncate">{exercise.name}</p>
+        <p className="font-medium text-sm truncate">
+          {exercise.name}
+          {isCustomExercise(exercise) && (
+            <span className="ml-1.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground align-middle">
+              Custom
+            </span>
+          )}
+        </p>
         <p className="text-xs text-muted-foreground">{exercise.muscle}</p>
       </div>
       <div className="flex shrink-0 items-center gap-1">

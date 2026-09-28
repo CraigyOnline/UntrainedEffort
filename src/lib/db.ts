@@ -1,6 +1,7 @@
 import Dexie, { type Table } from "dexie";
 import type { IntervalConfig, SetSide } from "@/lib/exercises";
 import type { ProgressionSuggestion } from "@/lib/progressionSuggestions";
+import type { CustomExerciseDef } from "@/lib/customExercisesStore";
 
 /**
  * ROUTINES
@@ -383,6 +384,7 @@ export class AppDB extends Dexie {
   prHistory!: Table<PRRecord, number>;
   activeWorkout!: Table<ActiveWorkoutDraft, number>;
   exerciseSettings!: Table<ExerciseSettings, string>;
+  customExercises!: Table<CustomExerciseDef, string>;
 
   constructor() {
     super("untrained-effort-db");
@@ -402,6 +404,15 @@ export class AppDB extends Dexie {
     // there's naturally at most one settings row per exercise.
     this.version(3).stores({
       exerciseSettings: "exerciseId",
+    });
+
+    // id is the same self-assigned string id an ExerciseDef always has
+    // (see createCustomExercise in customExercises.ts) — not auto-
+    // incrementing, matching exerciseSettings' reasoning above. createdAt
+    // is indexed for a possible future "newest first" ordering; nothing
+    // reads it that way yet.
+    this.version(4).stores({
+      customExercises: "id, createdAt",
     });
   }
 }

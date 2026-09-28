@@ -18,6 +18,7 @@ import { Route as AppOverviewRouteImport } from './routes/_app.overview'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppWorkoutRouteImport } from './routes/_app.workout'
 import { Route as AppExerciseIdRouteImport } from './routes/_app.exercise.$id'
+import { Route as AppExercisesNewRouteImport } from './routes/_app.exercises_.new'
 import { Route as AppHistoryIndexRouteImport } from './routes/_app.history.index'
 import { Route as AppHistoryIdRouteImport } from './routes/_app.history.$id'
 import { Route as AppHistoryInsightsRouteImport } from './routes/_app.history.insights'
@@ -70,6 +71,11 @@ const AppExerciseIdRoute = AppExerciseIdRouteImport.update({
   path: '/exercise/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppExercisesNewRoute = AppExercisesNewRouteImport.update({
+  id: '/exercises_/new',
+  path: '/exercises/new',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppHistoryIndexRoute = AppHistoryIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRoute
   '/workout': typeof AppWorkoutRoute
   '/exercise/$id': typeof AppExerciseIdRoute
+  '/exercises/new': typeof AppExercisesNewRoute
   '/history/$id': typeof AppHistoryIdRoute
   '/history/insights': typeof AppHistoryInsightsRoute
   '/history/timeline': typeof AppHistoryTimelineRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsRoute
   '/workout': typeof AppWorkoutRoute
   '/exercise/$id': typeof AppExerciseIdRoute
+  '/exercises/new': typeof AppExercisesNewRoute
   '/history/$id': typeof AppHistoryIdRoute
   '/history/insights': typeof AppHistoryInsightsRoute
   '/history/timeline': typeof AppHistoryTimelineRoute
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRoute
   '/_app/workout': typeof AppWorkoutRoute
   '/_app/exercise/$id': typeof AppExerciseIdRoute
+  '/_app/exercises_/new': typeof AppExercisesNewRoute
   '/_app/history/$id': typeof AppHistoryIdRoute
   '/_app/history/insights': typeof AppHistoryInsightsRoute
   '/_app/history/timeline': typeof AppHistoryTimelineRoute
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/workout'
     | '/exercise/$id'
+    | '/exercises/new'
     | '/history/$id'
     | '/history/insights'
     | '/history/timeline'
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/workout'
     | '/exercise/$id'
+    | '/exercises/new'
     | '/history/$id'
     | '/history/insights'
     | '/history/timeline'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/workout'
     | '/_app/exercise/$id'
+    | '/_app/exercises_/new'
     | '/_app/history/$id'
     | '/_app/history/insights'
     | '/_app/history/timeline'
@@ -284,6 +296,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppExerciseIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/exercises_/new': {
+      id: '/_app/exercises_/new'
+      path: '/exercises/new'
+      fullPath: '/exercises/new'
+      preLoaderRoute: typeof AppExercisesNewRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/history/': {
       id: '/_app/history/'
       path: '/'
@@ -361,6 +380,7 @@ interface AppRouteChildren {
   AppSettingsRoute: typeof AppSettingsRoute
   AppWorkoutRoute: typeof AppWorkoutRoute
   AppExerciseIdRoute: typeof AppExerciseIdRoute
+  AppExercisesNewRoute: typeof AppExercisesNewRoute
   AppSettingsDatabaseRoute: typeof AppSettingsDatabaseRoute
   AppSettingsRestTimesRoute: typeof AppSettingsRestTimesRoute
   AppSettingsRestTimesExerciseIdRoute: typeof AppSettingsRestTimesExerciseIdRoute
@@ -373,6 +393,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsRoute: AppSettingsRoute,
   AppWorkoutRoute: AppWorkoutRoute,
   AppExerciseIdRoute: AppExerciseIdRoute,
+  AppExercisesNewRoute: AppExercisesNewRoute,
   AppSettingsDatabaseRoute: AppSettingsDatabaseRoute,
   AppSettingsRestTimesRoute: AppSettingsRestTimesRoute,
   AppSettingsRestTimesExerciseIdRoute: AppSettingsRestTimesExerciseIdRoute,

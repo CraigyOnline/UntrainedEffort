@@ -1,4 +1,4 @@
-import { EXERCISES, matchesExerciseQuery, type ExerciseDef } from "@/lib/exercises";
+import { EXERCISES, getExercise, matchesExerciseQuery, type ExerciseDef } from "@/lib/exercises";
 import type { Workout } from "@/lib/db";
 
 /**
@@ -39,7 +39,11 @@ function matchesQuery(workout: Workout, query: string): boolean {
   if (workout.name.toLowerCase().includes(q)) return true;
 
   return workout.exercises.some((e) => {
-    const def = EXERCISE_BY_ID.get(e.exerciseId);
+    // Map lookup covers the built-in catalog in O(1); a miss falls back to
+    // getExercise, which also checks custom exercises (see
+    // customExercisesStore.ts) — a plain EXERCISES.find() scoped to just
+    // the rare custom-exercise case, not the common one.
+    const def = EXERCISE_BY_ID.get(e.exerciseId) ?? getExercise(e.exerciseId);
     return def != null && matchesExerciseQuery(def, query);
   });
 }

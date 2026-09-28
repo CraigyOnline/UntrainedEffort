@@ -1,5 +1,6 @@
 import { formatDuration } from "@/lib/format";
 import { formatWeight, getDistanceSystem, getWeightUnit, kmToMi } from "@/lib/units";
+import { getCustomExercisesSnapshot } from "@/lib/customExercisesStore";
 
 export type MuscleGroup =
   | "Chest"
@@ -849,7 +850,21 @@ export const MUSCLE_GROUPS: MuscleGroup[] = [
 ];
 
 export function getExercise(id: string): ExerciseDef | undefined {
-  return EXERCISES.find((e) => e.id === id);
+  return (
+    EXERCISES.find((e) => e.id === id) ?? getCustomExercisesSnapshot().find((e) => e.id === id)
+  );
+}
+
+/** EXERCISES plus every custom exercise — the full catalog to browse,
+ *  filter, or search wherever the UI should show custom exercises
+ *  alongside the built-in ones (Exercise Library, ExercisePicker, Exercise
+ *  Rest Times). A plain synchronous read, same shape as EXERCISES itself;
+ *  see useAllExercises in customExercises.ts for a reactive version that
+ *  re-renders when a custom exercise is added. getExercise above doesn't
+ *  need this — it already checks both on its own. */
+export function getAllExercises(): ExerciseDef[] {
+  const custom = getCustomExercisesSnapshot();
+  return custom.length === 0 ? EXERCISES : [...EXERCISES, ...custom];
 }
 
 /** True if a free-text query matches this exercise's canonical name or any

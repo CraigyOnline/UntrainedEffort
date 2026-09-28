@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { ArrowLeft, Search } from "lucide-react";
-import { EXERCISES, getRestDurationSec, matchesExerciseQuery } from "@/lib/exercises";
+import { getRestDurationSec, matchesExerciseQuery } from "@/lib/exercises";
+import { useAllExercises } from "@/lib/customExercises";
 import { getAllExerciseSettings } from "@/lib/exerciseSettings";
 import { formatTime } from "@/lib/format";
 import { formatMuscleGroup } from "@/lib/muscles";
@@ -20,16 +21,22 @@ export const Route = createFileRoute("/_app/settings_/rest-times")({
   component: RestTimesListPage,
 });
 
-// Only exercises that can ever get an automatic rest timer belong here —
-// cardio and interval exercises are exempted entirely (see
-// getRestDurationSec in exercises.ts), so an override for one of them
-// would have nothing to apply to. Computed once at module load since the
-// catalog itself is static.
-const OVERRIDABLE_EXERCISES = EXERCISES.filter((e) => getRestDurationSec(e) !== undefined);
-
 function RestTimesListPage() {
   const navigate = useNavigate();
   const [q, setQ] = useState("");
+
+  // Only exercises that can ever get an automatic rest timer belong here —
+  // cardio and interval exercises are exempted entirely (see
+  // getRestDurationSec in exercises.ts), so an override for one of them
+  // would have nothing to apply to. Memoized off the reactive merged list
+  // (built-in catalog plus custom exercises) rather than computed once at
+  // module load, since custom exercises can be added after this page's
+  // module first loads.
+  const allExercises = useAllExercises();
+  const overridableExercises = useMemo(
+    () => allExercises.filter((e) => getRestDurationSec(e) !== undefined),
+    [allExercises],
+  );
 
   // Only reads restDurationSec per exercise — matches the badge this list
   // shows, not the editor's own load (that's a fresh getExerciseSettings
@@ -42,7 +49,7 @@ function RestTimesListPage() {
       .map((s) => [s.exerciseId, s.restDurationSec as number]),
   );
 
-  const filtered = OVERRIDABLE_EXERCISES.filter((e) => matchesExerciseQuery(e, q));
+  const filtered = overridableExercises.filter((e) => matchesExerciseQuery(e, q));
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-6 pb-8">
@@ -74,7 +81,7 @@ function RestTimesListPage() {
         )}
         {filtered.map((e, i) => {
           const overrideSec = overrideByExerciseId.get(e.id);
-          // Non-null: every exercise in OVERRIDABLE_EXERCISES has a defined
+          // Non-null: every exercise in overridableExercises has a defined
           // duration by construction (that's exactly what filtered it in).
           const smartDefaultSec = getRestDurationSec(e) as number;
           return (
