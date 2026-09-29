@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { EXERCISES, type ExerciseDef, type MuscleGroup, type Equipment } from "@/lib/exercises";
 import {
   type CustomExerciseDef,
+  getCustomExercisesSnapshot,
   setCustomExercisesSnapshot,
   useCustomExercises,
 } from "@/lib/customExercisesStore";
@@ -149,5 +150,13 @@ export async function createCustomExercise(
   }
 
   await getDb().customExercises.add(def);
+
+  // CustomExercisesLoader's live query will pick this up too, a tick
+  // later — but a caller that adds this id to a routine/workout
+  // immediately after creating it (see ExercisePicker's inline creation
+  // flow) needs getExercise/useAllExercises to already know about it the
+  // instant this promise resolves, not after Dexie's change event fires.
+  setCustomExercisesSnapshot([...getCustomExercisesSnapshot(), def]);
+
   return def;
 }

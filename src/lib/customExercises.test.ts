@@ -92,6 +92,20 @@ describe("createCustomExercise", () => {
     const row = await getDb().customExercises.get(def.id);
     expect(row?.name).toBe("Chest Fly Machine Variant");
   });
+
+  it("makes the new exercise findable via getExercise as soon as it resolves, without waiting for CustomExercisesLoader's live query", async () => {
+    // This is the bug the inline creation flow in ExercisePicker would hit
+    // otherwise: it calls onPick(def.id) right after createCustomExercise
+    // resolves, and onPick's callers (RoutineEditor etc.) call getExercise
+    // synchronously — there's no later tick in which a live-query update
+    // could still land in time.
+    const def = await createCustomExercise({
+      name: "Reverse Nordic Curl",
+      trackingType: "bodyweight",
+      muscle: "Quads",
+    });
+    expect(getExercise(def.id)).toEqual(def);
+  });
 });
 
 describe("getExercise / getAllExercises with custom exercises loaded", () => {

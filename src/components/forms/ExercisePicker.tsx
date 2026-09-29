@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Check, Dumbbell, HeartPulse, Timer } from "lucide-react";
+import { X, Check, ArrowLeft, Dumbbell, HeartPulse, Plus, Timer } from "lucide-react";
 import {
   matchesExerciseQuery,
   type ExerciseDef,
@@ -9,6 +9,7 @@ import {
 import { useAllExercises, isCustomExercise } from "@/lib/customExercises";
 import { formatMuscleGroup } from "@/lib/muscles";
 import { ExerciseFormViewer } from "@/components/ExerciseFormViewer";
+import { CustomExerciseForm } from "@/components/forms/CustomExerciseForm";
 import { BOTTOM_NAV_HEIGHT } from "@/components/BottomTabs";
 import { useDismissOnBack } from "@/lib/backHandler";
 
@@ -86,10 +87,19 @@ export function ExercisePicker({
   const [muscle, setMuscle] = useState<MuscleGroup | null>(null);
   const [equipment, setEquipment] = useState<Equipment | null>(null);
   const [category, setCategory] = useState<Category>("all");
+  // Non-null while the "create a custom exercise" form is showing in place
+  // of the search/filter/list body below — holds the name to prefill it
+  // with (from the search box, via the header + or the empty-results
+  // shortcut; either can be ""). Cancelling clears this and returns to the
+  // picker with q/muscle/equipment/category untouched.
+  const [creating, setCreating] = useState<string | null>(null);
 
   // ExercisePicker is a full-screen overlay, not a route — without this,
   // Android back would fall through to route history instead of closing it.
   useDismissOnBack(true, onClose);
+  // Registered after the one above, so it's the topmost entry (and so the
+  // one that closes first) for exactly as long as the form is showing.
+  useDismissOnBack(creating !== null, () => setCreating(null));
 
   // Muscle/equipment only apply within Strength — every cardio/interval
   // exercise shares one placeholder value for each, so the rows are hidden
@@ -145,127 +155,179 @@ export function ExercisePicker({
       style={{ bottom: `${BOTTOM_NAV_HEIGHT}px` }}
     >
       <div className="flex w-full max-w-md flex-col h-full">
-        <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-          <button onClick={onClose} className="p-2 -ml-2">
-            <X className="h-5 w-5" />
-          </button>
-          <input
-            autoFocus
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setMuscle(null);
-              setEquipment(null);
-            }}
-            placeholder="Search exercises…"
-            className="flex-1 rounded-lg bg-card px-3 py-2 text-sm outline-none"
-          />
-        </header>
-
-        <div
-          className={`flex gap-2 overflow-x-auto px-4 pt-2 pb-2 scrollbar-none ${
-            showBodyFacets ? "" : "border-b border-border"
-          }`}
-        >
-          {CATEGORY_FILTERS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => {
-                setCategory(id);
-                if (id === "cardio" || id === "interval") {
-                  setMuscle(null);
-                  setEquipment(null);
-                }
-              }}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                category === id
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground active:bg-secondary/70"
-              }`}
-            >
-              {Icon && <Icon className="h-3.5 w-3.5" />}
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {showBodyFacets && (
+        {creating !== null ? (
           <>
-            <div className="flex gap-2 overflow-x-auto px-4 pt-2 scrollbar-none">
-              <button
-                onClick={() => setMuscle(null)}
-                className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                  muscle === null
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground"
-                }`}
-              >
-                All Muscles
+            <header className="flex items-center gap-3 border-b border-border px-4 py-3">
+              <button onClick={() => setCreating(null)} className="p-1">
+                <ArrowLeft className="h-5 w-5" />
               </button>
-              {MUSCLE_GROUPS.map((mg) => (
-                <button
-                  key={mg}
-                  onClick={() => {
-                    setMuscle(mg === muscle ? null : mg);
-                    setQ("");
-                  }}
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                    muscle === mg
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-muted-foreground"
-                  }`}
-                >
-                  {formatMuscleGroup(mg)}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex gap-2 overflow-x-auto px-4 py-2 border-b border-border scrollbar-none">
-              <button
-                onClick={() => setEquipment(null)}
-                className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                  equipment === null
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground"
-                }`}
-              >
-                All Equipment
-              </button>
-              {EQUIPMENT_GROUPS.map((eq) => (
-                <button
-                  key={eq}
-                  onClick={() => {
-                    setEquipment(eq === equipment ? null : eq);
-                    setQ("");
-                  }}
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                    equipment === eq
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-muted-foreground"
-                  }`}
-                >
-                  {eq}
-                </button>
-              ))}
+              <div className="min-w-0">
+                <h2 className="truncate text-base font-bold">New Exercise</h2>
+                <p className="text-xs text-muted-foreground">
+                  Added straight to this list once created
+                </p>
+              </div>
+            </header>
+            <div className="flex-1 overflow-y-auto">
+              <CustomExerciseForm
+                initialName={creating}
+                showEntryPointHint
+                onCreated={(def) => {
+                  setCreating(null);
+                  onPick(def.id);
+                }}
+              />
             </div>
           </>
-        )}
+        ) : (
+          <>
+            <header className="flex items-center gap-2 border-b border-border px-4 py-3">
+              <button onClick={onClose} className="p-2 -ml-2">
+                <X className="h-5 w-5" />
+              </button>
+              <input
+                autoFocus
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setMuscle(null);
+                  setEquipment(null);
+                }}
+                placeholder="Search exercises…"
+                className="flex-1 rounded-lg bg-card px-3 py-2 text-sm outline-none"
+              />
+              <button
+                onClick={() => setCreating(q.trim())}
+                className="p-2 -mr-2"
+                aria-label="Create custom exercise"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            </header>
 
-        <div className="flex-1 overflow-y-auto">
-          {filtered.length === 0 && (
-            <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-              No exercises found
-            </p>
-          )}
+            <div
+              className={`flex gap-2 overflow-x-auto px-4 pt-2 pb-2 scrollbar-none ${
+                showBodyFacets ? "" : "border-b border-border"
+              }`}
+            >
+              {CATEGORY_FILTERS.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    setCategory(id);
+                    if (id === "cardio" || id === "interval") {
+                      setMuscle(null);
+                      setEquipment(null);
+                    }
+                  }}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                    category === id
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground active:bg-secondary/70"
+                  }`}
+                >
+                  {Icon && <Icon className="h-3.5 w-3.5" />}
+                  {label}
+                </button>
+              ))}
+            </div>
 
-          {showGrouped
-            ? groups.map(({ label, exercises: exs }) => (
-                <div key={label}>
-                  <p className="px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground bg-background sticky top-0">
-                    {formatMuscleGroup(label)}
-                  </p>
-                  {exs.map((e) => (
+            {showBodyFacets && (
+              <>
+                <div className="flex gap-2 overflow-x-auto px-4 pt-2 scrollbar-none">
+                  <button
+                    onClick={() => setMuscle(null)}
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                      muscle === null
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-muted-foreground"
+                    }`}
+                  >
+                    All Muscles
+                  </button>
+                  {MUSCLE_GROUPS.map((mg) => (
+                    <button
+                      key={mg}
+                      onClick={() => {
+                        setMuscle(mg === muscle ? null : mg);
+                        setQ("");
+                      }}
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                        muscle === mg
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-muted-foreground"
+                      }`}
+                    >
+                      {formatMuscleGroup(mg)}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex gap-2 overflow-x-auto px-4 py-2 border-b border-border scrollbar-none">
+                  <button
+                    onClick={() => setEquipment(null)}
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                      equipment === null
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-muted-foreground"
+                    }`}
+                  >
+                    All Equipment
+                  </button>
+                  {EQUIPMENT_GROUPS.map((eq) => (
+                    <button
+                      key={eq}
+                      onClick={() => {
+                        setEquipment(eq === equipment ? null : eq);
+                        setQ("");
+                      }}
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                        equipment === eq
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-muted-foreground"
+                      }`}
+                    >
+                      {eq}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <div className="flex-1 overflow-y-auto">
+              {filtered.length === 0 && (
+                <div className="px-4 py-8 text-center">
+                  <p className="text-sm text-muted-foreground">No exercises found</p>
+                  {q.trim() !== "" && (
+                    <button
+                      type="button"
+                      onClick={() => setCreating(q.trim())}
+                      className="mt-3 text-sm font-medium text-primary active:opacity-70"
+                    >
+                      Create "{q.trim()}"
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {showGrouped
+                ? groups.map(({ label, exercises: exs }) => (
+                    <div key={label}>
+                      <p className="px-4 py-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground bg-background sticky top-0">
+                        {formatMuscleGroup(label)}
+                      </p>
+                      {exs.map((e) => (
+                        <ExerciseRow
+                          key={e.id}
+                          exercise={e}
+                          added={addedIds?.has(e.id) ?? false}
+                          onPick={onPick}
+                        />
+                      ))}
+                    </div>
+                  ))
+                : filtered.map((e) => (
                     <ExerciseRow
                       key={e.id}
                       exercise={e}
@@ -273,17 +335,9 @@ export function ExercisePicker({
                       onPick={onPick}
                     />
                   ))}
-                </div>
-              ))
-            : filtered.map((e) => (
-                <ExerciseRow
-                  key={e.id}
-                  exercise={e}
-                  added={addedIds?.has(e.id) ?? false}
-                  onPick={onPick}
-                />
-              ))}
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
