@@ -9,6 +9,7 @@ function validPayload() {
     workouts: [],
     prHistory: [],
     exerciseSettings: [],
+    customExercises: [],
   };
 }
 
@@ -24,6 +25,15 @@ describe("isBackupPayload", () => {
 
   it("rejects a payload where exerciseSettings is present but not an array", () => {
     expect(isBackupPayload({ ...validPayload(), exerciseSettings: "nope" })).toBe(false);
+  });
+
+  it("accepts a payload with customExercises omitted (pre-field backups)", () => {
+    const { customExercises: _customExercises, ...rest } = validPayload();
+    expect(isBackupPayload(rest)).toBe(true);
+  });
+
+  it("rejects a payload where customExercises is present but not an array", () => {
+    expect(isBackupPayload({ ...validPayload(), customExercises: "nope" })).toBe(false);
   });
 
   it("rejects a payload missing a required array field", () => {

@@ -172,7 +172,7 @@ export function ExercisePicker({
               <CustomExerciseForm
                 initialName={creating}
                 showEntryPointHint
-                onCreated={(def) => {
+                onSaved={(def) => {
                   setCreating(null);
                   onPick(def.id);
                 }}

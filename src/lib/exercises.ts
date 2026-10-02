@@ -855,15 +855,23 @@ export function getExercise(id: string): ExerciseDef | undefined {
   );
 }
 
-/** EXERCISES plus every custom exercise — the full catalog to browse,
+/** EXERCISES plus every custom exercise, reactively — the list to browse,
  *  filter, or search wherever the UI should show custom exercises
  *  alongside the built-in ones (Exercise Library, ExercisePicker, Exercise
  *  Rest Times). A plain synchronous read, same shape as EXERCISES itself;
  *  see useAllExercises in customExercises.ts for a reactive version that
  *  re-renders when a custom exercise is added. getExercise above doesn't
- *  need this — it already checks both on its own. */
-export function getAllExercises(): ExerciseDef[] {
-  const custom = getCustomExercisesSnapshot();
+ *  need this — it already checks both on its own, archived or not.
+ *
+ *  Archived (soft-deleted — see archiveCustomExercise in customExercises.ts)
+ *  custom exercises are left out by default, matching every current caller
+ *  except the Exercise Library page, which still shows them since their
+ *  logged history and progress are still real and worth being able to see;
+ *  pass includeArchived to get them back. */
+export function getAllExercises(options?: { includeArchived?: boolean }): ExerciseDef[] {
+  const custom = options?.includeArchived
+    ? getCustomExercisesSnapshot()
+    : getCustomExercisesSnapshot().filter((e) => e.archivedAt === undefined);
   return custom.length === 0 ? EXERCISES : [...EXERCISES, ...custom];
 }
 

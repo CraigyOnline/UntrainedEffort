@@ -2,7 +2,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { getDb } from "@/lib/db";
 import { getExercise, getAllExercises, getExerciseLoggingSchema } from "@/lib/exercises";
-import { createCustomExercise, isCustomExercise } from "@/lib/customExercises";
+import {
+  createCustomExercise,
+  updateCustomExercise,
+  archiveCustomExercise,
+  trackingTypeOf,
+  isCustomExercise,
+  isArchivedExercise,
+} from "@/lib/customExercises";
 import { getCustomExercisesSnapshot, setCustomExercisesSnapshot } from "@/lib/customExercisesStore";
 
 beforeEach(async () => {
@@ -105,6 +112,147 @@ describe("createCustomExercise", () => {
       muscle: "Quads",
     });
     expect(getExercise(def.id)).toEqual(def);
+  });
+});
+
+describe("updateCustomExercise", () => {
+  it("updates name, equipment, and muscle, keeping id and createdAt", async () => {
+    const created = await createCustomExercise({
+      name: "Old Name",
+      trackingType: "weighted",
+      equipment: "Barbell",
+      muscle: "Chest",
+    });
+    const updated = await updateCustomExercise(created.id, {
+      name: "New Name",
+      equipment: "Dumbbell",
+      muscle: "Shoulders",
+    });
+    expect(updated.name).toBe("New Name");
+    expect(updated.equipment).toBe("Dumbbell");
+    expect(updated.muscle).toBe("Shoulders");
+    expect(updated.id).toBe(created.id);
+    expect(updated.createdAt).toBe(created.createdAt);
+  });
+
+  it("keeps the tracking type's flags fixed regardless of equipment/muscle passed in", async () => {
+    const created = await createCustomExercise({
+      name: "Plank Variant",
+      trackingType: "timed",
+      muscle: "Abs",
+    });
+    const updated = await updateCustomExercise(created.id, {
+      name: "Plank Variant 2",
+      equipment: "Barbell",
+      muscle: "Chest",
+    });
+    expect(updated.time).toBe(true);
+    expect(updated.equipment).toBe("Bodyweight");
+  });
+
+  it("persists the change to Dexie and makes it visible via getExercise", async () => {
+    const created = await createCustomExercise({
+      name: "Row Variant",
+      trackingType: "weighted",
+      equipment: "Cable",
+      muscle: "Lats",
+    });
+    await updateCustomExercise(created.id, { name: "Row Variant Updated" });
+    const row = await getDb().customExercises.get(created.id);
+    expect(row?.name).toBe("Row Variant Updated");
+    expect(getExercise(created.id)?.name).toBe("Row Variant Updated");
+  });
+
+  it("rejects an empty name", async () => {
+    const created = await createCustomExercise({
+      name: "Something",
+      trackingType: "weighted",
+      equipment: "Barbell",
+      muscle: "Chest",
+    });
+    await expect(updateCustomExercise(created.id, { name: "   " })).rejects.toThrow();
+  });
+
+  it("rejects an id that doesn't exist", async () => {
+    await expect(updateCustomExercise("not-a-real-id", { name: "X" })).rejects.toThrow();
+  });
+});
+
+describe("archiveCustomExercise", () => {
+  it("sets archivedAt without removing the row", async () => {
+    const created = await createCustomExercise({
+      name: "To Delete",
+      trackingType: "weighted",
+      equipment: "Barbell",
+      muscle: "Chest",
+    });
+    await archiveCustomExercise(created.id);
+    const row = await getDb().customExercises.get(created.id);
+    expect(typeof row?.archivedAt).toBe("number");
+  });
+
+  it("keeps the exercise findable via getExercise after archiving", async () => {
+    const created = await createCustomExercise({
+      name: "Archived But Findable",
+      trackingType: "weighted",
+      equipment: "Barbell",
+      muscle: "Chest",
+    });
+    await archiveCustomExercise(created.id);
+    expect(getExercise(created.id)?.name).toBe("Archived But Findable");
+  });
+
+  it("is excluded from getAllExercises by default but included with includeArchived", async () => {
+    const created = await createCustomExercise({
+      name: "Archived Item",
+      trackingType: "weighted",
+      equipment: "Barbell",
+      muscle: "Chest",
+    });
+    await archiveCustomExercise(created.id);
+    expect(getAllExercises().some((e) => e.id === created.id)).toBe(false);
+    expect(getAllExercises({ includeArchived: true }).some((e) => e.id === created.id)).toBe(true);
+  });
+
+  it("does nothing, without throwing, for an id that doesn't exist", async () => {
+    await expect(archiveCustomExercise("not-a-real-id")).resolves.toBeUndefined();
+  });
+});
+
+describe("isArchivedExercise", () => {
+  it("distinguishes archived from active custom exercises", async () => {
+    const created = await createCustomExercise({
+      name: "Active One",
+      trackingType: "weighted",
+      equipment: "Barbell",
+      muscle: "Chest",
+    });
+    expect(isArchivedExercise(created)).toBe(false);
+    await archiveCustomExercise(created.id);
+    expect(isArchivedExercise(getExercise(created.id)!)).toBe(true);
+  });
+});
+
+describe("trackingTypeOf", () => {
+  it("recovers weighted, bodyweight, timed, and cardio from a definition's flags", async () => {
+    const weighted = await createCustomExercise({
+      name: "W",
+      trackingType: "weighted",
+      equipment: "Barbell",
+      muscle: "Chest",
+    });
+    const bodyweight = await createCustomExercise({
+      name: "B",
+      trackingType: "bodyweight",
+      muscle: "Chest",
+    });
+    const timed = await createCustomExercise({ name: "T", trackingType: "timed", muscle: "Abs" });
+    const cardio = await createCustomExercise({ name: "C", trackingType: "cardio" });
+
+    expect(trackingTypeOf(weighted)).toBe("weighted");
+    expect(trackingTypeOf(bodyweight)).toBe("bodyweight");
+    expect(trackingTypeOf(timed)).toBe("timed");
+    expect(trackingTypeOf(cardio)).toBe("cardio");
   });
 });
 

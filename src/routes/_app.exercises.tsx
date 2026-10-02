@@ -4,7 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { ArrowLeft, Dumbbell, HeartPulse, Plus, Search, Timer } from "lucide-react";
 import { getDb, type Workout } from "@/lib/db";
 import { matchesExerciseQuery } from "@/lib/exercises";
-import { useAllExercises, isCustomExercise } from "@/lib/customExercises";
+import { useAllExercises, isCustomExercise, isArchivedExercise } from "@/lib/customExercises";
 import { computeLastTrainedAt } from "@/lib/exerciseProgress";
 import { formatRelativeDate } from "@/lib/format";
 import { formatMuscleGroup } from "@/lib/muscles";
@@ -46,7 +46,7 @@ function ExercisesListPage() {
 
   const lastTrainedAt = useMemo(() => computeLastTrainedAt(workouts ?? []), [workouts]);
 
-  const allExercises = useAllExercises();
+  const allExercises = useAllExercises({ includeArchived: true });
   const filtered = allExercises.filter((e) => {
     if (!matchesExerciseQuery(e, q)) return false;
     if (filter === "cardio") return Boolean(e.cardio) && !e.interval;
@@ -127,7 +127,7 @@ function ExercisesListPage() {
                   {e.name}
                   {isCustomExercise(e) && (
                     <span className="ml-1.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground align-middle">
-                      Custom
+                      {isArchivedExercise(e) ? "Archived" : "Custom"}
                     </span>
                   )}
                 </p>

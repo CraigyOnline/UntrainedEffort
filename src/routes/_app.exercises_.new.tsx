@@ -29,7 +29,7 @@ function NewExercisePage() {
       </header>
 
       <CustomExerciseForm
-        onCreated={(def) => {
+        onSaved={(def) => {
           toast.success(`"${def.name}" created`, { duration: 2500 });
           navigate({ to: "/exercises" });
         }}

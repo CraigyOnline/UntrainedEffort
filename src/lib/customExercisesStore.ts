@@ -11,6 +11,10 @@ import type { ExerciseDef } from "@/lib/exercises";
  */
 export interface CustomExerciseDef extends ExerciseDef {
   createdAt: number;
+  /** Set by archiveCustomExercise (customExercises.ts) instead of removing
+   *  the row — see that function's doc comment for why deletion is a soft
+   *  archive rather than a real delete. Undefined/absent means active. */
+  archivedAt?: number;
 }
 
 /**

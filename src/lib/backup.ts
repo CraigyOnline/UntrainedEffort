@@ -1,5 +1,6 @@
 import { toast } from "sonner";
 import { getDb, type Routine, type Workout, type PRRecord, type ExerciseSettings } from "@/lib/db";
+import type { CustomExerciseDef } from "@/lib/customExercisesStore";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
@@ -22,6 +23,11 @@ export interface BackupPayload {
    *  already exists suddenly "Unsupported schema version" for a purely
    *  additive field, not an actual incompatibility. */
   exerciseSettings?: ExerciseSettings[];
+  /** Same reasoning and same optional-field treatment as exerciseSettings
+   *  above — added later, absent on older backups. Includes archived
+   *  (soft-deleted) custom exercises same as any other row in this table:
+   *  a backup is a faithful copy of what's there, not a filtered view. */
+  customExercises?: CustomExerciseDef[];
 }
 
 export function isBackupPayload(x: unknown): x is BackupPayload {
@@ -32,7 +38,8 @@ export function isBackupPayload(x: unknown): x is BackupPayload {
     Array.isArray(o.routines) &&
     Array.isArray(o.workouts) &&
     Array.isArray(o.prHistory) &&
-    (o.exerciseSettings === undefined || Array.isArray(o.exerciseSettings))
+    (o.exerciseSettings === undefined || Array.isArray(o.exerciseSettings)) &&
+    (o.customExercises === undefined || Array.isArray(o.customExercises))
   );
 }
 
@@ -69,6 +76,7 @@ export interface BackupSelection {
   workouts?: boolean;
   prHistory?: boolean;
   exerciseSettings?: boolean;
+  customExercises?: boolean;
 }
 
 /**
@@ -89,15 +97,17 @@ export async function exportBackup(
     workouts: true,
     prHistory: true,
     exerciseSettings: true,
+    customExercises: true,
   },
 ): Promise<boolean> {
   try {
     const db = getDb();
-    const [routines, workouts, prHistory, exerciseSettings] = await Promise.all([
+    const [routines, workouts, prHistory, exerciseSettings, customExercises] = await Promise.all([
       selection.routines ? db.routines.toArray() : Promise.resolve([]),
       selection.workouts ? db.workouts.toArray() : Promise.resolve([]),
       selection.prHistory ? db.prHistory.toArray() : Promise.resolve([]),
       selection.exerciseSettings ? db.exerciseSettings.toArray() : Promise.resolve([]),
+      selection.customExercises ? db.customExercises.toArray() : Promise.resolve([]),
     ]);
 
     const payload: BackupPayload = {
@@ -107,6 +117,7 @@ export async function exportBackup(
       workouts,
       prHistory,
       exerciseSettings,
+      customExercises,
     };
 
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");

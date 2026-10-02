@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getDb, type Routine, type Workout } from "@/lib/db";
+import { setCustomExercisesSnapshot } from "@/lib/customExercisesStore";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,7 +89,7 @@ export const Route = createFileRoute("/_app/settings")({
   component: SettingsPage,
 });
 
-type Category = "routines" | "workouts" | "prHistory" | "exerciseSettings";
+type Category = "routines" | "workouts" | "prHistory" | "exerciseSettings" | "customExercises";
 
 // PR Records is deliberately excluded from import: Personal Records are
 // always fully recalculated from whichever workouts exist after an import
@@ -102,6 +103,7 @@ function categoryLabel(c: Category): string {
   if (c === "routines") return "Routines";
   if (c === "workouts") return "Workout History";
   if (c === "prHistory") return "PR Records";
+  if (c === "customExercises") return "Custom Exercises";
   return "Exercise Rest Times";
 }
 
@@ -109,6 +111,7 @@ function importCategoryCount(payload: BackupPayload, c: Category): number {
   if (c === "routines") return payload.routines.length;
   if (c === "workouts") return payload.workouts.length;
   if (c === "prHistory") return payload.prHistory.length;
+  if (c === "customExercises") return payload.customExercises?.length ?? 0;
   // Absent on backups taken before this field existed — same as empty.
   return payload.exerciseSettings?.length ?? 0;
 }
@@ -123,6 +126,7 @@ function SettingsPage() {
     workouts: true,
     prHistory: true,
     exerciseSettings: true,
+    customExercises: true,
   });
   const [exportCounts, setExportCounts] = useState<Record<Category, number> | null>(null);
 
@@ -133,6 +137,7 @@ function SettingsPage() {
     routines: true,
     workouts: true,
     exerciseSettings: true,
+    customExercises: true,
   });
   const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false);
 
@@ -255,14 +260,21 @@ function SettingsPage() {
 
   async function openExportDialog() {
     const db = getDb();
-    const [routines, workouts, prHistory, exerciseSettings] = await Promise.all([
+    const [routines, workouts, prHistory, exerciseSettings, customExercises] = await Promise.all([
       db.routines.count(),
       db.workouts.count(),
       db.prHistory.count(),
       db.exerciseSettings.count(),
+      db.customExercises.count(),
     ]);
-    setExportCounts({ routines, workouts, prHistory, exerciseSettings });
-    setExportSelected({ routines: true, workouts: true, prHistory: true, exerciseSettings: true });
+    setExportCounts({ routines, workouts, prHistory, exerciseSettings, customExercises });
+    setExportSelected({
+      routines: true,
+      workouts: true,
+      prHistory: true,
+      exerciseSettings: true,
+      customExercises: true,
+    });
     setExportOpen(true);
   }
 
@@ -306,6 +318,7 @@ function SettingsPage() {
         routines: parsed.routines.length > 0,
         workouts: parsed.workouts.length > 0,
         exerciseSettings: (parsed.exerciseSettings?.length ?? 0) > 0,
+        customExercises: (parsed.customExercises?.length ?? 0) > 0,
       });
     } catch (err) {
       console.error(err);
@@ -341,11 +354,13 @@ function SettingsPage() {
         db.workouts,
         db.prHistory,
         db.exerciseSettings,
+        db.customExercises,
         async () => {
           if (mode === "replace") {
             if (selected.routines) await db.routines.clear();
             if (selected.workouts) await db.workouts.clear();
             if (selected.exerciseSettings) await db.exerciseSettings.clear();
+            if (selected.customExercises) await db.customExercises.clear();
           }
 
           // Old routine id (as it was in the backup) → new id assigned by
@@ -405,6 +420,30 @@ function SettingsPage() {
             }
           }
 
+          if (selected.customExercises) {
+            // Same reasoning as exerciseSettings above: id is a stable,
+            // self-contained key (see createCustomExercise in
+            // customExercises.ts) that already uniquely identifies a given
+            // custom exercise across databases, unlike routines/workouts'
+            // auto-increment ids — put() overwriting an existing row with
+            // the imported one is correct for merge mode (this is that
+            // same exercise, not a duplicate to append), and replace mode
+            // already cleared the table above.
+            for (const ce of payload.customExercises ?? []) {
+              await db.customExercises.put(ce);
+            }
+            // customExercisesStore's snapshot is normally refreshed by
+            // CustomExercisesLoader's live query, which only re-fires once
+            // this transaction commits — too late for syncWorkoutIntegrity
+            // just below, which calls getExercise for every workout's
+            // exercises while computing PRs and needs a just-imported
+            // custom exercise resolvable immediately. Re-reading the table
+            // (rather than merging payload.customExercises into the old
+            // snapshot by hand) is correct regardless of merge vs. replace,
+            // since it reflects exactly what the writes above just did.
+            setCustomExercisesSnapshot(await db.customExercises.toArray());
+          }
+
           // Personal Records are fully derived from workout history — an
           // imported backup's PR rows reference workoutIds from the old
           // database and can never line up with the fresh ids Dexie assigns
@@ -420,6 +459,9 @@ function SettingsPage() {
       if (selected.workouts) parts.push(`${payload.workouts.length} workouts`);
       if (selected.exerciseSettings) {
         parts.push(`${payload.exerciseSettings?.length ?? 0} exercise rest times`);
+      }
+      if (selected.customExercises) {
+        parts.push(`${payload.customExercises?.length ?? 0} custom exercises`);
       }
       toast.success(
         `${mode === "replace" ? "Replaced" : "Imported"} ${parts.join(", ")}. Personal Records recalculated.`,
@@ -735,7 +777,15 @@ function SettingsPage() {
           </DialogHeader>
 
           <div className="flex flex-col gap-3 py-2">
-            {(["routines", "workouts", "prHistory", "exerciseSettings"] as Category[]).map((c) => (
+            {(
+              [
+                "routines",
+                "workouts",
+                "prHistory",
+                "exerciseSettings",
+                "customExercises",
+              ] as Category[]
+            ).map((c) => (
               <label key={c} className="flex items-center justify-between gap-3">
                 <span className="flex items-center gap-2 text-sm">
                   <Checkbox
@@ -779,7 +829,14 @@ function SettingsPage() {
           {importPayload && (
             <>
               <div className="flex flex-col gap-3 py-2">
-                {(["routines", "workouts", "exerciseSettings"] as ImportCategory[]).map((c) => {
+                {(
+                  [
+                    "routines",
+                    "workouts",
+                    "exerciseSettings",
+                    "customExercises",
+                  ] as ImportCategory[]
+                ).map((c) => {
                   const count = importCategoryCount(importPayload, c);
                   return (
                     <label key={c} className="flex items-center justify-between gap-3">

@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useLiveQuery } from "dexie-react-hooks";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { getDb, type PRRecord, type Workout, type WorkoutSet } from "@/lib/db";
 import { getExercise, getExerciseLoggingSchema, formatCompletedSet } from "@/lib/exercises";
+import { isCustomExercise } from "@/lib/customExercises";
 import {
   getPrimaryMetricKind,
   getPrimaryMetric,
@@ -201,10 +202,15 @@ function ExerciseProgressPage() {
         <button onClick={() => router.history.back()} className="p-1">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="truncate text-lg font-bold">{def?.name ?? id}</h1>
           <p className="text-xs text-muted-foreground">{def?.muscle}</p>
         </div>
+        {def && isCustomExercise(def) && (
+          <Link to="/exercise/$id/edit" params={{ id }} className="p-1" aria-label="Edit exercise">
+            <Pencil className="h-5 w-5" />
+          </Link>
+        )}
       </header>
 
       {/* Current bests */}
