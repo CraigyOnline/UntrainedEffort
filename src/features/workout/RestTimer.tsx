@@ -5,6 +5,7 @@ import { BOTTOM_NAV_HEIGHT } from "@/components/BottomTabs";
 import { getExercise } from "@/lib/exercises";
 import { formatTime } from "@/lib/format";
 import { haptics } from "@/lib/haptics";
+import { playRestSound } from "@/lib/restSound";
 import type { RestTimerState } from "@/lib/db";
 
 export interface RestTimerProps {
@@ -82,9 +83,13 @@ export function RestTimer({ restTimer, onSkip, onExtend }: RestTimerProps) {
   useEffect(() => {
     if (prevRestingRef.current && !resting) {
       haptics.restReady();
+      // The rest-complete notification is suppressed while the app is
+      // open, so this is the audible cue (see restSound.ts for why it's
+      // gated to a live, on-screen transition only).
+      playRestSound(restTimer.endsAt);
     }
     prevRestingRef.current = resting;
-  }, [resting]);
+  }, [resting, restTimer.endsAt]);
 
   return (
     <div

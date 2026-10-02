@@ -2,7 +2,14 @@ package com.untrainedeffort.workoutforegroundservice;
 
 import android.content.Context;
 import android.content.Intent;
+import android.media.AudioAttributes;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import androidx.annotation.Nullable;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Logger;
 import com.getcapacitor.Plugin;
@@ -28,6 +35,12 @@ public class WorkoutForegroundServicePlugin extends Plugin {
     // read here and stripped immediately so it can't be re-handled if the
     // same Intent object is inspected again later.
     static final String TAP_EXTRA = "com.untrainedeffort.workoutforegroundservice.TAPPED";
+
+    // Held so the Ringtone can't be garbage collected mid-play, and so a
+    // second rest ending in quick succession cuts the first one off rather
+    // than overlapping it.
+    @Nullable
+    private Ringtone restSound;
 
     @Override
     public void load() {
@@ -108,6 +121,39 @@ public class WorkoutForegroundServicePlugin extends Plugin {
         if (service != null) {
             service.onAppForegrounded();
         }
+        call.resolve();
+    }
+
+    // The in-app counterpart to the rest-complete alert's sound, for when
+    // the app is open and that alert is suppressed. Plays the same system
+    // default notification sound the alert channel uses, tagged as a
+    // notification so it follows the phone's ringer/Do Not Disturb state
+    // exactly like the alert does (silent phone = silent here, with the
+    // haptic still going). Purely best-effort: any failure just means no
+    // sound.
+    @PluginMethod
+    public void playRestSound(PluginCall call) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                if (restSound != null && restSound.isPlaying()) {
+                    restSound.stop();
+                }
+                Uri uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                Ringtone ringtone = RingtoneManager.getRingtone(getContext(), uri);
+                if (ringtone != null) {
+                    ringtone.setAudioAttributes(
+                        new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                    );
+                    ringtone.play();
+                    restSound = ringtone;
+                }
+            } catch (RuntimeException e) {
+                Logger.warn(TAG, "Could not play rest sound: " + e.getMessage());
+            }
+        });
         call.resolve();
     }
 

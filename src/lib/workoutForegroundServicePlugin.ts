@@ -46,6 +46,10 @@ export interface WorkoutForegroundServicePlugin {
    * notification is running. The next show() (sent when the app is
    * backgrounded again) re-arms it. */
   appForegrounded(): Promise<void>;
+  /** Plays the system default notification sound (respecting ringer / Do
+   * Not Disturb) — the in-app stand-in for the rest-complete alert's
+   * sound while the app is open and that alert is suppressed. */
+  playRestSound(): Promise<void>;
   stop(): Promise<void>;
   addListener(
     eventName: "notificationTapped",
