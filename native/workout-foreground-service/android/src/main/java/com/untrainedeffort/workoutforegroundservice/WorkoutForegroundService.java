@@ -48,6 +48,11 @@ import java.util.Objects;
  * - it exists specifically so the rest-end alert still fires on time even
  * if the JS side doesn't get to run again before it does.
  *
+ * That rest-end alert is only for when the user is *away*: it's meant to
+ * pull them back, so it's suppressed (and any already-posted one cleared)
+ * once the app is active again - see onAppForegrounded. The ongoing
+ * notification itself deliberately stays up regardless.
+ *
  * Everything else is effectively stateless: current* fields just hold the
  * latest content show() was given so postMainNotification() and the
  * rest-end callback both render from one source of truth, but none of it
@@ -61,6 +66,20 @@ public class WorkoutForegroundService extends Service {
     static final int NOTIFICATION_ID = 918273;
     static final String REST_ALERT_CHANNEL_ID = "rest-complete";
     static final int REST_ALERT_NOTIFICATION_ID = 918274;
+
+    // The live service instance, if any, so the plugin can tell it the app
+    // came back to the foreground without (re)starting it - a plain
+    // startService() for that would spin up a service with no workout to
+    // show. Only ever touched on the main thread's behalf (see
+    // onAppForegrounded), and cleared in onDestroy so it can't outlive the
+    // service.
+    @Nullable
+    private static volatile WorkoutForegroundService instance;
+
+    @Nullable
+    static WorkoutForegroundService getInstance() {
+        return instance;
+    }
 
     // getIdentifier()-based lookups aren't free; resolved once and reused,
     // since it can't change for the life of the process.
@@ -94,6 +113,19 @@ public class WorkoutForegroundService extends Service {
     @Nullable
     private Long currentRestEndsAtMs = null;
 
+    // True from the moment the JS side reports the app is active again
+    // until the next show() - which is only ever sent while the app is
+    // backgrounded, so receiving one means "the user is away again". While
+    // true, a rest period ending is *not* announced: the user is already
+    // looking at the app, which has its own in-app cue for that moment.
+    private boolean appActive = false;
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        instance = this;
+    }
+
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
@@ -121,14 +153,40 @@ public class WorkoutForegroundService extends Service {
         boolean resting = intent.getBooleanExtra("resting", false);
         currentRestEndsAtMs = resting ? intent.getLongExtra("restEndsAtMs", 0L) : null;
 
+        // show() is only sent while the app is backgrounded (see
+        // useWorkoutNotificationLifecycle), so reaching here means the
+        // user is away - re-arm the rest-end alert.
+        appActive = false;
+
         rescheduleRestEnd(currentRestEndsAtMs);
         postMainNotification();
 
         return START_NOT_STICKY;
     }
 
+    // Called (via the plugin) whenever the app becomes active again.
+    // Clears any rest-complete alert already sitting in the shade - the
+    // user is back, so "tap to get back to your workout" is moot - and
+    // stops a still-pending rest end from posting a new one. The rest-end
+    // timer itself is left armed rather than cancelled: it still needs to
+    // fire so the ongoing notification's layout falls back from the
+    // countdown to the standard one on schedule, it just does so silently
+    // (see onRestEnded). Posted to the main handler because the plugin
+    // calls this from a Capacitor background thread, and everything else
+    // here runs on the main thread.
+    void onAppForegrounded() {
+        handler.post(() -> {
+            appActive = true;
+            NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (notificationManager != null) {
+                notificationManager.cancel(REST_ALERT_NOTIFICATION_ID);
+            }
+        });
+    }
+
     @Override
     public void onDestroy() {
+        instance = null;
         if (scheduledRestEndRunnable != null) {
             handler.removeCallbacks(scheduledRestEndRunnable);
             scheduledRestEndRunnable = null;
@@ -173,7 +231,11 @@ public class WorkoutForegroundService extends Service {
         scheduledRestEndsAtMs = null;
         scheduledRestEndRunnable = null;
         currentRestEndsAtMs = null; // falls the chronometer back to counting elapsed time up
-        postRestCompleteAlert();
+        // Only worth interrupting someone who's away - with the app open
+        // they're already looking at it, and it signals this moment itself.
+        if (!appActive) {
+            postRestCompleteAlert();
+        }
         postMainNotification();
     }
 

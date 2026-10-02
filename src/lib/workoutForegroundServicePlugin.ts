@@ -40,6 +40,12 @@ export interface WorkoutForegroundServicePlugin {
    * content in place if it already is - the native side treats both cases
    * identically (see WorkoutForegroundService.onStartCommand). */
   show(payload: WorkoutForegroundServicePayload): Promise<void>;
+  /** Tells the native side the app is active again, so it clears any
+   * rest-complete alert already in the shade and stops announcing a rest
+   * ending while the user is looking at the app. A no-op when no workout
+   * notification is running. The next show() (sent when the app is
+   * backgrounded again) re-arms it. */
+  appForegrounded(): Promise<void>;
   stop(): Promise<void>;
   addListener(
     eventName: "notificationTapped",

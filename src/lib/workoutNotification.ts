@@ -138,6 +138,14 @@ async function showWorkoutNotification(draft: ActiveWorkoutDraft): Promise<void>
   }
 }
 
+async function notifyAppForegrounded(): Promise<void> {
+  try {
+    await WorkoutForegroundService.appForegrounded();
+  } catch (err) {
+    console.error("Failed to clear rest alert on foreground", err);
+  }
+}
+
 async function cancelWorkoutNotification(): Promise<void> {
   try {
     await WorkoutForegroundService.stop();
@@ -159,12 +167,15 @@ async function cancelWorkoutNotification(): Promise<void> {
  * signal. There is no separate "is a workout active" flag anywhere in
  * here for the draft to drift out of sync with.
  *
- * Deliberately does *not* hide the notification again when the app is
- * brought back to the foreground — nothing in the requirements calls for
- * that, "ongoing" notifications staying visible while the app is open is
- * normal Android UX (e.g. music playback), and it keeps this to exactly
- * the three transitions asked for: shown on backgrounding, left alone
- * until finished or discarded, removed immediately on either of those. A
+ * Deliberately does *not* hide the ongoing notification again when the
+ * app is brought back to the foreground — "ongoing" notifications staying
+ * visible while the app is open is normal Android UX (e.g. music
+ * playback): shown on backgrounding, left alone until finished or
+ * discarded, removed immediately on either of those. The separate
+ * "Rest complete" alert is different — it exists to pull someone back to
+ * the app, so on foregrounding the native side clears any already posted
+ * and stops a pending one from firing (see notifyAppForegrounded); the
+ * next backgrounding's show() re-arms it from the current draft. A
  * screen lock/unlock fires this same appStateChange event without the
  * notification ever having gone away, so it causes a harmless redundant
  * refresh rather than nothing — simpler than trying to tell a lock/unlock
@@ -260,9 +271,12 @@ export function useWorkoutNotificationLifecycle(): void {
             if (draftRef.current) showWorkoutNotification(draftRef.current);
           }, ELAPSED_REFRESH_MS);
         }
-      } else if (elapsedRefreshTimer) {
-        clearInterval(elapsedRefreshTimer);
-        elapsedRefreshTimer = undefined;
+      } else {
+        if (elapsedRefreshTimer) {
+          clearInterval(elapsedRefreshTimer);
+          elapsedRefreshTimer = undefined;
+        }
+        notifyAppForegrounded();
       }
     }).then((handle) => {
       removeListener = () => handle.remove();

@@ -98,6 +98,19 @@ public class WorkoutForegroundServicePlugin extends Plugin {
         }
     }
 
+    // Tells the running service (if there is one - this is a no-op
+    // otherwise) that the app is active again, so it clears and stops
+    // posting the rest-complete alert. See
+    // WorkoutForegroundService.onAppForegrounded.
+    @PluginMethod
+    public void appForegrounded(PluginCall call) {
+        WorkoutForegroundService service = WorkoutForegroundService.getInstance();
+        if (service != null) {
+            service.onAppForegrounded();
+        }
+        call.resolve();
+    }
+
     @PluginMethod
     public void stop(PluginCall call) {
         try {
