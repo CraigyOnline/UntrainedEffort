@@ -1,6 +1,24 @@
 import { WorkoutForegroundService } from "@/lib/workoutForegroundServicePlugin";
 
 /**
+ * Rest-sound preference, app-wide. Same storage approach as haptics.ts and
+ * keepAwake.ts (a single boolean isn't worth a Dexie table/schema
+ * migration), and the same default: on, opt-out.
+ */
+const STORAGE_KEY = "restSoundEnabled";
+
+export function getRestSoundEnabled(): boolean {
+  if (typeof window === "undefined") return true;
+  const stored = window.localStorage.getItem(STORAGE_KEY);
+  return stored === null ? true : stored === "true";
+}
+
+export function setRestSoundEnabled(value: boolean): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(STORAGE_KEY, String(value));
+}
+
+/**
  * How late the resting -> ready transition can be noticed and still count
  * as "just happened". The rest bar ticks every 250ms, so a live transition
  * is detected well inside this; a much later one means the timer was
@@ -26,6 +44,7 @@ export function shouldPlayRestSound(endsAt: number, now: number, visible: boolea
  * break the screen it's attached to.
  */
 export async function playRestSound(endsAt: number): Promise<void> {
+  if (!getRestSoundEnabled()) return;
   const visible = typeof document === "undefined" || document.visibilityState === "visible";
   if (!shouldPlayRestSound(endsAt, Date.now(), visible)) return;
   try {

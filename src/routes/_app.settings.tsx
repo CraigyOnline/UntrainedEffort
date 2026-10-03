@@ -38,6 +38,7 @@ import {
 import { PageHeader } from "@/components/PageHeader";
 import { getKeepAwakeDefault, setKeepAwakeDefault } from "@/lib/keepAwake";
 import { getHapticsEnabled, setHapticsEnabled } from "@/lib/haptics";
+import { getRestSoundEnabled, setRestSoundEnabled } from "@/lib/restSound";
 import { getBodyType, setBodyType, type BodyType } from "@/lib/bodyType";
 import {
   getWeightUnit,
@@ -164,6 +165,17 @@ function SettingsPage() {
   function handleHapticsChange(checked: boolean) {
     setHapticsEnabledState(checked);
     setHapticsEnabled(checked);
+  }
+
+  // ── Rest timer sound ─────────────────────────────────────────────────
+  const [restSoundEnabled, setRestSoundEnabledState] = useState(true);
+  useEffect(() => {
+    setRestSoundEnabledState(getRestSoundEnabled());
+  }, []);
+
+  function handleRestSoundChange(checked: boolean) {
+    setRestSoundEnabledState(checked);
+    setRestSoundEnabled(checked);
   }
 
   // ── Muscle map body type ─────────────────────────────────────────────
@@ -508,6 +520,17 @@ function SettingsPage() {
             </p>
           </div>
           <Switch checked={hapticsEnabled} onCheckedChange={handleHapticsChange} />
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-border/50 pt-4">
+          <div className="min-w-0">
+            <p className="text-sm">Rest timer sound</p>
+            <p className="text-xs text-muted-foreground">
+              Plays a sound when a rest ends while the app is open. Follows your phone's silent
+              mode.
+            </p>
+          </div>
+          <Switch checked={restSoundEnabled} onCheckedChange={handleRestSoundChange} />
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-border/50 pt-4">
