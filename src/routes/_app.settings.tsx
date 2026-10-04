@@ -646,6 +646,10 @@ function SettingsPage() {
             {...getWeightStepperConfig(weightUnit)}
             min={0}
             size="compact"
+            // The sibling text block above is min-w-0 (free to shrink), so
+            // without this the flex row squeezes the stepper and its
+            // overflow-hidden clips the "+" button.
+            className="shrink-0"
           />
         </div>
 
@@ -710,6 +714,7 @@ function SettingsPage() {
           <Row label="Routines" value={String(stats.routineCount ?? 0)} />
           <Row label="Personal Records" value={String(stats.prCount ?? 0)} />
           <Row label="Exercises" value={String(stats.exerciseCount)} />
+          <Row label="Custom exercises" value={String(stats.customExerciseCount)} />
           <Row label="Oldest Workout" value={formatDate(stats.oldestWorkout)} />
           <Row label="Latest Workout" value={formatDate(stats.latestWorkout)} />
         </dl>

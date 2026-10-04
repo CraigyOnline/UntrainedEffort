@@ -2,12 +2,16 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useState } from "react";
 import { getDb } from "@/lib/db";
 import { useAllExercises } from "@/lib/customExercises";
+import { useCustomExercises } from "@/lib/customExercisesStore";
 
 export interface DatabaseStats {
   workoutCount: number | undefined;
   routineCount: number | undefined;
   prCount: number | undefined;
   exerciseCount: number;
+  /** Active (non-archived) custom exercises — the same ones exerciseCount
+   *  already includes, broken out so the screens can show them separately. */
+  customExerciseCount: number;
   oldestWorkout: number | undefined;
   latestWorkout: number | undefined;
   estimatedBytes: number | null;
@@ -23,6 +27,7 @@ export interface DatabaseStats {
  */
 export function useDatabaseStats(): DatabaseStats {
   const exerciseCount = useAllExercises().length;
+  const customExerciseCount = useCustomExercises().filter((e) => e.archivedAt === undefined).length;
   const [estimatedBytes, setEstimatedBytes] = useState<number | null>(null);
   const [storageEstimateSupported, setStorageEstimateSupported] = useState(true);
 
@@ -73,6 +78,7 @@ export function useDatabaseStats(): DatabaseStats {
     routineCount,
     prCount,
     exerciseCount,
+    customExerciseCount,
     oldestWorkout: workoutDateRange?.oldest,
     latestWorkout: workoutDateRange?.newest,
     estimatedBytes,
