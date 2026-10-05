@@ -5,6 +5,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 import { getKeepAwakeDefault, setKeepAwakeDefault } from "@/lib/keepAwake";
 import { getHapticsEnabled, setHapticsEnabled } from "@/lib/haptics";
+import { getRestSoundEnabled, setRestSoundEnabled } from "@/lib/restSound";
 import {
   getRoutineUpdatePromptEnabled,
   setRoutineUpdatePromptEnabled,
@@ -51,6 +52,7 @@ function OnboardingScreen() {
 
   const [keepAwakeEnabled, setKeepAwakeEnabledState] = useState(getKeepAwakeDefault);
   const [hapticsEnabled, setHapticsEnabledState] = useState(getHapticsEnabled);
+  const [restSoundEnabled, setRestSoundEnabledState] = useState(getRestSoundEnabled);
   const [routineUpdatePromptEnabled, setRoutineUpdatePromptEnabledState] = useState(
     getRoutineUpdatePromptEnabled,
   );
@@ -103,6 +105,22 @@ function OnboardingScreen() {
               onCheckedChange={(checked) => {
                 setHapticsEnabledState(checked);
                 setHapticsEnabled(checked);
+              }}
+            />
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-border/50 pt-4">
+            <div className="min-w-0">
+              <p className="text-sm">Rest timer sound</p>
+              <p className="text-xs text-muted-foreground">
+                Plays a sound when a rest ends while the app is open.
+              </p>
+            </div>
+            <Switch
+              checked={restSoundEnabled}
+              onCheckedChange={(checked) => {
+                setRestSoundEnabledState(checked);
+                setRestSoundEnabled(checked);
               }}
             />
           </div>
