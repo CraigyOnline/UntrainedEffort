@@ -9,7 +9,7 @@
  *
  * "movement" describes the working position/action for most exercises,
  * but reads differently for two groups:
- *  - Holds (plank, wall sit, dead hang, hollow hold, l-sit, side plank):
+ *  - Holds (plank, RKC plank, wall sit, dead hang, hollow hold, l-sit, side plank):
  *    there's no second position, so it describes what to maintain during
  *    the hold rather than a distinct end point.
  *  - Steady-state cardio (treadmill, bike, rowing machine, ...): it's an
@@ -946,6 +946,17 @@ export const EXERCISE_FORM_NOTES: Record<string, ExerciseFormNote> = {
       "Think about pulling your elbows toward your toes without actually moving — that keeps your whole body engaged, not just your abs.",
     ],
   },
+  "rkc-plank": {
+    setup:
+      "Forearms on the floor with elbows directly under your shoulders, feet about shoulder-width apart, body in a straight line from head to heels.",
+    movement:
+      "Hold the position while squeezing as hard as you can through your glutes, quads and abs, and pulling your elbows toward your toes without moving them. Keep the hold short and maximal rather than long and relaxed.",
+    cues: [
+      "Tuck your pelvis slightly (tailbone toward your belly button) so your lower back stays flat instead of arched — this is the main difference from a regular plank.",
+      "Aim for short, high-effort holds of roughly 10–20 seconds and end the set when the tension fades or your hips start to sag, rather than grinding out a longer, looser hold.",
+      "Keep breathing in short, controlled breaths — don't hold your breath, but don't let the tension go to take one.",
+    ],
+  },
   "side-plank": {
     setup:
       "Forearm on the floor with your elbow under your shoulder, the side of your bottom foot on the floor, body in a straight line.",
@@ -1048,6 +1059,39 @@ export const EXERCISE_FORM_NOTES: Record<string, ExerciseFormNote> = {
       severity: "important",
       text: "If your lower back sags or arches as you roll out, that's your range limit for now, not something to push through — this exercise is deceptively hard on the lower back once your core stops controlling the position.",
     },
+  },
+  "dead-bug": {
+    setup:
+      "Lying on your back with your arms pointing straight up over your shoulders and your hips and knees bent to 90°, shins parallel to the floor.",
+    movement:
+      "Brace your core so your lower back stays pressed into the floor, then slowly lower one arm overhead and the opposite leg toward the floor. Return to the start and repeat on the other side, alternating each rep.",
+    cues: [
+      "Only lower as far as you can while keeping your lower back flat against the floor — if it lifts, shorten the range until you can control it.",
+      "Move slowly and exhale as your arm and leg extend; the point is control, not speed.",
+      "Keep your ribs down rather than letting them flare upward as your arm goes overhead.",
+    ],
+  },
+  "bird-dog": {
+    setup:
+      "On your hands and knees with your hands under your shoulders and your knees under your hips, back flat and neck in line with your spine.",
+    movement:
+      "Extend one arm forward and the opposite leg straight back until both are in line with your torso, pause briefly, then return under control and repeat on the other side, alternating each rep.",
+    cues: [
+      "Keep your hips and shoulders square to the floor — if your torso rotates or your hips tilt as the leg lifts, you're reaching higher than you can control.",
+      "Reach long rather than high: stop when your leg is in line with your back instead of arching your lower back to lift it further.",
+      "Brace your core throughout so your spine doesn't sag or twist as you shift your weight.",
+    ],
+  },
+  "pallof-press": {
+    setup:
+      "Cable set at chest height. Stand side-on to the stack with your feet about shoulder-width apart, holding the handle with both hands at the centre of your chest.",
+    movement:
+      "Brace your core and press the handle straight out in front of you until your arms are extended, resisting the cable's pull to rotate you toward the stack, then bring it back to your chest under control. Do a set on each side.",
+    cues: [
+      "Keep your hips and shoulders square — the cable is trying to twist you, and the exercise works by not letting it.",
+      "Stand tall with your ribs down and your glutes lightly squeezed instead of leaning away from the weight.",
+      "Pausing for a beat with your arms extended makes the hold harder without needing more weight.",
+    ],
   },
 
   // Cardio

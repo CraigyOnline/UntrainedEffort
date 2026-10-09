@@ -1,0 +1,132 @@
+From 58fbfc3115675457fb05ccd1fca90ddf68280fbc Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 9 Oct 2026 14:53:56 +0100
+Subject: [PATCH] Add RKC Plank, Dead Bug, Bird Dog and Pallof Press exercises
+
+Adds four core-stability exercises to the catalog, each with a matching
+form-guidance entry (required by the form-notes coverage test):
+
+- RKC Plank: timed hold
+- Dead Bug, Bird Dog: bodyweight, logged as total alternating reps
+  (same as Russian Twist)
+- Pallof Press: cable, unilateral weight + reps
+
+All use the "core" rest category. No schema or storage changes.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01YWZmJ5eNSc5YmBhwR2bTA3
+---
+ src/lib/exerciseFormNotes.ts | 46 +++++++++++++++++++++++++++++++++++-
+ src/lib/exercises.ts         | 18 ++++++++++++++
+ 2 files changed, 63 insertions(+), 1 deletion(-)
+
+diff --git a/src/lib/exerciseFormNotes.ts b/src/lib/exerciseFormNotes.ts
+index 47c8cfe..d02ba27 100644
+--- a/src/lib/exerciseFormNotes.ts
++++ b/src/lib/exerciseFormNotes.ts
+@@ -9,7 +9,7 @@
+  *
+  * "movement" describes the working position/action for most exercises,
+  * but reads differently for two groups:
+- *  - Holds (plank, wall sit, dead hang, hollow hold, l-sit, side plank):
++ *  - Holds (plank, RKC plank, wall sit, dead hang, hollow hold, l-sit, side plank):
+  *    there's no second position, so it describes what to maintain during
+  *    the hold rather than a distinct end point.
+  *  - Steady-state cardio (treadmill, bike, rowing machine, ...): it's an
+@@ -946,6 +946,17 @@ export const EXERCISE_FORM_NOTES: Record<string, ExerciseFormNote> = {
+       "Think about pulling your elbows toward your toes without actually moving — that keeps your whole body engaged, not just your abs.",
+     ],
+   },
++  "rkc-plank": {
++    setup:
++      "Forearms on the floor with elbows directly under your shoulders, feet about shoulder-width apart, body in a straight line from head to heels.",
++    movement:
++      "Hold the position while squeezing as hard as you can through your glutes, quads and abs, and pulling your elbows toward your toes without moving them. Keep the hold short and maximal rather than long and relaxed.",
++    cues: [
++      "Tuck your pelvis slightly (tailbone toward your belly button) so your lower back stays flat instead of arched — this is the main difference from a regular plank.",
++      "Aim for short, high-effort holds of roughly 10–20 seconds and end the set when the tension fades or your hips start to sag, rather than grinding out a longer, looser hold.",
++      "Keep breathing in short, controlled breaths — don't hold your breath, but don't let the tension go to take one.",
++    ],
++  },
+   "side-plank": {
+     setup:
+       "Forearm on the floor with your elbow under your shoulder, the side of your bottom foot on the floor, body in a straight line.",
+@@ -1049,6 +1060,39 @@ export const EXERCISE_FORM_NOTES: Record<string, ExerciseFormNote> = {
+       text: "If your lower back sags or arches as you roll out, that's your range limit for now, not something to push through — this exercise is deceptively hard on the lower back once your core stops controlling the position.",
+     },
+   },
++  "dead-bug": {
++    setup:
++      "Lying on your back with your arms pointing straight up over your shoulders and your hips and knees bent to 90°, shins parallel to the floor.",
++    movement:
++      "Brace your core so your lower back stays pressed into the floor, then slowly lower one arm overhead and the opposite leg toward the floor. Return to the start and repeat on the other side, alternating each rep.",
++    cues: [
++      "Only lower as far as you can while keeping your lower back flat against the floor — if it lifts, shorten the range until you can control it.",
++      "Move slowly and exhale as your arm and leg extend; the point is control, not speed.",
++      "Keep your ribs down rather than letting them flare upward as your arm goes overhead.",
++    ],
++  },
++  "bird-dog": {
++    setup:
++      "On your hands and knees with your hands under your shoulders and your knees under your hips, back flat and neck in line with your spine.",
++    movement:
++      "Extend one arm forward and the opposite leg straight back until both are in line with your torso, pause briefly, then return under control and repeat on the other side, alternating each rep.",
++    cues: [
++      "Keep your hips and shoulders square to the floor — if your torso rotates or your hips tilt as the leg lifts, you're reaching higher than you can control.",
++      "Reach long rather than high: stop when your leg is in line with your back instead of arching your lower back to lift it further.",
++      "Brace your core throughout so your spine doesn't sag or twist as you shift your weight.",
++    ],
++  },
++  "pallof-press": {
++    setup:
++      "Cable set at chest height. Stand side-on to the stack with your feet about shoulder-width apart, holding the handle with both hands at the centre of your chest.",
++    movement:
++      "Brace your core and press the handle straight out in front of you until your arms are extended, resisting the cable's pull to rotate you toward the stack, then bring it back to your chest under control. Do a set on each side.",
++    cues: [
++      "Keep your hips and shoulders square — the cable is trying to twist you, and the exercise works by not letting it.",
++      "Stand tall with your ribs down and your glutes lightly squeezed instead of leaning away from the weight.",
++      "Pausing for a beat with your arms extended makes the hold harder without needing more weight.",
++    ],
++  },
+ 
+   // Cardio
+   treadmill: {
+diff --git a/src/lib/exercises.ts b/src/lib/exercises.ts
+index 7106ed3..fd7a0f9 100644
+--- a/src/lib/exercises.ts
++++ b/src/lib/exercises.ts
+@@ -632,6 +632,11 @@ export const EXERCISES: ExerciseDef[] = [
+     restCategory: "core",
+     aliases: ["Front Plank", "Forearm Plank"],
+   }),
++  E("rkc-plank", "RKC Plank", "Abs", "Bodyweight", ["Obliques", "Glutes", "Shoulders"], {
++    time: true,
++    restCategory: "core",
++    aliases: ["Hardstyle Plank", "Max Tension Plank"],
++  }),
+   E("side-plank", "Side Plank", "Obliques", "Bodyweight", ["Abs"], {
+     time: true,
+     unilateral: true,
+@@ -680,6 +685,19 @@ export const EXERCISES: ExerciseDef[] = [
+     restCategory: "core",
+     aliases: ["Ab Roller", "Ab Wheel", "Wheel Rollout"],
+   }),
++  E("dead-bug", "Dead Bug", "Abs", "Bodyweight", ["Obliques"], {
++    restCategory: "core",
++    aliases: ["Dead Bugs"],
++  }),
++  E("bird-dog", "Bird Dog", "LowerBack", "Bodyweight", ["Glutes", "Shoulders", "Abs"], {
++    restCategory: "core",
++    aliases: ["Bird Dogs", "Quadruped Limb Raise"],
++  }),
++  E("pallof-press", "Pallof Press", "Obliques", "Cable", ["Abs", "Shoulders"], {
++    unilateral: true,
++    restCategory: "core",
++    aliases: ["Cable Pallof Press", "Anti-Rotation Press"],
++  }),
+ 
+   // Cardio (time-based)
+   E("treadmill", "Treadmill Run", "Cardio", "Cardio", ["Quads", "Hamstrings", "Calves", "Glutes"], {
+-- 
+2.43.0
+

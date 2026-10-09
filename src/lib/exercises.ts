@@ -632,6 +632,11 @@ export const EXERCISES: ExerciseDef[] = [
     restCategory: "core",
     aliases: ["Front Plank", "Forearm Plank"],
   }),
+  E("rkc-plank", "RKC Plank", "Abs", "Bodyweight", ["Obliques", "Glutes", "Shoulders"], {
+    time: true,
+    restCategory: "core",
+    aliases: ["Hardstyle Plank", "Max Tension Plank"],
+  }),
   E("side-plank", "Side Plank", "Obliques", "Bodyweight", ["Abs"], {
     time: true,
     unilateral: true,
@@ -679,6 +684,19 @@ export const EXERCISES: ExerciseDef[] = [
   E("ab-wheel", "Ab Wheel Rollout", "Abs", "Other", ["Obliques", "Shoulders", "Lats"], {
     restCategory: "core",
     aliases: ["Ab Roller", "Ab Wheel", "Wheel Rollout"],
+  }),
+  E("dead-bug", "Dead Bug", "Abs", "Bodyweight", ["Obliques"], {
+    restCategory: "core",
+    aliases: ["Dead Bugs"],
+  }),
+  E("bird-dog", "Bird Dog", "LowerBack", "Bodyweight", ["Glutes", "Shoulders", "Abs"], {
+    restCategory: "core",
+    aliases: ["Bird Dogs", "Quadruped Limb Raise"],
+  }),
+  E("pallof-press", "Pallof Press", "Obliques", "Cable", ["Abs", "Shoulders"], {
+    unilateral: true,
+    restCategory: "core",
+    aliases: ["Cable Pallof Press", "Anti-Rotation Press"],
   }),
 
   // Cardio (time-based)
