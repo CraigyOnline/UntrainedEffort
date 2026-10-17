@@ -6,8 +6,6 @@ import { ArrowLeft, Check, Trash2, X, Pencil, Save, Share2 } from "lucide-react"
 import { getDb, type Workout, type WorkoutExerciseLog } from "@/lib/db";
 import {
   getExercise,
-  isCardio,
-  isTimeBased,
   getExerciseLoggingSchema,
   getIntervalConfig,
   formatCompletedSet,
@@ -82,6 +80,7 @@ function HistoryDetailPage() {
     if (!editing || !draft || !workout) return false;
     return (
       draft.name !== workout.name ||
+      draft.durationSec !== workout.durationSec ||
       JSON.stringify(draft.exercises) !== JSON.stringify(workout.exercises)
     );
   }, [editing, draft, workout]);
@@ -174,12 +173,18 @@ function HistoryDetailPage() {
   // best" logic can't detect — so this goes through the full rebuild
   // rather than writing new PRs incrementally. Wrapped in one transaction
   // with the update itself so a failed rebuild rolls back the edit too.
+  //
+  // durationSec is saved on its own, with startedAt/endedAt left as they
+  // were: the two already differ whenever a workout was paused, and
+  // endedAt feeds recency and "time since your last workout" logic that a
+  // longer or shorter total shouldn't shift (or overlap the next workout).
   async function save() {
     if (!draft?.id) return;
     const db = getDb();
     await db.transaction("rw", db.workouts, db.prHistory, async () => {
       await db.workouts.update(draft.id!, {
         name: draft.name,
+        durationSec: draft.durationSec,
         exercises: draft.exercises,
       });
       await syncWorkoutIntegrity();
@@ -352,6 +357,19 @@ function HistoryDetailPage() {
         </div>
       )}
 
+      {editing && (
+        <div className="flex items-center justify-between rounded-xl bg-card p-4">
+          <span className="text-sm font-semibold">Workout duration (mm:ss)</span>
+          <MmSsInput
+            seconds={view.durationSec}
+            onCommit={(secs) =>
+              // Never below 1s — same floor finishing a workout applies.
+              setDraft((d) => (d ? { ...d, durationSec: Math.max(1, secs) } : d))
+            }
+          />
+        </div>
+      )}
+
       {view.circuit ? (
         <CircuitSummary durationSec={view.durationSec} circuit={view.circuit} />
       ) : (
@@ -412,8 +430,6 @@ function HistoryDetailPage() {
 
       {view.exercises.map((ex, ei) => {
         const def = getExercise(ex.exerciseId);
-        const timeBased = isTimeBased(def);
-        const cardio = isCardio(def);
         const schema = getExerciseLoggingSchema(def);
         const weightUnit = getWeightUnit();
         const distanceSystem = getDistanceSystem();
@@ -498,7 +514,7 @@ function HistoryDetailPage() {
                               />
                             </div>
                           )}
-                          {cardio && (
+                          {schema.distance && (
                             <div className="flex flex-col gap-1">
                               <span className="text-[10px] uppercase font-bold text-muted-foreground/60">
                                 {schema.distanceUnit
@@ -526,9 +542,9 @@ function HistoryDetailPage() {
                           )}
                           <div className="flex flex-col gap-1">
                             <span className="text-[10px] uppercase font-bold text-muted-foreground/60">
-                              {timeBased ? "Time (mm:ss)" : "Reps"}
+                              {schema.duration ? "Time (mm:ss)" : "Reps"}
                             </span>
-                            {timeBased ? (
+                            {schema.duration ? (
                               <MmSsInput
                                 seconds={s.duration ?? 0}
                                 onCommit={(secs) => patchSet(ei, si, { duration: secs })}
@@ -547,6 +563,20 @@ function HistoryDetailPage() {
                     ) : (
                       <div className="flex items-center gap-1.5 font-medium">
                         <span>{formatCompletedSet(def, s)}</span>
+                      </div>
+                    )}
+                    {/* An interval set's recorded duration is its total time. The
+                        rounds/work/rest config above stays as it was run — only
+                        the total is correctable here. */}
+                    {editing && schema.interval && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground/60">
+                          Total time (mm:ss)
+                        </span>
+                        <MmSsInput
+                          seconds={s.duration ?? 0}
+                          onCommit={(secs) => patchSet(ei, si, { duration: secs })}
+                        />
                       </div>
                     )}
                   </div>
