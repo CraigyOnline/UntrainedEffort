@@ -1,5 +1,6 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Workout } from "@/lib/db";
 import {
   computeWorkoutDisplayStats,
@@ -114,6 +115,9 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
   const navigate = useNavigate();
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Whether there are more weeks to scroll to on each side — drives the
+  // edge chevrons, which only show in a direction that has more to reveal.
+  const [edges, setEdges] = useState({ back: false, forward: false });
 
   const workoutsByDay = useMemo(() => {
     const map = new Map<string, Workout[]>();
@@ -182,12 +186,39 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
 
   const weekCount = Math.ceil(days.length / 7);
 
+  const updateEdges = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const back = el.scrollLeft > 1;
+    const forward = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setEdges((prev) => (prev.back === back && prev.forward === forward ? prev : { back, forward }));
+  }, []);
+
   // Open on the most recent weeks (the right edge), and again whenever the
   // grid's length changes (e.g. workouts finish loading).
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollLeft = el.scrollWidth;
-  }, [weekCount]);
+    updateEdges();
+  }, [weekCount, updateEdges]);
+
+  // A resize (rotation, split-screen) changes how much is scrollable
+  // without any scroll event, so re-check the edges then too.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(updateEdges);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [updateEdges]);
+
+  /** Scrolls roughly one screenful (about a quarter of a year) toward the
+   *  older (-1) or newer (+1) weeks. */
+  function scrollByPage(direction: -1 | 1) {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * (el.clientWidth - labelColumn), behavior: "smooth" });
+  }
 
   // One month label per column: the column gets a label if any of its
   // days is the 1st of a month. A week only ever contains one "1st".
@@ -226,80 +257,116 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
     <div className="flex flex-col gap-2">
       {/* Horizontal scroll container. Weekday labels are pinned (sticky) on
           the left; month labels and the grid scroll together beneath. */}
-      <div ref={scrollRef} className="overflow-x-auto">
-        <div className="flex gap-1" style={{ width: scrollContentWidth }}>
-          {/* Weekday labels, matching the 7 rows of the day grid. The spacer
+      <div className="relative">
+        <div ref={scrollRef} className="overflow-x-auto" onScroll={updateEdges}>
+          <div className="flex gap-1" style={{ width: scrollContentWidth }}>
+            {/* Weekday labels, matching the 7 rows of the day grid. The spacer
               stands in for the month-label row so the rows line up. */}
-          <div
-            className="sticky left-0 z-10 flex shrink-0 flex-col gap-1 bg-background"
-            style={{ width: DAY_LABEL_WIDTH }}
-          >
-            <div className="h-[9px]" aria-hidden />
-            <div className="grid flex-1 grid-rows-7 gap-1">
-              {Array.from({ length: 7 }, (_, row) => (
-                <span key={row} className="text-[9px] leading-none text-muted-foreground">
-                  {DAY_LABEL_ROWS[row] ?? ""}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            {/* Month labels, aligned to the week columns below */}
-            <div className="grid h-[9px] gap-1" style={gridColumnStyle}>
-              {monthColumnLabels.map((label, i) => (
-                <span
-                  key={i}
-                  className="overflow-visible whitespace-nowrap text-[9px] leading-none text-muted-foreground"
-                >
-                  {label}
-                </span>
-              ))}
-            </div>
-
             <div
-              className="grid gap-1"
-              style={{
-                ...gridColumnStyle,
-                // auto, not 1fr: 1fr row tracks and aspect-square children
-                // were fighting over height in this auto-height grid (no
-                // explicit container height for 1fr to divide up), which is
-                // what produced one visibly oversized cell — observed on
-                // this component's narrower Overview usage specifically,
-                // not its full-width Insights usage, consistent with a
-                // sizing conflict that only surfaces at some widths. Every
-                // column is the same 1fr width, so aspect-square already
-                // gives every cell in a row the same natural height — auto
-                // sizing has nothing left to resolve ambiguously.
-                gridTemplateRows: "repeat(7, auto)",
-                gridAutoFlow: "column",
-              }}
+              className="sticky left-0 z-10 flex shrink-0 flex-col gap-1 bg-background"
+              style={{ width: DAY_LABEL_WIDTH }}
             >
-              {days.map((day) => (
-                <button
-                  key={day.key}
-                  type="button"
-                  disabled={day.isFuture || !day.trained}
-                  onClick={() => setSelectedDayKey(day.key)}
-                  aria-label={day.trained ? `View workouts from ${day.key}` : undefined}
-                  className={`aspect-square rounded-sm ${
-                    day.isFuture
-                      ? "invisible"
-                      : !day.trained
-                        ? "bg-secondary"
-                        : day.mode === "circuit"
-                          ? "bg-circuit active:scale-90"
-                          : day.mode === "cardio" || day.mode === "interval"
-                            ? "bg-cardio active:scale-90"
-                            : day.mode === "mixed"
-                              ? "bg-mixed ring-1 ring-primary-foreground/70 active:scale-90"
-                              : "bg-primary active:scale-90"
-                  }`}
-                />
-              ))}
+              <div className="h-[9px]" aria-hidden />
+              <div className="grid flex-1 grid-rows-7 gap-1">
+                {Array.from({ length: 7 }, (_, row) => (
+                  <span key={row} className="text-[9px] leading-none text-muted-foreground">
+                    {DAY_LABEL_ROWS[row] ?? ""}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              {/* Month labels, aligned to the week columns below */}
+              <div className="grid h-[9px] gap-1" style={gridColumnStyle}>
+                {monthColumnLabels.map((label, i) => (
+                  <span
+                    key={i}
+                    className="overflow-visible whitespace-nowrap text-[9px] leading-none text-muted-foreground"
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+
+              <div
+                className="grid gap-1"
+                style={{
+                  ...gridColumnStyle,
+                  // auto, not 1fr: 1fr row tracks and aspect-square children
+                  // were fighting over height in this auto-height grid (no
+                  // explicit container height for 1fr to divide up), which is
+                  // what produced one visibly oversized cell — observed on
+                  // this component's narrower Overview usage specifically,
+                  // not its full-width Insights usage, consistent with a
+                  // sizing conflict that only surfaces at some widths. Every
+                  // column is the same 1fr width, so aspect-square already
+                  // gives every cell in a row the same natural height — auto
+                  // sizing has nothing left to resolve ambiguously.
+                  gridTemplateRows: "repeat(7, auto)",
+                  gridAutoFlow: "column",
+                }}
+              >
+                {days.map((day) => (
+                  <button
+                    key={day.key}
+                    type="button"
+                    disabled={day.isFuture || !day.trained}
+                    onClick={() => setSelectedDayKey(day.key)}
+                    aria-label={day.trained ? `View workouts from ${day.key}` : undefined}
+                    className={`aspect-square rounded-sm ${
+                      day.isFuture
+                        ? "invisible"
+                        : !day.trained
+                          ? "bg-secondary"
+                          : day.mode === "circuit"
+                            ? "bg-circuit active:scale-90"
+                            : day.mode === "cardio" || day.mode === "interval"
+                              ? "bg-cardio active:scale-90"
+                              : day.mode === "mixed"
+                                ? "bg-mixed ring-1 ring-primary-foreground/70 active:scale-90"
+                                : "bg-primary active:scale-90"
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Scroll cues: a chevron over a soft fade at whichever edge has more
+          weeks to reveal. Tapping scrolls about a quarter; absent entirely
+          when the whole history fits. The fade doesn't take touches, so
+          swiping across it still scrolls the grid. */}
+        {edges.back && (
+          <div
+            className="pointer-events-none absolute inset-y-0 z-20 flex items-center"
+            style={{ left: labelColumn }}
+          >
+            <div className="absolute inset-y-0 left-0 w-10 bg-linear-to-r from-background to-transparent" />
+            <button
+              type="button"
+              aria-label="Show earlier weeks"
+              onClick={() => scrollByPage(-1)}
+              className="pointer-events-auto relative flex h-7 w-7 items-center justify-center rounded-full bg-card/90 text-muted-foreground shadow-sm active:scale-90"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        {edges.forward && (
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-20 flex items-center justify-end">
+            <div className="absolute inset-y-0 right-0 w-10 bg-linear-to-l from-background to-transparent" />
+            <button
+              type="button"
+              aria-label="Show later weeks"
+              onClick={() => scrollByPage(1)}
+              className="pointer-events-auto relative flex h-7 w-7 items-center justify-center rounded-full bg-card/90 text-muted-foreground shadow-sm active:scale-90"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
