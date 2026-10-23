@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import type { Workout } from "@/lib/db";
 import {
@@ -17,9 +17,19 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-// Roughly how many weeks of history to show. The grid is padded out to
-// full week-columns (see below), so the actual span is 12-13 weeks.
+// Roughly how many weeks fit in the default view. The grid is padded out
+// to full week-columns (see below), so the actual span is 12-13 weeks.
+// Older history extends to the left of this and is reached by scrolling —
+// cells stay the size they are in this default view.
 const WEEKS = 12;
+
+// Safety bound on how far back the grid will ever extend (about 10 years),
+// so a single corrupted or imported workout with a bogus date can't make
+// the grid build tens of thousands of cells. Far beyond real use.
+const MAX_WEEKS = 520;
+
+// Matches the gap-1 between the weekday-label column and the grid.
+const LABEL_GAP = 4;
 
 // Narrow fixed column for weekday labels. Kept small so it doesn't eat
 // into the space available for the day squares on narrow phones.
@@ -77,6 +87,7 @@ interface DayCell {
   isFuture: boolean;
   isFirstOfMonth: boolean;
   monthLabel: string;
+  year: number;
   mode: DayMode;
 }
 
@@ -90,6 +101,11 @@ interface TrainingConsistencyHeatmapProps {
  * a performance comparison, so there are no intensity shades and no
  * negative/red coloring for missed days.
  *
+ * The default view shows about the last three months. Once there is older
+ * history, the grid extends back to the first logged workout and scrolls
+ * sideways (opening on the most recent weeks), with the weekday labels
+ * pinned on the left.
+ *
  * Tapping a trained day opens a quick preview of that day's workout(s),
  * with the option to open the full workout or go back. Untrained and
  * future days are inert — there's nothing to show for them.
@@ -97,6 +113,7 @@ interface TrainingConsistencyHeatmapProps {
 export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeatmapProps) {
   const navigate = useNavigate();
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const workoutsByDay = useMemo(() => {
     const map = new Map<string, Workout[]>();
@@ -109,15 +126,41 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
     return map;
   }, [workouts]);
 
-  const days = useMemo<DayCell[]>(() => {
+  // `visibleWeeks` is how many week-columns the default (~three month) view
+  // holds — the scroll container's width is derived from it so cells keep
+  // that view's size however much older history the grid extends to.
+  const { days, visibleWeeks } = useMemo<{ days: DayCell[]; visibleWeeks: number }>(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Start ~12 weeks back, then align to the start of that week (Monday)
-    // so the grid renders as complete week-columns instead of a ragged edge.
-    const start = new Date(today);
-    start.setDate(start.getDate() - (WEEKS * 7 - 1));
-    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    const mondayOf = (d: Date) => {
+      const m = new Date(d);
+      m.setDate(m.getDate() - ((m.getDay() + 6) % 7));
+      return m;
+    };
+
+    // Default start: ~12 weeks back, aligned to the start of that week
+    // (Monday) so the grid renders as complete week-columns instead of a
+    // ragged edge.
+    const defaultStart = new Date(today);
+    defaultStart.setDate(defaultStart.getDate() - (WEEKS * 7 - 1));
+    const defaultStartMonday = mondayOf(defaultStart);
+
+    // Extend back to the week of the earliest workout, if that's earlier
+    // (never beyond MAX_WEEKS), so older history can be scrolled to.
+    let start = defaultStartMonday;
+    const earliestAllowed = mondayOf(today);
+    earliestAllowed.setDate(earliestAllowed.getDate() - (MAX_WEEKS - 1) * 7);
+    for (const w of workouts) {
+      const d = new Date(w.startedAt);
+      if (Number.isNaN(d.getTime())) continue;
+      d.setHours(0, 0, 0, 0);
+      const m = mondayOf(d);
+      if (m < start) start = m < earliestAllowed ? earliestAllowed : m;
+    }
+
+    const visibleWeeks =
+      Math.round((mondayOf(today).getTime() - defaultStartMonday.getTime()) / (7 * 86_400_000)) + 1;
 
     const list: DayCell[] = [];
     const cursor = new Date(start);
@@ -129,101 +172,132 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
         isFuture: cursor > today,
         isFirstOfMonth: cursor.getDate() === 1,
         monthLabel: MONTH_LABELS[cursor.getMonth()],
+        year: cursor.getFullYear(),
         mode: getDayMode(workoutsByDay.get(key) ?? []),
       });
       cursor.setDate(cursor.getDate() + 1);
     }
-    return list;
-  }, [workoutsByDay]);
+    return { days: list, visibleWeeks };
+  }, [workouts, workoutsByDay]);
 
   const weekCount = Math.ceil(days.length / 7);
 
+  // Open on the most recent weeks (the right edge), and again whenever the
+  // grid's length changes (e.g. workouts finish loading).
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [weekCount]);
+
   // One month label per column: the column gets a label if any of its
   // days is the 1st of a month. A week only ever contains one "1st".
+  // Once the grid reaches back past the default view, January also shows
+  // its year so labels stay unambiguous across years.
   const monthColumnLabels = useMemo(() => {
     const labels: string[] = new Array(weekCount).fill("");
+    const showYear = weekCount > visibleWeeks;
     for (let col = 0; col < weekCount; col++) {
       for (let row = 0; row < 7; row++) {
         const day = days[col * 7 + row];
         if (day?.isFirstOfMonth) {
-          labels[col] = day.monthLabel;
+          labels[col] =
+            showYear && day.monthLabel === "Jan"
+              ? `${day.monthLabel} ${String(day.year).slice(-2)}`
+              : day.monthLabel;
           break;
         }
       }
     }
     return labels;
-  }, [days, weekCount]);
+  }, [days, weekCount, visibleWeeks]);
 
   const gridColumnStyle = { gridTemplateColumns: `repeat(${weekCount}, 1fr)` };
 
+  // The scrolling content is as wide as the default view's week columns,
+  // scaled by how many more columns there are, plus the pinned label
+  // column — so a column is the same width at any history length. Equals
+  // 100% (no scrolling) when there's no more than the default view.
+  const labelColumn = DAY_LABEL_WIDTH + LABEL_GAP;
+  const scrollContentWidth = `calc(${labelColumn}px + (100% - ${labelColumn}px) * ${
+    weekCount / visibleWeeks
+  })`;
+
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-col gap-1">
-        {/* Month labels, aligned to the week columns below */}
-        <div className="flex">
-          <div style={{ width: DAY_LABEL_WIDTH }} />
-          <div className="grid flex-1 gap-1" style={gridColumnStyle}>
-            {monthColumnLabels.map((label, i) => (
-              <span
-                key={i}
-                className="overflow-visible whitespace-nowrap text-[9px] leading-none text-muted-foreground"
-              >
-                {label}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex items-stretch gap-1">
-          {/* Weekday labels, matching the 7 rows of the day grid */}
-          <div className="grid grid-rows-7 gap-1" style={{ width: DAY_LABEL_WIDTH }}>
-            {Array.from({ length: 7 }, (_, row) => (
-              <span key={row} className="text-[9px] leading-none text-muted-foreground">
-                {DAY_LABEL_ROWS[row] ?? ""}
-              </span>
-            ))}
-          </div>
-
+      {/* Horizontal scroll container. Weekday labels are pinned (sticky) on
+          the left; month labels and the grid scroll together beneath. */}
+      <div ref={scrollRef} className="overflow-x-auto">
+        <div className="flex gap-1" style={{ width: scrollContentWidth }}>
+          {/* Weekday labels, matching the 7 rows of the day grid. The spacer
+              stands in for the month-label row so the rows line up. */}
           <div
-            className="grid flex-1 gap-1"
-            style={{
-              ...gridColumnStyle,
-              // auto, not 1fr: 1fr row tracks and aspect-square children
-              // were fighting over height in this auto-height grid (no
-              // explicit container height for 1fr to divide up), which is
-              // what produced one visibly oversized cell — observed on
-              // this component's narrower Overview usage specifically,
-              // not its full-width Insights usage, consistent with a
-              // sizing conflict that only surfaces at some widths. Every
-              // column is the same 1fr width, so aspect-square already
-              // gives every cell in a row the same natural height — auto
-              // sizing has nothing left to resolve ambiguously.
-              gridTemplateRows: "repeat(7, auto)",
-              gridAutoFlow: "column",
-            }}
+            className="sticky left-0 z-10 flex shrink-0 flex-col gap-1 bg-background"
+            style={{ width: DAY_LABEL_WIDTH }}
           >
-            {days.map((day) => (
-              <button
-                key={day.key}
-                type="button"
-                disabled={day.isFuture || !day.trained}
-                onClick={() => setSelectedDayKey(day.key)}
-                aria-label={day.trained ? `View workouts from ${day.key}` : undefined}
-                className={`aspect-square rounded-sm ${
-                  day.isFuture
-                    ? "invisible"
-                    : !day.trained
-                      ? "bg-secondary"
-                      : day.mode === "circuit"
-                        ? "bg-circuit active:scale-90"
-                        : day.mode === "cardio" || day.mode === "interval"
-                          ? "bg-cardio active:scale-90"
-                          : day.mode === "mixed"
-                            ? "bg-mixed ring-1 ring-primary-foreground/70 active:scale-90"
-                            : "bg-primary active:scale-90"
-                }`}
-              />
-            ))}
+            <div className="h-[9px]" aria-hidden />
+            <div className="grid flex-1 grid-rows-7 gap-1">
+              {Array.from({ length: 7 }, (_, row) => (
+                <span key={row} className="text-[9px] leading-none text-muted-foreground">
+                  {DAY_LABEL_ROWS[row] ?? ""}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            {/* Month labels, aligned to the week columns below */}
+            <div className="grid h-[9px] gap-1" style={gridColumnStyle}>
+              {monthColumnLabels.map((label, i) => (
+                <span
+                  key={i}
+                  className="overflow-visible whitespace-nowrap text-[9px] leading-none text-muted-foreground"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            <div
+              className="grid gap-1"
+              style={{
+                ...gridColumnStyle,
+                // auto, not 1fr: 1fr row tracks and aspect-square children
+                // were fighting over height in this auto-height grid (no
+                // explicit container height for 1fr to divide up), which is
+                // what produced one visibly oversized cell — observed on
+                // this component's narrower Overview usage specifically,
+                // not its full-width Insights usage, consistent with a
+                // sizing conflict that only surfaces at some widths. Every
+                // column is the same 1fr width, so aspect-square already
+                // gives every cell in a row the same natural height — auto
+                // sizing has nothing left to resolve ambiguously.
+                gridTemplateRows: "repeat(7, auto)",
+                gridAutoFlow: "column",
+              }}
+            >
+              {days.map((day) => (
+                <button
+                  key={day.key}
+                  type="button"
+                  disabled={day.isFuture || !day.trained}
+                  onClick={() => setSelectedDayKey(day.key)}
+                  aria-label={day.trained ? `View workouts from ${day.key}` : undefined}
+                  className={`aspect-square rounded-sm ${
+                    day.isFuture
+                      ? "invisible"
+                      : !day.trained
+                        ? "bg-secondary"
+                        : day.mode === "circuit"
+                          ? "bg-circuit active:scale-90"
+                          : day.mode === "cardio" || day.mode === "interval"
+                            ? "bg-cardio active:scale-90"
+                            : day.mode === "mixed"
+                              ? "bg-mixed ring-1 ring-primary-foreground/70 active:scale-90"
+                              : "bg-primary active:scale-90"
+                  }`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>
