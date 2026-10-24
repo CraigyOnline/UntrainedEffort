@@ -29,7 +29,8 @@ const WEEKS = 12;
 // the grid build tens of thousands of cells. Far beyond real use.
 const MAX_WEEKS = 520;
 
-// Matches the gap-1 between the weekday-label column and the grid.
+// The gap between the weekday labels and the grid — the pinned label
+// column's right padding (pr-1), so its background covers it.
 const LABEL_GAP = 4;
 
 // Narrow fixed column for weekday labels. Kept small so it doesn't eat
@@ -259,12 +260,16 @@ export function TrainingConsistencyHeatmap({ workouts }: TrainingConsistencyHeat
           the left; month labels and the grid scroll together beneath. */}
       <div className="relative">
         <div ref={scrollRef} className="overflow-x-auto" onScroll={updateEdges}>
-          <div className="flex gap-1" style={{ width: scrollContentWidth }}>
+          <div className="flex" style={{ width: scrollContentWidth }}>
             {/* Weekday labels, matching the 7 rows of the day grid. The spacer
-              stands in for the month-label row so the rows line up. */}
+              stands in for the month-label row so the rows line up. The
+              label-to-grid gap is this column's own right padding rather
+              than a flex gap, so its solid background covers it — a gap
+              would let scrolled cells show through as a sharp sliver
+              between the labels and the edge fade. */}
             <div
-              className="sticky left-0 z-10 flex shrink-0 flex-col gap-1 bg-background"
-              style={{ width: DAY_LABEL_WIDTH }}
+              className="sticky left-0 z-10 box-border flex shrink-0 flex-col gap-1 bg-background pr-1"
+              style={{ width: labelColumn }}
             >
               <div className="h-[9px]" aria-hidden />
               <div className="grid flex-1 grid-rows-7 gap-1">
