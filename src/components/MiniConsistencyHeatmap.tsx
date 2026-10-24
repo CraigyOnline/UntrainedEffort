@@ -38,15 +38,14 @@ interface MiniConsistencyHeatmapProps {
  * bare under the hero text, which read as an unbounded, unlabeled block
  * on-device — see the redesign follow-up review.
  *
- * Cells stretch to fill whatever width AND height the card actually
- * gives this component (a CSS grid of 1fr rows/columns, no fixed cell
- * size, no aspect-square), rather than sitting at a small fixed size
- * with dead space around them. This is bounded, not runaway: the grid
- * fills the space its container already has — it never asks the
- * container to grow — so it can't force the "Training signal" card it
- * sits beside in a stretched flex row to stretch to an awkward height.
- * weeks is still the lever for how much history shows; it no longer
- * has any say over how big each cell renders.
+ * Cells are square (aspect-square), like the full heatmap's, so a cell's
+ * size follows the width the card gives each week column and the grid's
+ * height follows from that. An earlier version stretched cells to fill
+ * the card's height as well as its width, which squashed them into wide,
+ * pill-like shapes; keeping them square means the card is as tall as its
+ * 7 rows need, and the "Training signal" card beside it stretches to
+ * match in the shared flex row. weeks is the lever for both how much
+ * history shows and, indirectly, how large each square renders.
  */
 export function MiniConsistencyHeatmap({ trainedDays, weeks = 8 }: MiniConsistencyHeatmapProps) {
   const navigate = useNavigate();
@@ -74,7 +73,7 @@ export function MiniConsistencyHeatmap({ trainedDays, weeks = 8 }: MiniConsisten
       className="flex h-full w-full flex-col gap-3 active:opacity-70"
     >
       <div className="flex min-h-0 flex-1 gap-1.5">
-        <div className="grid h-full grid-rows-7 gap-1" style={{ width: DAY_LABEL_WIDTH }}>
+        <div className="grid grid-rows-7 gap-1" style={{ width: DAY_LABEL_WIDTH }}>
           {Array.from({ length: 7 }, (_, row) => (
             <span
               key={row}
@@ -85,10 +84,14 @@ export function MiniConsistencyHeatmap({ trainedDays, weeks = 8 }: MiniConsisten
           ))}
         </div>
         <div
-          className="grid h-full flex-1 gap-1"
+          className="grid flex-1 gap-1"
           style={{
             gridTemplateColumns: `repeat(${weeks}, 1fr)`,
-            gridTemplateRows: "repeat(7, 1fr)",
+            // auto, not 1fr: every column is the same width, so aspect-square
+            // already gives each row one natural height. 1fr rows fight
+            // aspect-square children for height — see the same note in
+            // TrainingConsistencyHeatmap.
+            gridTemplateRows: "repeat(7, auto)",
             gridAutoFlow: "column",
           }}
         >
@@ -96,7 +99,7 @@ export function MiniConsistencyHeatmap({ trainedDays, weeks = 8 }: MiniConsisten
             col.map((d, di) => (
               <div
                 key={`${ci}-${di}`}
-                className="rounded-sm"
+                className="aspect-square rounded-sm"
                 style={{
                   backgroundColor: d.isFuture
                     ? "var(--color-border)"
