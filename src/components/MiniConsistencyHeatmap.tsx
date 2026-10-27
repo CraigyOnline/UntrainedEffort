@@ -1,7 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
-import { getCalendarWeekStart } from "@/lib/format";
+import { addCalendarDays, getCalendarWeekStart } from "@/lib/format";
 
-const DAY_MS = 86400000;
 const DAY_LABEL_WIDTH = 16;
 
 /** Sparse labels, matching Insights' full TrainingConsistencyHeatmap's own
@@ -51,12 +50,14 @@ export function MiniConsistencyHeatmap({ trainedDays, weeks = 8 }: MiniConsisten
   const navigate = useNavigate();
   const today = dayStart(Date.now());
   const thisWeekStart = getCalendarWeekStart(Date.now());
-  const gridStart = thisWeekStart - (weeks - 1) * 7 * DAY_MS;
 
   const columns = Array.from({ length: weeks }, (_, w) => {
-    const weekStart = gridStart + w * 7 * DAY_MS;
     return Array.from({ length: 7 }, (_, d) => {
-      const date = weekStart + d * DAY_MS;
+      // Calendar-day arithmetic, not "+ n * 24h": across a daylight-saving
+      // change that drifts an hour off local midnight, and trainedDays is
+      // keyed by exact local-midnight timestamps, so every day before the
+      // change stopped matching and the map showed only this week.
+      const date = addCalendarDays(thisWeekStart, (w - (weeks - 1)) * 7 + d);
       return {
         date,
         isFuture: date > today,

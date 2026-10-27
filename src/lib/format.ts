@@ -23,6 +23,22 @@ export function getCalendarWeekStart(now: number = Date.now()): number {
   return d.getTime() - isoDow * 86400000;
 }
 
+/**
+ * The day-start timestamp (local midnight) `days` calendar days after (or,
+ * if negative, before) the day containing `t`. Uses calendar arithmetic
+ * rather than `t + days * 86400000`: a day is 23 or 25 hours long across a
+ * daylight-saving change, so adding whole 24-hour multiples lands an hour
+ * off midnight on every day on the far side of the change — and a
+ * timestamp an hour off midnight never matches a day-start key, so
+ * anything looked up by day silently comes back empty.
+ */
+export function addCalendarDays(t: number, days: number): number {
+  const d = new Date(t);
+  d.setDate(d.getDate() + days);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
 /** Format seconds as M:SS or H:MM:SS */
 export function formatDuration(sec: number): string {
   const h = Math.floor(sec / 3600);
